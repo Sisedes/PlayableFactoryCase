@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import { User, Category, Product } from '../models';
 import connectDB from '../config/database';
 
-// 8 Ana Kategori
 const categories = [
   {
     name: 'Elektronik',
@@ -55,7 +54,6 @@ const categories = [
   }
 ];
 
-// Admin kullanıcı
 const adminUser = {
   email: 'admin@ecommerce.com',
   password: 'Admin123!',
@@ -69,7 +67,6 @@ const adminUser = {
   }
 };
 
-// Örnek müşteri
 const customerUser = {
   email: 'customer@example.com',
   password: 'Customer123!',
@@ -97,11 +94,8 @@ const customerUser = {
   }
 };
 
-// Örnek ürünler (her kategoriden birer tane)
 const generateSampleProducts = (categories: any[]) => {
   const products = [];
-  
-  // Elektronik
   products.push({
     name: 'Apple iPhone 15 Pro 128GB',
     slug: 'iphone-15-pro-128gb',
@@ -177,59 +171,46 @@ const generateSampleProducts = (categories: any[]) => {
 
 const seedDatabase = async () => {
   try {
-    console.log('🌱 Veritabanı seed işlemi başlatılıyor...');
-    
+    console.log('Veritabanı seed işlemi başlatılıyor...');
     await connectDB();
-    
-    console.log('🗑️ Mevcut veriler temizleniyor...');
+    console.log('Mevcut veriler temizleniyor...');
     await User.deleteMany({});
     await Category.deleteMany({});
     await Product.deleteMany({});
-    
-    console.log('📂 Kategoriler oluşturuluyor...');
+    console.log('Kategoriler oluşturuluyor...');
     const createdCategories = await Category.insertMany(categories);
-    console.log(`✅ ${createdCategories.length} kategori oluşturuldu`);
-    
-    console.log('👨‍💼 Admin kullanıcı oluşturuluyor...');
+    console.log(`${createdCategories.length} kategori oluşturuldu`);
+    console.log('Admin kullanıcı oluşturuluyor...');
     const admin = new User(adminUser);
     await admin.save();
-    console.log('✅ Admin kullanıcı oluşturuldu:', admin.email);
-    
-    console.log('👤 Müşteri kullanıcı oluşturuluyor...');
+    console.log('Admin kullanıcı oluşturuldu:', admin.email);
+    console.log('Müşteri kullanıcı oluşturuluyor...');
     const customer = new User(customerUser);
     await customer.save();
-    console.log('✅ Müşteri kullanıcı oluşturuldu:', customer.email);
-    
-    console.log('📦 Örnek ürünler oluşturuluyor...');
+    console.log('Müşteri kullanıcı oluşturuldu:', customer.email);
+    console.log('Örnek ürünler oluşturuluyor...');
     const sampleProducts = generateSampleProducts(createdCategories);
-    
     const elektronikCategory = createdCategories.find(c => c.slug === 'elektronik');
     const giyimCategory = createdCategories.find(c => c.slug === 'giyim');
-    
     if (elektronikCategory && giyimCategory) {
       (sampleProducts[0] as any).category = elektronikCategory._id;
       (sampleProducts[1] as any).category = giyimCategory._id;
     } else {
       throw new Error('Elektronik veya Giyim kategorisi bulunamadı!');
     }
-    
     const createdProducts = await Product.insertMany(sampleProducts);
-    console.log(`✅ ${createdProducts.length} ürün oluşturuldu`);
-    
-    console.log('\n🎉 Seed işlemi tamamlandı!');
-    console.log('\n📊 Oluşturulan veriler:');
+    console.log(`${createdProducts.length} ürün oluşturuldu`);
+    console.log('Seed işlemi tamamlandı!');
+    console.log('Oluşturulan veriler:');
     console.log(`- ${createdCategories.length} kategori`);
     console.log(`- 2 kullanıcı (1 admin, 1 müşteri)`);
     console.log(`- ${createdProducts.length} ürün`);
-    
-    console.log('\n🔐 Giriş bilgileri:');
+    console.log('Giriş bilgileri:');
     console.log('Admin: admin@ecommerce.com / Admin123!');
     console.log('Müşteri: customer@example.com / Customer123!');
-    
     process.exit(0);
-    
   } catch (error) {
-    console.error('❌ Seed işlemi başarısız:', error);
+    console.error('Seed işlemi başarısız:', error);
     process.exit(1);
   }
 };
@@ -238,4 +219,4 @@ if (require.main === module) {
   seedDatabase();
 }
 
-export default seedDatabase; 
+export default seedDatabase;
