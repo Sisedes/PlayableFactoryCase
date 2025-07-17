@@ -25,12 +25,18 @@ export default function ClientLayout({
 }) {
   const [loading, setLoading] = useState<boolean>(true);
   const initializeAuth = useAuthStore((state) => state.initialize);
+  const stopTokenValidation = useAuthStore((state) => state.stopTokenValidation);
 
   useEffect(() => {
     initializeAuth();
     
     setTimeout(() => setLoading(false), 1000);
-  }, [initializeAuth]);
+
+    // Cleanup function - component unmount olduğunda timer'ları temizle
+    return () => {
+      stopTokenValidation();
+    };
+  }, [initializeAuth, stopTokenValidation]);
 
   return (
     <ErrorBoundary>

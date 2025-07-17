@@ -19,7 +19,8 @@ import {
   getStoredToken,
   getStoredUser,
   clearStoredAuth,
-  isTokenValid
+  isTokenValid,
+  validateTokenWithServer
 } from '@/services/authService';
 
 interface AuthState {
@@ -36,6 +37,9 @@ interface AuthState {
   error: string | null;
   validationErrors: Record<string, string> | null;
   
+  lastValidation: number | null;
+  validationTimer: NodeJS.Timeout | null;
+  
   initialize: () => Promise<void>;
   login: (credentials: LoginData) => Promise<{ success: boolean; message?: string }>;
   register: (userData: RegisterData) => Promise<{ success: boolean; message?: string }>;
@@ -48,6 +52,11 @@ interface AuthState {
   uploadProfileImage: (file: File) => Promise<{ success: boolean; data?: any; message?: string }>;
   clearError: () => void;
   clearValidationErrors: () => void;
+  
+  validateCurrentToken: () => Promise<boolean>;
+  startTokenValidation: () => void;
+  stopTokenValidation: () => void;
+  forceLogout: () => void;
   setUser: (user: User) => void;
 }
 
@@ -62,6 +71,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isProfileLoading: false,
   error: null,
   validationErrors: null,
+  lastValidation: null,
+  validationTimer: null,
 
   initialize: async () => {
     set({ isLoading: true, error: null });
@@ -76,7 +87,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       
       if (storedToken && isTokenValid(storedToken) && storedUser) {
-        // İlk olarak local storage'dan verileri set et
         set({
           accessToken: storedToken,
           user: storedUser,
@@ -85,29 +95,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         
         console.log("Local storage'dan auth restore edildi");
         
-        // Arka planda user verilerini güncelle
         try {
-          const response = await getCurrentUser(storedToken);
-          if (response.success && response.data) {
-            const user = {
-              id: response.data.id,
-              email: response.data.email,
-              firstName: response.data.firstName,
-              lastName: response.data.lastName,
-              phone: response.data.phone,
-              emailVerified: response.data.isEmailVerified || false,
-              avatar: response.data.avatar,
-              role: response.data.role
-            };
-            set({ user });
-            setStoredUser(user);
-            console.log("User verileri API'den güncellendi");
+          const validation = await validateTokenWithServer(storedToken);
+          if (validation.valid && validation.user) {
+            set({ 
+              user: validation.user,
+              lastValidation: Date.now()
+            });
+            setStoredUser(validation.user);
+            console.log("Token validated ve user verileri güncellendi");
+            
+            get().startTokenValidation();
           } else {
-            console.warn("User verileri API'den alınamadı, local storage korundu");
+            console.warn("Token validation failed, clearing auth");
+            clearStoredAuth();
+            set({
+              user: null,
+              accessToken: null,
+              isAuthenticated: false
+            });
           }
         } catch (error) {
-          console.warn('User data refresh failed during initialization, using stored data:', error);
-          // Hata durumunda local storage verilerini koru
+          console.warn('Token validation failed during initialization:', error);
+          clearStoredAuth();
+          set({
+            user: null,
+            accessToken: null,
+            isAuthenticated: false
+          });
         }
       } else {
         console.log('Auth verileri bulunamadı veya geçersiz, temizleniyor');
@@ -120,7 +135,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
-      // Kritik hata durumunda bile local storage'ı kontrol et
       try {
         const fallbackToken = getStoredToken();
         const fallbackUser = getStoredUser();
@@ -184,8 +198,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user,
           accessToken,
           isAuthenticated: true,
-          error: null
+          error: null,
+          lastValidation: Date.now()
         });
+        
+        get().startTokenValidation();
         
         return { success: true, message: response.message };
       } else {
@@ -242,11 +259,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLogoutLoading: true });
     
     try {
+      get().stopTokenValidation();
+      
       await logoutService();
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // localStorage'ı temizle
       clearStoredAuth();
       
       set({
@@ -254,6 +272,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         accessToken: null,
         isAuthenticated: false,
         isLogoutLoading: false,
+        lastValidation: null,
+        validationTimer: null,
         error: null,
         validationErrors: null
       });
@@ -399,6 +419,71 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setUser: (user: User) => {
     set({ user });
     setStoredUser(user);
+  },
+
+  validateCurrentToken: async () => {
+    const { accessToken } = get();
+    if (!accessToken) return false;
+
+    try {
+      const validation = await validateTokenWithServer(accessToken);
+      
+      if (validation.valid && validation.user) {
+        set({ 
+          user: validation.user,
+          lastValidation: Date.now(),
+          error: null
+        });
+        setStoredUser(validation.user);
+        return true;
+      } else {
+        console.warn('Token validation failed, logging out');
+        get().forceLogout();
+        return false;
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+      get().forceLogout();
+      return false;
+    }
+  },
+
+  startTokenValidation: () => {
+    const { validationTimer } = get();
+    
+    if (validationTimer) {
+      clearInterval(validationTimer);
+    }
+
+    const timer = setInterval(async () => {
+      const { isAuthenticated } = get();
+      if (isAuthenticated) {
+        await get().validateCurrentToken();
+      }
+    }, 5 * 60 * 1000); // 5 dakika
+
+    set({ validationTimer: timer });
+  },
+
+  stopTokenValidation: () => {
+    const { validationTimer } = get();
+    if (validationTimer) {
+      clearInterval(validationTimer);
+      set({ validationTimer: null });
+    }
+  },
+
+  forceLogout: () => {
+    get().stopTokenValidation();
+    clearStoredAuth();
+    set({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+      lastValidation: null,
+      validationTimer: null,
+      error: 'Oturum süresi doldu. Lütfen tekrar giriş yapın.'
+    });
   }
 }));
 
@@ -430,6 +515,12 @@ export const useAuth = () => {
     clearError: authStore.clearError,
     clearValidationErrors: authStore.clearValidationErrors,
     setUser: authStore.setUser,
+    
+    // Token validation fonksiyonları
+    validateCurrentToken: authStore.validateCurrentToken,
+    startTokenValidation: authStore.startTokenValidation,
+    stopTokenValidation: authStore.stopTokenValidation,
+    forceLogout: authStore.forceLogout,
     
     isAdmin: authStore.user?.role === 'admin',
     isCustomer: authStore.user?.role === 'customer',

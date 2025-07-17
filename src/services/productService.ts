@@ -252,6 +252,43 @@ export const getInStockProducts = async (
 };
 
 /**
+ * Admin için tüm ürünleri getirir (tüm status'larda)
+ */
+export const getAllProductsForAdmin = async (filters: ProductFilters & { status?: string } = {}, accessToken: string): Promise<ApiResponse<Product[]>> => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    // Filtreleri query parametrelerine dönüştür
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value.toString());
+      }
+    });
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `${API_BASE}/products/admin/all?${queryString}` : `${API_BASE}/products/admin/all`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getAllProductsForAdmin error:', error);
+    throw new Error('Admin ürünleri getirilirken hata oluştu');
+  }
+};
+
+/**
  * Yeni ürün oluştur (Admin)
  */
 export const createProduct = async (productData: any, accessToken: string): Promise<ApiResponse<Product>> => {

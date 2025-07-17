@@ -9,7 +9,8 @@ import {
   forgotPassword,
   resetPassword,
   getMe,
-  resendVerificationByEmail
+  resendVerificationByEmail,
+  validateToken
 } from '../controllers/authController';
 import {
   authenticateToken,
@@ -143,9 +144,19 @@ router.get('/me',
 );
 
 /**
- * @route   POST /api/auth/upload-profile-image
- * @desc    Profil resmi yükleme
+ * @route   POST /api/auth/validate-token
+ * @desc    Token doğrulama
  * @access  Private
+ */
+router.post('/validate-token',
+  authenticateToken,
+  validateToken
+);
+
+/**
+ * @route   post /api/auth/upload-profile-image
+ * @desc    
+ * @access  
  */
 router.post('/upload-profile-image',
   authenticateToken,

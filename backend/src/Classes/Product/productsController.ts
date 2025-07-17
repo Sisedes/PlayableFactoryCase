@@ -272,6 +272,86 @@ export const getLatestProducts = async (req: Request, res: Response) => {
 };
 
 /**
+ * @desc    Admin için tüm ürünleri getir (status filtresi olmadan)
+ * @route   GET /api/products/admin/all
+ * @access  Admin
+ */
+export const getAllProductsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      category,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      status
+    } = req.query;
+
+    const filter: any = {};
+
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+
+    if (category && category !== 'all') {
+      const categoryDoc = await Category.findOne({ slug: category });
+      if (categoryDoc) {
+        filter.category = categoryDoc._id;
+      }
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { shortDescription: { $regex: search, $options: 'i' } },
+        { 'tags': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const sort: any = {};
+    sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit))); // Admin için daha yüksek limit
+    const skip = (pageNum - 1) * limitNum;
+
+    const products = await Product.find(filter)
+      .populate('category', 'name slug')
+      .select('name slug shortDescription description price salePrice images stock status sku createdAt updatedAt')
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum);
+
+    const totalProducts = await Product.countDocuments(filter);
+    const totalPages = Math.ceil(totalProducts / limitNum);
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      total: totalProducts,
+      pages: totalPages,
+      currentPage: pageNum,
+      data: products,
+      filters: {
+        category,
+        search,
+        sortBy,
+        sortOrder,
+        status
+      }
+    });
+  } catch (error) {
+    console.error('Admin products fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Admin ürünleri getirilirken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+};
+
+/**
  * @desc    
  * @route   post  /api/products
  * @access  
@@ -291,12 +371,11 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       lowStockThreshold = 5,
       images,
       tags,
-      status = 'draft',
+      status = 'active',
       isFeatured = false
     } = req.body;
 
-    console.log('Backend\'e gelen status değeri:', status);
-    console.log('Backend\'e gelen tüm body:', req.body);
+
 
     if (!name || !description || !category || !price || !sku) {
       res.status(400).json({

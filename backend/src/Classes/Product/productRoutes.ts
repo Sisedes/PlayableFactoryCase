@@ -5,6 +5,7 @@ import {
   getProductsByCategory,
   getPopularProducts,
   getLatestProducts,
+  getAllProductsForAdmin,
   createProduct,
   updateProduct,
   deleteProduct
@@ -49,7 +50,13 @@ router.get('/category/:categoryId', getProductsByCategory);
  */
 router.get('/:id', getProductById);
 
-// Admin Routes
+/**
+ * @route   get /api/products/admin/all
+ * @desc    
+ * @access  
+ */
+router.get('/admin/all', authenticateToken, requireAdmin, getAllProductsForAdmin);
+
 /**
  * @route   post /api/products
  * @desc    

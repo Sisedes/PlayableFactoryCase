@@ -1,13 +1,7 @@
-/**
- * Review Service - Yorum ile ilgili tüm API çağırılarını yönetir
- */
-
-// API Base URL
 const API_BASE = process.env.NODE_ENV === 'production' 
   ? '/api' 
   : 'http://localhost:5000/api';
 
-// API Response Types
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -41,9 +35,6 @@ export interface ReviewAdmin {
   updatedAt: string;
 }
 
-/**
- * Bekleyen yorumları getir (Admin)
- */
 export const getPendingReviews = async (
   accessToken: string,
   page: number = 1,
@@ -71,9 +62,6 @@ export const getPendingReviews = async (
   }
 };
 
-/**
- * Tüm yorumları getir (Admin)
- */
 export const getAllReviewsAdmin = async (
   accessToken: string,
   page: number = 1,
@@ -115,9 +103,6 @@ export const getAllReviewsAdmin = async (
   }
 };
 
-/**
- * Yorumu onayla (Admin)
- */
 export const approveReview = async (
   reviewId: string,
   accessToken: string,
@@ -150,9 +135,7 @@ export const approveReview = async (
   }
 };
 
-/**
- * Yorumu reddet (Admin)
- */
+
 export const rejectReview = async (
   reviewId: string,
   accessToken: string,
@@ -185,9 +168,7 @@ export const rejectReview = async (
   }
 };
 
-/**
- * Yorumu sil (Admin)
- */
+
 export const deleteReview = async (
   reviewId: string,
   accessToken: string
@@ -217,9 +198,7 @@ export const deleteReview = async (
   }
 };
 
-/**
- * Yorum detayı getir (Admin)
- */
+
 export const getReviewById = async (
   reviewId: string,
   accessToken: string
@@ -250,5 +229,4 @@ export const getReviewById = async (
   }
 };
 
-// Export types for use in other files
 export type { ApiResponse }; 

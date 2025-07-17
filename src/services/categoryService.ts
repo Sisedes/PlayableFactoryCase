@@ -1,16 +1,9 @@
-/**
- * Category Service - Kategori ile ilgili tüm API çağırılarını yönetir
- * Bu service frontend ile backend arasında temiz bir arayüz sağlar
- */
-
 import { Category } from '@/types';
 
-// API Base URL
 const API_BASE = process.env.NODE_ENV === 'production' 
   ? '/api' 
   : 'http://localhost:5000/api';
 
-// API Response Types
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -19,9 +12,7 @@ interface ApiResponse<T> {
   total?: number;
 }
 
-/**
- * Tüm kategorileri getirir
- */
+
 export const getAllCategories = async (): Promise<ApiResponse<Category[]>> => {
   try {
     const response = await fetch(`${API_BASE}/categories`, {
@@ -43,9 +34,7 @@ export const getAllCategories = async (): Promise<ApiResponse<Category[]>> => {
   }
 };
 
-/**
- * Slug'a göre tekil kategori getirir
- */
+
 export const getCategoryBySlug = async (slug: string): Promise<ApiResponse<Category>> => {
   try {
     if (!slug) {
@@ -74,9 +63,7 @@ export const getCategoryBySlug = async (slug: string): Promise<ApiResponse<Categ
   }
 };
 
-/**
- * Kategori istatistiklerini getirir
- */
+
 export const getCategoryStats = async (): Promise<ApiResponse<any>> => {
   try {
     const response = await fetch(`${API_BASE}/categories/stats`, {
@@ -98,14 +85,11 @@ export const getCategoryStats = async (): Promise<ApiResponse<any>> => {
   }
 };
 
-/**
- * Aktif kategorileri getirir
- */
+
 export const getActiveCategories = async (): Promise<ApiResponse<Category[]>> => {
   try {
     const allCategories = await getAllCategories();
     
-    // Aktif kategorileri filtrele
     const activeCategories = allCategories.data.filter(category => category.active);
     
     return {
@@ -119,5 +103,4 @@ export const getActiveCategories = async (): Promise<ApiResponse<Category[]>> =>
   }
 };
 
-// Export types for use in other files
 export type { ApiResponse }; 

@@ -65,9 +65,6 @@ const getBaseURL = () => {
 
 const BASE_URL = getBaseURL();
 
-/**
- * Kullanıcı girişi
- */
 export const login = async (formData: LoginRequest): Promise<AuthResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/login`, {
@@ -97,9 +94,7 @@ export const login = async (formData: LoginRequest): Promise<AuthResponse> => {
   }
 };
 
-/**
- * Kullanıcı kayıt
- */
+
 export const register = async (formData: RegisterRequest): Promise<AuthResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/register`, {
@@ -129,9 +124,7 @@ export const register = async (formData: RegisterRequest): Promise<AuthResponse>
   }
 };
 
-/**
- * Kullanıcı çıkışı
- */
+
 export const logout = async (): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/logout`, {
@@ -157,9 +150,7 @@ export const logout = async (): Promise<ApiResponse> => {
   }
 };
 
-/**
- * E-posta doğrulama
- */
+
 export const verifyEmail = async (token: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/verify-email/${token}`, {
@@ -187,9 +178,7 @@ export const verifyEmail = async (token: string): Promise<ApiResponse> => {
   }
 };
 
-/**
- * E-posta doğrulama tekrar gönderme
- */
+
 export const resendVerification = async (accessToken: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/resend-verification`, {
@@ -219,9 +208,6 @@ export const resendVerification = async (accessToken: string): Promise<ApiRespon
   }
 };
 
-/**
- * Kullanıcı profili getirme  
- */
 export const getProfile = async (accessToken: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/me`, {
@@ -251,9 +237,6 @@ export const getProfile = async (accessToken: string): Promise<ApiResponse> => {
   }
 };
 
-/**
- * Token yenileme
- */
 export const refreshToken = async (): Promise<AuthResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/refresh`, {
@@ -279,9 +262,6 @@ export const refreshToken = async (): Promise<AuthResponse> => {
   }
 };
 
-/**
- * Parola sıfırlama isteği
- */
 export const forgotPassword = async (email: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
@@ -310,9 +290,6 @@ export const forgotPassword = async (email: string): Promise<ApiResponse> => {
   }
 };
 
-/**
- * Parola sıfırlama
- */
 export const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/reset-password/${token}`, {
@@ -341,23 +318,16 @@ export const resetPassword = async (token: string, newPassword: string): Promise
   }
 };
 
-/**
- * Kullanıcı profili getirme (getCurrentUser alias)
- */
+
 export const getCurrentUser = async (accessToken: string): Promise<ApiResponse> => {
   return getProfile(accessToken);
 };
 
-/**
- * E-posta doğrulama tekrar gönderme (resendVerificationEmail alias)
- */
+
 export const resendVerificationEmail = async (accessToken: string): Promise<ApiResponse> => {
   return resendVerification(accessToken);
 };
 
-/**
- * E-posta ile doğrulama e-postası tekrar gönderme (giriş yapmadan)
- */
 export const resendVerificationByEmail = async (email: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/resend-verification-by-email`, {
@@ -386,9 +356,6 @@ export const resendVerificationByEmail = async (email: string): Promise<ApiRespo
   }
 };
 
-/**
- * Profil resmi yükleme (placeholder)
- */
 export const uploadProfileImage = async (accessToken: string, formData: FormData): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${BASE_URL}/api/auth/upload-avatar`, {
@@ -417,26 +384,20 @@ export const uploadProfileImage = async (accessToken: string, formData: FormData
   }
 };
 
-/**
- * Local Storage ve Cookie Utility Functions
- */
+
 export const setStoredToken = (token: string): void => {
   if (typeof window !== 'undefined') {
-    // LocalStorage'a kaydet
     localStorage.setItem('auth_token', token);
     
-    // Cookie'ye kaydet (7 gün geçerli)
     document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
   }
 };
 
 export const getStoredToken = (): string | null => {
   if (typeof window !== 'undefined') {
-    // Önce localStorage'dan dene
     const token = localStorage.getItem('auth_token');
     if (token) return token;
     
-    // Yoksa cookie'den dene
     const tokenCookie = document.cookie
       .split('; ')
       .find(row => row.startsWith('token='));
@@ -461,23 +422,18 @@ export const getStoredUser = (): User | null => {
 
 export const clearStoredAuth = (): void => {
   if (typeof window !== 'undefined') {
-    // LocalStorage'ı temizle
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     
-    // Cookie'yi temizle
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
   }
 };
 
-/**
- * Token geçerliliğini kontrol et
- */
+
 export const isTokenValid = (token: string | null): boolean => {
   if (!token) return false;
   
   try {
-    // JWT token'ı decode et (basit kontrol)
     const payload = JSON.parse(atob(token.split('.')[1]));
     const currentTime = Math.floor(Date.now() / 1000);
     return payload.exp > currentTime;
@@ -486,9 +442,43 @@ export const isTokenValid = (token: string | null): boolean => {
   }
 };
 
-/**
- * Auth durumunu kontrol et
- */
+
+export const validateTokenWithServer = async (token: string): Promise<{ valid: boolean; user?: User }> => {
+  try {
+    const response = await fetch(`${getBaseURL()}/api/auth/validate-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      return { valid: false };
+    }
+
+    const data = await response.json();
+    return { 
+      valid: data.success, 
+      user: data.data ? {
+        id: data.data.id,
+        email: data.data.email,
+        firstName: data.data.firstName,
+        lastName: data.data.lastName,
+        phone: data.data.phone,
+        emailVerified: data.data.isEmailVerified || false,
+        avatar: data.data.avatar,
+        role: data.data.role
+      } : undefined
+    };
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return { valid: false };
+  }
+};
+
+
 export const checkAuthStatus = async (): Promise<{ isAuthenticated: boolean; user: User | null }> => {
   const token = getStoredToken();
   const user = getStoredUser();

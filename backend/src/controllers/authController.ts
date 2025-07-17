@@ -269,7 +269,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
- * @desc    Eposta doğrulama
+ * @desc    
  * @route   get /api/auth/verify-email/:token
  * @access  
  */
@@ -497,6 +497,56 @@ export const resendVerificationByEmail = async (req: Request, res: Response): Pr
     res.status(500).json({
       success: false,
       message: 'Doğrulama e-postası gönderilirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/auth/validate-token
+ * @access  
+ */
+export const validateToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = (req as any).user;
+    
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'Token geçersiz'
+      });
+      return;
+    }
+
+    const dbUser = await User.findById(user.userId).select('-password -authentication.refreshToken');
+    
+    if (!dbUser || !dbUser.isActive) {
+      res.status(401).json({
+        success: false,
+        message: 'Kullanıcı hesabı deaktif veya bulunamadı'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Token geçerli',
+      data: {
+        id: dbUser._id,
+        email: dbUser.email,
+        firstName: dbUser.profile.firstName,
+        lastName: dbUser.profile.lastName,
+        phone: dbUser.profile.phone,
+        isEmailVerified: dbUser.authentication.isEmailVerified,
+        avatar: (dbUser.profile as any).avatar || null,
+        role: dbUser.role
+      }
+    });
+  } catch (error) {
+    console.error('Token validation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Token doğrulama sırasında hata oluştu'
     });
   }
 }; 
