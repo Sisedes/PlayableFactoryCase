@@ -232,14 +232,10 @@ export const getInStockProducts = async (
   }
 };
 
-/**
- * Admin için tüm ürünleri getirir (tüm status'larda)
- */
 export const getAllProductsForAdmin = async (filters: ProductFilters & { status?: string } = {}, accessToken: string): Promise<ApiResponse<Product[]>> => {
   try {
     const queryParams = new URLSearchParams();
     
-    // Filtreleri query parametrelerine dönüştür
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         queryParams.append(key, value.toString());
@@ -266,6 +262,107 @@ export const getAllProductsForAdmin = async (filters: ProductFilters & { status?
   } catch (error) {
     console.error('getAllProductsForAdmin error:', error);
     throw new Error('Admin ürünleri getirilirken hata oluştu');
+  }
+};
+
+/**
+ * Admin: Ürün düzenle
+ */
+export const updateProductAdmin = async (productId: string, productData: FormData, accessToken: string): Promise<ApiResponse<Product>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/admin/${productId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: productData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('updateProductAdmin error:', error);
+    throw new Error('Ürün güncellenirken hata oluştu');
+  }
+};
+
+/**
+ * Admin: Ürün sil
+ */
+export const deleteProductAdmin = async (productId: string, accessToken: string): Promise<ApiResponse<null>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/admin/${productId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('deleteProductAdmin error:', error);
+    throw new Error('Ürün silinirken hata oluştu');
+  }
+};
+
+/**
+ * Admin: Toplu ürün işlemleri
+ */
+export const bulkUpdateProducts = async (productIds: string[], action: 'activate' | 'deactivate' | 'delete', accessToken: string): Promise<ApiResponse<any>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/admin/bulk`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ productIds, action }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('bulkUpdateProducts error:', error);
+    throw new Error('Toplu işlem sırasında hata oluştu');
+  }
+};
+
+/**
+ * Admin: Ürün resmi sil
+ */
+export const deleteProductImage = async (productId: string, imageId: string, accessToken: string): Promise<ApiResponse<Product>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/admin/${productId}/images/${imageId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('deleteProductImage error:', error);
+    throw new Error('Resim silinirken hata oluştu');
   }
 };
 
@@ -356,5 +453,4 @@ export const deleteProduct = async (id: string, accessToken: string): Promise<Ap
   }
 };
 
-// Export types for use in other files
 export type { ProductFilters, ApiResponse }; 

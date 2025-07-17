@@ -272,9 +272,9 @@ export const getLatestProducts = async (req: Request, res: Response) => {
 };
 
 /**
- * @desc    Admin için tüm ürünleri getir (status filtresi olmadan)
- * @route   GET /api/products/admin/all
- * @access  Admin
+ * @desc    
+ * @route   get /api/products/admin/all
+ * @access  
  */
 export const getAllProductsForAdmin = async (req: Request, res: Response) => {
   try {
@@ -313,7 +313,7 @@ export const getAllProductsForAdmin = async (req: Request, res: Response) => {
     sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
 
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.min(100, Math.max(1, Number(limit))); // Admin için daha yüksek limit
+    const limitNum = Math.min(100, Math.max(1, Number(limit))); 
     const skip = (pageNum - 1) * limitNum;
 
     const products = await Product.find(filter)
@@ -461,8 +461,18 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       message: 'Ürün başarıyla oluşturuldu',
       data: savedProduct
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create product error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      res.status(400).json({
+        success: false,
+        message: validationErrors.join(', ')
+      });
+      return;
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Ürün oluşturulurken hata oluştu',
@@ -589,5 +599,239 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
       message: 'Ürün silinirken hata oluştu',
       error: process.env.NODE_ENV === 'development' ? error : {}
     });
+  }
+}; 
+
+/**
+ * @desc    
+ * @route   put /api/products/admin/:id
+ * @access  
+ */
+export const updateProductAdmin = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    const files = req.files as Express.Multer.File[];
+
+    const existingProduct = await Product.findById(id);
+    if (!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+    }
+
+    if (files && files.length > 0) {
+      const newImages = files.map(file => ({
+        url: `/uploads/products/${file.filename}`,
+        alt: file.originalname,
+        isMain: false
+      }));
+
+      updateData.images = [...(existingProduct.images || []), ...newImages];
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('category', 'name slug');
+
+    res.status(200).json({
+      success: true,
+      message: 'Ürün başarıyla güncellendi',
+      data: updatedProduct
+    });
+    return;
+  } catch (error: any) {
+    console.error('Update product admin error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      res.status(400).json({
+        success: false,
+        message: validationErrors.join(', ')
+      });
+      return;
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Ürün güncellenirken hata oluştu'
+    });
+    return;
+  }
+};
+
+/**
+ * @desc    
+ * @route   delete /api/products/admin/:id
+ * @access  
+ */
+export const deleteProductAdmin = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+    }
+
+    await Product.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Ürün başarıyla silindi'
+    });
+    return;
+  } catch (error) {
+    console.error('Delete product admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ürün silinirken hata oluştu'
+    });
+    return;
+  }
+};
+
+/**
+ * @desc    
+ * @route   put /api/products/admin/bulk
+ * @access  
+ */
+export const bulkUpdateProducts = async (req: Request, res: Response) => {
+  try {
+    const { productIds, action } = req.body;
+
+    console.log('Bulk update request:', { productIds, action });
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli ürün ID\'leri gerekli'
+      });
+    }
+
+    if (!['activate', 'deactivate', 'delete'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli bir işlem belirtin (activate, deactivate, delete)'
+      });
+    }
+
+    const mongoose = require('mongoose');
+    const objectIds = productIds.map(id => {
+      try {
+        return new mongoose.Types.ObjectId(id);
+      } catch (error) {
+        console.error('Invalid ObjectId:', id);
+        throw new Error(`Geçersiz ürün ID: ${id}`);
+      }
+    });
+
+    console.log('Converted ObjectIds:', objectIds);
+
+    let result;
+    switch (action) {
+      case 'activate':
+        result = await Product.updateMany(
+          { _id: { $in: objectIds } },
+          { status: 'active' }
+        );
+        break;
+      case 'deactivate':
+        result = await Product.updateMany(
+          { _id: { $in: objectIds } },
+          { status: 'inactive' }
+        );
+        break;
+      case 'delete':
+        result = await Product.deleteMany({ _id: { $in: objectIds } });
+        break;
+    }
+
+    console.log('Bulk update result:', result);
+
+    res.status(200).json({
+      success: true,
+      message: `${productIds.length} ürün başarıyla ${action === 'delete' ? 'silindi' : action === 'activate' ? 'aktif yapıldı' : 'pasif yapıldı'}`,
+      data: result
+    });
+    return;
+  } catch (error: any) {
+    console.error('Bulk update products error:', error);
+    res.status(500).json({
+      success: false,
+      message: `Toplu işlem sırasında hata oluştu: ${error.message || 'Bilinmeyen hata'}`
+    });
+    return;
+  }
+};
+
+/**
+ * @desc    
+ * @route   get /api/products/test/images
+ * @access  
+ */
+export const testProductImages = async (req: Request, res: Response) => {
+  try {
+    const products = await Product.find({}).populate('category', 'name slug');
+    
+    const productsWithImages = products.map(product => ({
+      _id: product._id,
+      name: product.name,
+      images: product.images,
+      imageCount: product.images?.length || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: productsWithImages
+    });
+  } catch (error) {
+    console.error('Test product images error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test sırasında hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   delete /api/products/admin/:id/images/:imageId
+ * @access  
+ */
+export const deleteProductImage = async (req: Request, res: Response) => {
+  try {
+    const { id, imageId } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+    }
+
+    product.images = product.images.filter(img => img._id?.toString() !== imageId);
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Resim başarıyla silindi',
+      data: product
+    });
+    return;
+  } catch (error) {
+    console.error('Delete product image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Resim silinirken hata oluştu'
+    });
+    return;
   }
 }; 

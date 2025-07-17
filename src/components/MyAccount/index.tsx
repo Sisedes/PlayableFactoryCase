@@ -7,7 +7,14 @@ import Orders from "../Orders";
 import { useAuth } from "@/store/authStore";
 import { resendVerification } from "@/services";
 import { getAllCategories } from "@/services/categoryService";
-import { getAllProducts, getAllProductsForAdmin } from "@/services/productService";
+import { 
+  getAllProducts, 
+  getAllProductsForAdmin, 
+  updateProductAdmin, 
+  deleteProductAdmin, 
+  bulkUpdateProducts,
+  deleteProductImage 
+} from "@/services/productService";
 import { 
   getUserAddresses, 
   addAddress, 
@@ -29,7 +36,9 @@ import {
   removeFromFavorites,
   FavoriteProduct 
 } from "@/services/favoriteService";
+import { getDashboardStats, DashboardStats } from "@/services/adminService";
 import PasswordResetModal from "./PasswordResetModal";
+import axios from "axios";
 
 interface LocalCategory {
   _id: string;
@@ -89,6 +98,15 @@ const MyAccount = () => {
   const [editProduct, setEditProduct] = useState<LocalProduct | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  
+  useEffect(() => {
+    console.log('selectedProducts değişti:', selectedProducts);
+    console.log('selectedProducts uzunluğu:', selectedProducts.length);
+  }, [selectedProducts]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [editProductLoading, setEditProductLoading] = useState(false);
+  const [editApplyDiscount, setEditApplyDiscount] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: '',
@@ -100,6 +118,7 @@ const MyAccount = () => {
     sku: '',
     status: 'active'
   });
+  const [applyDiscount, setApplyDiscount] = useState(false);
   const [productImages, setProductImages] = useState<FileList | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
@@ -123,6 +142,14 @@ const MyAccount = () => {
 
   const [favoriteProducts, setFavoriteProducts] = useState<FavoriteProduct[]>([]);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
+
+  const [pendingReviews, setPendingReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewActionLoading, setReviewActionLoading] = useState<string | null>(null); // işlem yapılan yorum id'si
+  const [reviewMessage, setReviewMessage] = useState<string | null>(null);
+
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,6 +197,11 @@ const MyAccount = () => {
       loadAddresses();
       loadFavoriteProducts();
       
+      if (isAdmin) {
+        loadDashboardStats();
+        setActiveTab("dashboard");
+      }
+      
       setProfileForm({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
@@ -203,9 +235,15 @@ const MyAccount = () => {
       return;
     }
 
-    if (productForm.salePrice && parseFloat(productForm.salePrice) >= parseFloat(productForm.price)) {
+    if (applyDiscount) {
+      if (!productForm.salePrice) {
+        alert('İndirim uygulamak istiyorsanız indirimli fiyat girmelisiniz');
+        return;
+      }
+      if (parseFloat(productForm.salePrice) >= parseFloat(productForm.price)) {
       alert('İndirimli fiyat normal fiyattan düşük olmalıdır');
       return;
+      }
     }
 
     setSubmitLoading(true);
@@ -217,7 +255,9 @@ const MyAccount = () => {
       formData.append('name', productForm.name);
       formData.append('category', productForm.category);
       formData.append('price', productForm.price);
-      if (productForm.salePrice) formData.append('salePrice', productForm.salePrice);
+      if (applyDiscount && productForm.salePrice) {
+        formData.append('salePrice', productForm.salePrice);
+      }
       formData.append('description', productForm.description);
       formData.append('stock', productForm.stock);
       if (productForm.sku) formData.append('sku', productForm.sku);
@@ -251,6 +291,7 @@ const MyAccount = () => {
           sku: '',
           status: 'active'
         });
+        setApplyDiscount(false);
         setProductImages(null);
         
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
@@ -504,6 +545,244 @@ const MyAccount = () => {
     }
   };
 
+  const loadPendingReviews = async () => {
+    if (!accessToken || !isAdmin) return;
+    setReviewsLoading(true);
+    setReviewMessage(null);
+    try {
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews/pending`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data.success) {
+        setPendingReviews(res.data.data);
+      } else {
+        setReviewMessage(res.data.message || 'Yorumlar yüklenemedi');
+      }
+    } catch (err: any) {
+      setReviewMessage('Yorumlar yüklenirken hata oluştu');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const handleApproveReview = async (reviewId: string) => {
+    if (!accessToken) return;
+    setReviewActionLoading(reviewId);
+    setReviewMessage(null);
+    try {
+      const res = await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews/${reviewId}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data.success) {
+        setPendingReviews(prev => prev.filter(r => r._id !== reviewId));
+        setReviewMessage('Yorum başarıyla onaylandı');
+      } else {
+        setReviewMessage(res.data.message || 'Yorum onaylanamadı');
+      }
+    } catch (err: any) {
+      setReviewMessage('Yorum onaylanırken hata oluştu');
+    } finally {
+      setReviewActionLoading(null);
+    }
+  };
+
+  const handleRejectReview = async (reviewId: string) => {
+    if (!accessToken) return;
+    setReviewActionLoading(reviewId);
+    setReviewMessage(null);
+    try {
+      const res = await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews/${reviewId}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data.success) {
+        setPendingReviews(prev => prev.filter(r => r._id !== reviewId));
+        setReviewMessage('Yorum reddedildi');
+      } else {
+        setReviewMessage(res.data.message || 'Yorum reddedilemedi');
+      }
+    } catch (err: any) {
+      setReviewMessage('Yorum reddedilirken hata oluştu');
+    } finally {
+      setReviewActionLoading(null);
+    }
+  };
+
+  const loadDashboardStats = async () => {
+    if (!accessToken || !isAdmin) return;
+    
+    setDashboardLoading(true);
+    try {
+      const response = await getDashboardStats(accessToken);
+      if (response.success && response.data) {
+        setDashboardStats(response.data);
+      }
+    } catch (error) {
+      console.error('Dashboard istatistikleri yüklenirken hata:', error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'manage-reviews') {
+      loadPendingReviews();
+    }
+  }, [isAdmin, activeTab, accessToken]);
+
+  useEffect(() => {
+    setSelectedProducts([]);
+  }, [selectedCategory]);
+
+  const handleProductSelect = (productId: string) => {
+    console.log('Ürün seçimi:', productId);
+    setSelectedProducts(prev => {
+      const newSelection = prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId];
+      console.log('Yeni seçim:', newSelection);
+      return newSelection;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const filteredProducts = selectedCategory === 'all' 
+      ? products 
+      : products.filter(product => product.category._id === selectedCategory);
+    
+    const allProductIds = filteredProducts.map(p => p._id);
+    console.log('Tümünü seç:', allProductIds);
+    console.log('Seçilecek ürün sayısı:', allProductIds.length);
+    setSelectedProducts(allProductIds);
+  };
+
+  const handleDeselectAll = () => {
+    console.log('Tüm seçimleri kaldır');
+    setSelectedProducts([]);
+  };
+
+  const handleBulkAction = async (action: 'activate' | 'deactivate' | 'delete') => {
+    if (!accessToken || selectedProducts.length === 0) {
+      alert('Lütfen işlem yapmak için ürün seçin');
+      return;
+    }
+
+    const actionText = action === 'activate' ? 'aktif yapmak' : 
+                      action === 'deactivate' ? 'pasif yapmak' : 'silmek';
+    
+    if (!confirm(`${selectedProducts.length} ürünü ${actionText} istediğinizden emin misiniz?`)) {
+      return;
+    }
+
+    setBulkActionLoading(true);
+    try {
+      const response = await bulkUpdateProducts(selectedProducts, action, accessToken);
+      if (response.success) {
+        alert(response.message);
+        setSelectedProducts([]);
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      } else {
+        alert(response.message || 'İşlem başarısız');
+      }
+    } catch (error) {
+      console.error('Toplu işlem hatası:', error);
+      alert('Toplu işlem sırasında hata oluştu');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleEditProduct = async (productId: string, formData: FormData) => {
+    const price = parseFloat(formData.get('price') as string);
+    const salePrice = parseFloat(formData.get('salePrice') as string);
+
+    if (editApplyDiscount) {
+      if (!salePrice) {
+        alert('İndirim uygulamak istiyorsanız indirimli fiyat girmelisiniz');
+        setEditProductLoading(false);
+        return;
+      }
+      if (salePrice >= price) {
+        alert('İndirimli fiyat normal fiyattan düşük olmalıdır');
+        setEditProductLoading(false);
+        return;
+      }
+    }
+
+    if (!editApplyDiscount) {
+      formData.delete('salePrice');
+    }
+    if (!accessToken) return;
+
+    setEditProductLoading(true);
+    try {
+      const response = await updateProductAdmin(productId, formData, accessToken);
+      if (response.success) {
+        alert('Ürün başarıyla güncellendi');
+        setEditProduct(null);
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      } else {
+        alert(response.message || 'Ürün güncellenirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Ürün güncelleme hatası:', error);
+      alert('Ürün güncellenirken hata oluştu');
+    } finally {
+      setEditProductLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!accessToken || !confirm('Bu ürünü silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const response = await deleteProductAdmin(productId, accessToken);
+      if (response.success) {
+        alert('Ürün başarıyla silindi');
+        setDeleteProductId(null);
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      } else {
+        alert(response.message || 'Ürün silinirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Ürün silme hatası:', error);
+      alert('Ürün silinirken hata oluştu');
+    }
+  };
+
+  const handleDeleteImage = async (productId: string, imageId: string) => {
+    if (!accessToken || !confirm('Bu resmi silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const response = await deleteProductImage(productId, imageId, accessToken);
+      if (response.success) {
+        alert('Resim başarıyla silindi');
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      } else {
+        alert(response.message || 'Resim silinirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Resim silme hatası:', error);
+      alert('Resim silinirken hata oluştu');
+    }
+  };
+
   return (
     <>
       <Breadcrumb title={"My Account"} pages={["my account"]} />
@@ -592,35 +871,7 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                      Orders
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab("downloads")}
-                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                        activeTab === "downloads"
-                          ? "text-white bg-blue"
-                          : "text-dark-2 bg-gray-1"
-                      }`}
-                    >
-                      <svg
-                        className="fill-current"
-                        width="22"
-                        height="22"
-                        viewBox="0 0 22 22"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M11.5074 15.1306C11.3772 15.273 11.193 15.3542 11 15.3542C10.807 15.3542 10.6229 15.273 10.4926 15.1306L6.82594 11.1202C6.56973 10.8399 6.5892 10.4051 6.86943 10.1489C7.14966 9.89265 7.58452 9.91212 7.84073 10.1923L10.3125 12.8958V2.75C10.3125 2.3703 10.6203 2.0625 11 2.0625C11.3797 2.0625 11.6875 2.3703 11.6875 2.75V12.8958L14.1593 10.1923C14.4155 9.91212 14.8503 9.89265 15.1306 10.1489C15.4108 10.4051 15.4303 10.8399 15.1741 11.1202L11.5074 15.1306Z"
-                          fill=""
-                        />
-                        <path
-                          d="M3.4375 13.75C3.4375 13.3703 3.1297 13.0625 2.75 13.0625C2.37031 13.0625 2.0625 13.3703 2.0625 13.75V13.8003C2.06248 15.0539 2.06247 16.0644 2.16931 16.8591C2.28025 17.6842 2.51756 18.3789 3.06932 18.9307C3.62108 19.4824 4.3158 19.7198 5.1409 19.8307C5.93562 19.9375 6.94608 19.9375 8.1997 19.9375H13.8003C15.0539 19.9375 16.0644 19.9375 16.8591 19.8307C17.6842 19.7198 18.3789 19.4824 18.9307 18.9307C19.4824 18.3789 19.7198 17.6842 19.8307 16.8591C19.9375 16.0644 19.9375 15.0539 19.9375 13.8003V13.75C19.9375 13.3703 19.6297 13.0625 19.25 13.0625C18.8703 13.0625 18.5625 13.3703 18.5625 13.75C18.5625 15.0658 18.561 15.9835 18.468 16.6759C18.3775 17.3485 18.2121 17.7047 17.9584 17.9584C17.7047 18.2121 17.3485 18.3775 16.6759 18.4679C15.9835 18.561 15.0658 18.5625 13.75 18.5625H8.25C6.9342 18.5625 6.01652 18.561 5.32411 18.4679C4.65148 18.3775 4.29529 18.2121 4.04159 17.9584C3.78789 17.7047 3.62249 17.3485 3.53205 16.6759C3.43896 15.9835 3.4375 15.0658 3.4375 13.75Z"
-                          fill=""
-                        />
-                      </svg>
-                      Downloads
+                      Siparişlerim
                     </button>
 
                     <button
@@ -650,7 +901,7 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                      Addresses
+                      Adreslerim
                     </button>
 
                     <button
@@ -682,12 +933,48 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                      Account Details
+                      Hesap Detaylarım
                     </button>
 
                     {/* Admin Sekmeler */}
                     {isAdmin && (
                       <>
+                    <button
+                          onClick={() => setActiveTab("dashboard")}
+                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "dashboard"
+                          ? "text-white bg-blue"
+                          : "text-dark-2 bg-gray-1"
+                      }`}
+                    >
+                      <svg
+                        className="fill-current"
+                        width="22"
+                        height="22"
+                        viewBox="0 0 22 22"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                              d="M3.4375 3.4375C3.4375 3.0578 3.7453 2.75 4.125 2.75H8.25C8.6297 2.75 8.9375 3.0578 8.9375 3.4375V8.25C8.9375 8.6297 8.6297 8.9375 8.25 8.9375H4.125C3.7453 8.9375 3.4375 8.6297 3.4375 8.25V3.4375Z"
+                          fill=""
+                        />
+                        <path
+                              d="M13.0625 3.4375C13.0625 3.0578 13.3703 2.75 13.75 2.75H17.875C18.2547 2.75 18.5625 3.0578 18.5625 3.4375V8.25C18.5625 8.6297 18.2547 8.9375 17.875 8.9375H13.75C13.3703 8.9375 13.0625 8.6297 13.0625 8.25V3.4375Z"
+                              fill=""
+                            />
+                            <path
+                              d="M3.4375 13.0625C3.4375 12.6828 3.7453 12.375 4.125 12.375H8.25C8.6297 12.375 8.9375 12.6828 8.9375 13.0625V17.875C8.9375 18.2547 8.6297 18.5625 8.25 18.5625H4.125C3.7453 18.5625 3.4375 18.2547 3.4375 17.875V13.0625Z"
+                              fill=""
+                            />
+                            <path
+                              d="M13.0625 13.0625C13.0625 12.6828 13.3703 12.375 13.75 12.375H17.875C18.2547 12.375 18.5625 12.6828 18.5625 13.0625V17.875C18.5625 18.2547 18.2547 18.5625 17.875 18.5625H13.75C13.3703 18.5625 13.0625 18.2547 13.0625 17.875V13.0625Z"
+                          fill=""
+                        />
+                      </svg>
+                          Yönetici Paneli
+                    </button>
+
                         <button
                           onClick={() => setActiveTab("add-product")}
                           className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
@@ -813,7 +1100,7 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                      Logout
+                      Çıkış Yap
                     </button>
                   </div>
                 </div>
@@ -842,7 +1129,7 @@ const MyAccount = () => {
               {favoritesLoading ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
-                </div>
+                    </div>
               ) : favoriteProducts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {favoriteProducts.map((product) => (
@@ -855,7 +1142,7 @@ const MyAccount = () => {
                           height={200}
                           className="w-full h-48 object-cover"
                         />
-                        <button
+                          <button
                           onClick={() => handleRemoveFromFavorites(product._id)}
                           className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors duration-200"
                           title="Favorilerden çıkar"
@@ -863,15 +1150,15 @@ const MyAccount = () => {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                           </svg>
-                        </button>
-                      </div>
+                          </button>
+                        </div>
                       
                       <div className="p-4">
                         <div className="mb-2">
                           <span className="text-xs text-blue bg-blue/10 px-2 py-1 rounded-full">
                             {product.category.name}
                           </span>
-                        </div>
+                      </div>
                         
                         <h3 className="font-medium text-dark mb-2 line-clamp-2">
                           {product.name}
@@ -887,14 +1174,14 @@ const MyAccount = () => {
                                       <path d="M12 2L15.09 8.26L22 9.27L17 14.14L16.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
                                     </svg>
                                   ))}
-                                </div>
+                    </div>
                                 <span className="text-sm text-gray-500">({product.reviewCount || 0})</span>
                               </>
                             ) : (
                               <span className="text-sm text-gray-500">Henüz değerlendirme yok</span>
                             )}
-                          </div>
-                        </div>
+                  </div>
+                </div>
                         
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
@@ -906,7 +1193,7 @@ const MyAccount = () => {
                             ) : (
                               <span className="text-lg font-bold text-dark">{product.price}₺</span>
                             )}
-                          </div>
+                  </div>
                           
                           <button
                             onClick={() => window.location.href = `/shop-details/${product.slug}`}
@@ -1043,19 +1330,19 @@ const MyAccount = () => {
                             <p className="flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                              </svg>
+                      </svg>
                               {address.phone}
-                            </p>
+                    </p>
                           )}
-                        </div>
+              </div>
 
                         <div className="flex flex-wrap gap-2">
-                          <button
+                  <button
                             onClick={() => openEditAddressModal(address)}
                             className="text-blue hover:text-blue-dark text-sm font-medium transition-colors duration-200"
                           >
                             Düzenle
-                          </button>
+                  </button>
                           
                           {!address.isDefault && (
                             <button
@@ -1081,7 +1368,7 @@ const MyAccount = () => {
                     <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                      </svg>
                     <h3 className="text-lg font-medium text-dark mb-2">Henüz adres bulunmuyor</h3>
                     <p className="text-gray-500 mb-4">İlk adresinizi ekleyerek başlayın.</p>
                     <button
@@ -1096,7 +1383,7 @@ const MyAccount = () => {
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
                       >
-                        <path
+                          <path
                           d="M8 1C8.39783 1 8.71875 1.32092 8.71875 1.71875V7.28125H14.2812C14.6791 7.28125 15 7.60217 15 8C15 8.39783 14.6791 8.71875 14.2812 8.71875H8.71875V14.2812C8.71875 14.6791 8.39783 15 8 15C7.60217 15 7.28125 14.6791 7.28125 14.2812V8.71875H1.71875C1.32092 8.71875 1 8.39783 1 8C1 7.60217 1.32092 7.28125 1.71875 7.28125H7.28125V1.71875C7.28125 1.32092 7.60217 1 8 1Z"
                           fill="white"
                         />
@@ -1197,8 +1484,8 @@ const MyAccount = () => {
                         }`}>
                           {profileMessage}
                         </p>
-                      </div>
                     </div>
+                  </div>
                   )}
 
                   <button
@@ -1226,16 +1513,16 @@ const MyAccount = () => {
               </div>
 
               {/* Parola Değiştirme */}
-              <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
                 <h3 className="font-medium text-xl sm:text-2xl text-dark mb-7">
                   Parola Değiştirme
                 </h3>
 
-                <div className="mb-5">
+                  <div className="mb-5">
                   <p className="text-gray-600 mb-4">
                     Parolanızı güvenli bir şekilde değiştirmek için e-posta adresinize doğrulama kodu göndereceğiz.
                   </p>
-                  
+
                   <button
                     type="button"
                     onClick={() => setPasswordResetModal(true)}
@@ -1321,9 +1608,19 @@ const MyAccount = () => {
                       </div>
                       
                       <div>
-                        <label className="block mb-2.5 text-dark font-medium">
-                          İndirimli Fiyat (₺)
+                        <div className="flex items-center mb-2.5">
+                          <input
+                            type="checkbox"
+                            id="applyDiscount"
+                            checked={applyDiscount}
+                            onChange={(e) => setApplyDiscount(e.target.checked)}
+                            className="h-4 w-4 text-blue border-gray-300 rounded focus:ring-blue"
+                            disabled={submitLoading}
+                          />
+                          <label htmlFor="applyDiscount" className="ml-2 text-dark font-medium">
+                            İndirim Uygula
                         </label>
+                        </div>
                         <input
                           type="number"
                           name="salePrice"
@@ -1332,9 +1629,16 @@ const MyAccount = () => {
                           step="0.01"
                           min="0"
                           placeholder="0.00"
-                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
-                          disabled={submitLoading}
+                          className={`w-full rounded-lg border border-gray-3 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white ${
+                            applyDiscount ? 'bg-gray-1' : 'bg-gray-100'
+                          }`}
+                          disabled={submitLoading || !applyDiscount}
                         />
+                        {applyDiscount && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            İndirimli fiyat normal fiyattan düşük olmalıdır
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -1518,6 +1822,98 @@ const MyAccount = () => {
                     </div>
                   ) : (
                     <div>
+                      {/* Toplu İşlem Butonları - Tablo Üstünde */}
+                      <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <span className="text-lg font-semibold text-blue-800">
+                              {selectedProducts.length} ürün seçildi
+                            </span>
+                            <button 
+                              onClick={() => {
+                                console.log('Debug: selectedProducts =', selectedProducts);
+                                console.log('Debug: selectedProducts.length =', selectedProducts.length);
+                                alert(`Seçili ürün sayısı: ${selectedProducts.length}`);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                            >
+                              Debug
+                            </button>
+                          </div>
+                          <div className="flex space-x-3">
+                            <button
+                              onClick={() => handleBulkAction('activate')}
+                              disabled={selectedProducts.length === 0 || bulkActionLoading}
+                              className="px-6 py-3 text-sm font-bold rounded-lg border-2 transition-all duration-200 bg-green-500 border-green-600 hover:bg-green-600 hover:shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:border-gray-400 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center space-x-2"
+                              style={{ minWidth: '120px' }}
+                            >
+                              {bulkActionLoading ? (
+                                <>
+                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>İşleniyor...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  <span>Aktif Yap</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleBulkAction('deactivate')}
+                              disabled={selectedProducts.length === 0 || bulkActionLoading}
+                              className="px-6 py-3 text-sm font-bold rounded-lg border-2 transition-all duration-200 bg-yellow-500 border-yellow-600 hover:bg-yellow-600 hover:shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:border-gray-400 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center space-x-2"
+                              style={{ minWidth: '120px' }}
+                            >
+                              {bulkActionLoading ? (
+                                <>
+                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>İşleniyor...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span>Pasif Yap</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleBulkAction('delete')}
+                              disabled={selectedProducts.length === 0 || bulkActionLoading}
+                              className="px-6 py-3 text-sm font-bold rounded-lg border-2 transition-all duration-200 bg-red-500 border-red-600 hover:bg-red-600 hover:shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:border-gray-400 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center space-x-2"
+                              style={{ minWidth: '120px' }}
+                            >
+                              {bulkActionLoading ? (
+                                <>
+                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  <span>İşleniyor...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  <span>Sil</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Kategori Sekmeleri */}
                       <div className="border-b border-gray-3 mb-6">
                         <nav className="-mb-px flex space-x-8 overflow-x-auto">
@@ -1553,7 +1949,7 @@ const MyAccount = () => {
                         </nav>
                       </div>
 
-                      {/* Tek Ürün Tablosu */}
+                      {/* Ürün Tablosu */}
                       {(() => {
                         const filteredProducts = selectedCategory === 'all' 
                           ? products 
@@ -1565,6 +1961,17 @@ const MyAccount = () => {
                               <table className="w-full">
                                 <thead className="bg-gray-50">
                                   <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      <div className="flex items-center space-x-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length}
+                                          onChange={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length ? handleDeselectAll : handleSelectAll}
+                                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span>Seç</span>
+                                      </div>
+                                    </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                       Ürün
                                     </th>
@@ -1588,6 +1995,15 @@ const MyAccount = () => {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                   {filteredProducts.map((product) => (
                                     <tr key={product._id} className="hover:bg-gray-50">
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedProducts.includes(product._id)}
+                                          onChange={() => handleProductSelect(product._id)}
+                                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                          style={{ display: 'block' }}
+                                        />
+                                      </td>
                                       <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                           <div className="flex-shrink-0 h-10 w-10">
@@ -1646,7 +2062,10 @@ const MyAccount = () => {
                                       <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex justify-end space-x-2">
                                           <button
-                                            onClick={() => setEditProduct(product)}
+                                            onClick={() => {
+                                              setEditProduct(product);
+                                              setEditApplyDiscount(!!product.salePrice);
+                                            }}
                                             className="text-blue hover:text-blue-dark transition-colors duration-200 px-3 py-1 rounded border border-blue hover:bg-blue hover:text-white"
                                           >
                                             Düzenle
@@ -1693,142 +2112,317 @@ const MyAccount = () => {
                   <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
                     Yorum Onaylama
                   </h2>
-                  
-                  {/* Bekleyen Yorumlar */}
+                  {reviewMessage && (
+                    <div className="mb-4 p-3 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                      {reviewMessage}
+                    </div>
+                  )}
+                  {reviewsLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                    </div>
+                  ) : pendingReviews.length > 0 ? (
                   <div className="space-y-4">
-                    {/* Örnek Yorum */}
-                    <div className="border border-gray-3 rounded-lg p-4">
+                      {pendingReviews.map((review) => (
+                        <div key={review._id} className="border border-gray-3 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-blue rounded-full flex items-center justify-center">
-                            <span className="text-white font-medium">AH</span>
+                                <span className="text-white font-medium">
+                                  {review.user?.firstName?.[0] || '?'}{review.user?.lastName?.[0] || ''}
+                                </span>
                           </div>
                           <div>
-                            <h4 className="font-medium text-dark">Ahmet Yılmaz</h4>
-                            <p className="text-sm text-gray-500">2 gün önce</p>
+                                <h4 className="font-medium text-dark">
+                                  {review.user?.firstName} {review.user?.lastName}
+                                </h4>
+                                <p className="text-sm text-gray-500">{review.user?.email}</p>
                           </div>
                         </div>
                         <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
                           Bekliyor
                         </span>
                       </div>
-                      
                       <div className="mb-3">
                         <div className="flex items-center mb-2">
                           <div className="flex text-yellow-400">
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                {[...Array(5)].map((_, i) => (
+                                  <svg key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-gray-300'}`} viewBox="0 0 24 24">
                               <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
                             </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
+                                ))}
+                              </div>
+                              <span className="ml-2 text-sm text-gray-600">({review.rating}/5)</span>
+                            </div>
+                            <p className="text-dark font-medium mb-1">{review.title}</p>
                           </div>
-                          <span className="ml-2 text-sm text-gray-600">(5/5)</span>
+                          <p className="text-gray-600 mb-4">{review.comment}</p>
+                          <div className="flex items-center gap-3 mb-2">
+                            <Image
+                              src={review.product?.images?.[0]?.url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${review.product.images[0].url}` : '/images/products/default.png'}
+                              alt={review.product?.name || ''}
+                              width={48}
+                              height={48}
+                              className="rounded"
+                            />
+                            <span className="text-sm text-dark font-medium">{review.product?.name}</span>
+                          </div>
+                          <div className="flex space-x-3 mt-4">
+                            <button
+                              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50"
+                              onClick={() => handleApproveReview(review._id)}
+                              disabled={reviewActionLoading === review._id}
+                            >
+                              {reviewActionLoading === review._id ? 'Onaylanıyor...' : 'Onayla'}
+                            </button>
+                            <button
+                              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
+                              onClick={() => handleRejectReview(review._id)}
+                              disabled={reviewActionLoading === review._id}
+                            >
+                              {reviewActionLoading === review._id ? 'Reddediliyor...' : 'Reddet'}
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-dark font-medium mb-1">iPhone 14 Pro - Harika bir telefon!</p>
-                      </div>
-                      
-                      <p className="text-gray-600 mb-4">
-                        Bu telefonu 3 aydır kullanıyorum ve çok memnunum. Kamera kalitesi harika, 
-                        batarya ömrü uzun ve performansı çok iyi. Kesinlikle tavsiye ederim.
-                      </p>
-                      
-                      <div className="flex space-x-3">
-                        <button className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
-                          Onayla
-                        </button>
-                        <button className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
-                          Reddet
-                        </button>
-                        <button className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">
-                          Detay
-                        </button>
-                      </div>
+                      ))}
                     </div>
-
-                    {/* Örnek Yorum 2 */}
-                    <div className="border border-gray-3 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-medium">MK</span>
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-dark">Melisa Kaya</h4>
-                            <p className="text-sm text-gray-500">1 hafta önce</p>
-                          </div>
-                        </div>
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                          Bekliyor
-                        </span>
-                      </div>
-                      
-                      <div className="mb-3">
-                        <div className="flex items-center mb-2">
-                          <div className="flex text-yellow-400">
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                  ) : (
+                    <div className="text-center py-12">
+                      <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                            <svg className="w-4 h-4 text-gray-300 fill-current" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
-                          </div>
-                          <span className="ml-2 text-sm text-gray-600">(4/5)</span>
-                        </div>
-                        <p className="text-dark font-medium mb-1">MacBook Air M2 - İdeal laptop</p>
-                      </div>
-                      
-                      <p className="text-gray-600 mb-4">
-                        Çok hafif ve sessiz. Bataryası harika, günlük işlerimi rahatlıkla karşılıyor. 
-                        Sadece fiyatı biraz yüksek ama değer.
-                      </p>
-                      
-                      <div className="flex space-x-3">
-                        <button className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
-                          Onayla
-                        </button>
-                        <button className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
-                          Reddet
-                        </button>
-                        <button className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">
-                          Detay
-                        </button>
-                      </div>
+                      <h3 className="text-lg font-medium text-dark mb-2">Bekleyen yorum bulunmuyor</h3>
+                      <p className="text-gray-500">Şu anda onay bekleyen herhangi bir yorum yok.</p>
                     </div>
-                  </div>
-
-                  {/* Yoksa boş durum */}
-                  {/* 
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <h3 className="text-lg font-medium text-dark mb-2">Bekleyen yorum bulunmuyor</h3>
-                    <p className="text-gray-500">Şu anda onay bekleyen herhangi bir yorum yok.</p>
-                  </div>
-                  */}
+                  )}
                 </div>
               </div>
             )}
             {/* <!-- manage reviews tab content end -->
+
+          <!-- admin dashboard tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "dashboard" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Yönetici Paneli
+                  </h2>
+                  
+                  {dashboardLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                    </div>
+                  ) : dashboardStats ? (
+                    <div className="space-y-8">
+                      {/* İstatistik Kartları */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-blue-100 text-sm">Toplam Satış</p>
+                              <p className="text-2xl font-bold">{dashboardStats.totalSales.toLocaleString('tr-TR')}₺</p>
+                            </div>
+                            <div className="bg-blue-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-green-100 text-sm">Toplam Sipariş</p>
+                              <p className="text-2xl font-bold">{dashboardStats.totalOrders}</p>
+                            </div>
+                            <div className="bg-green-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-purple-100 text-sm">Toplam Müşteri</p>
+                              <p className="text-2xl font-bold">{dashboardStats.totalCustomers}</p>
+                            </div>
+                            <div className="bg-purple-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      
+                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-orange-100 text-sm">Toplam Ürün</p>
+                              <p className="text-2xl font-bold">{dashboardStats.totalProducts}</p>
+                            </div>
+                            <div className="bg-orange-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Aylık İstatistikler */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white border border-gray-200 rounded-lg p-6">
+                          <h3 className="text-lg font-medium text-dark mb-4">Bu Ay</h3>
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-600">Yeni Müşteriler</span>
+                              <span className="font-medium text-dark">{dashboardStats.newCustomersThisMonth}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-600">Aylık Satış</span>
+                              <span className="font-medium text-dark">{dashboardStats.monthlySales.toLocaleString('tr-TR')}₺</span>
+                            </div>
+                      </div>
+                    </div>
+
+                        <div className="bg-white border border-gray-200 rounded-lg p-6">
+                          <h3 className="text-lg font-medium text-dark mb-4">Sipariş Durumu</h3>
+                          <div className="space-y-3">
+                            {dashboardStats.orderStatusDistribution.map((status) => (
+                              <div key={status.status} className="flex justify-between items-center">
+                                <span className="text-gray-600 capitalize">
+                                  {status.status === 'pending' ? 'Bekliyor' :
+                                   status.status === 'confirmed' ? 'Onaylandı' :
+                                   status.status === 'processing' ? 'İşleniyor' :
+                                   status.status === 'shipped' ? 'Kargoda' :
+                                   status.status === 'delivered' ? 'Teslim Edildi' :
+                                   status.status === 'cancelled' ? 'İptal Edildi' : status.status}
+                                </span>
+                                <span className="font-medium text-dark">{status.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Son Siparişler ve Popüler Ürünler */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Son Siparişler */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-6">
+                          <h3 className="text-lg font-medium text-dark mb-4">Son Siparişler</h3>
+                          <div className="space-y-4">
+                            {dashboardStats.recentOrders.map((order) => (
+                              <div key={order._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <span className="text-blue-600 font-medium text-sm">#{order.orderNumber}</span>
+                          </div>
+                          <div>
+                                    <p className="font-medium text-dark text-sm">
+                                      {order.customerInfo?.firstName} {order.customerInfo?.lastName}
+                                    </p>
+                                    <p className="text-gray-500 text-xs">
+                                      {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                                    </p>
+                          </div>
+                        </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-dark">{order.pricing?.total}₺</p>
+                                  <span className={`text-xs px-2 py-1 rounded-full ${
+                                    order.fulfillment?.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                                    order.fulfillment?.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                                    order.fulfillment?.status === 'processing' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {order.fulfillment?.status === 'pending' ? 'Bekliyor' :
+                                     order.fulfillment?.status === 'confirmed' ? 'Onaylandı' :
+                                     order.fulfillment?.status === 'processing' ? 'İşleniyor' :
+                                     order.fulfillment?.status === 'shipped' ? 'Kargoda' :
+                                     order.fulfillment?.status === 'delivered' ? 'Teslim Edildi' :
+                                     order.fulfillment?.status === 'cancelled' ? 'İptal Edildi' : order.fulfillment?.status}
+                        </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                      </div>
+                      
+                        {/* Popüler Ürünler */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-6">
+                          <h3 className="text-lg font-medium text-dark mb-4">Popüler Ürünler</h3>
+                          <div className="space-y-4">
+                            {dashboardStats.popularProducts.map((product) => (
+                              <div key={product._id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                                <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
+                                  {product.images?.[0]?.url ? (
+                                    <img
+                                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`}
+                                      alt={product.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                                      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                                  )}
+                        </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-dark text-sm line-clamp-1">{product.name}</p>
+                                  <p className="text-gray-500 text-xs">{product.category}</p>
+                      </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-dark text-sm">{product.price}₺</p>
+                                  <p className="text-gray-500 text-xs">{product.totalSold || 0} satış</p>
+                                </div>
+                              </div>
+                            ))}
+                      </div>
+                    </div>
+                  </div>
+
+                      {/* Satış Grafiği */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 className="text-lg font-medium text-dark mb-4">Son 7 Günlük Satış</h3>
+                        <div className="h-64 flex items-end justify-between space-x-2">
+                          {dashboardStats.salesChart.map((day) => (
+                            <div key={day._id} className="flex-1 flex flex-col items-center">
+                              <div 
+                                className="w-full bg-blue-500 rounded-t"
+                                style={{ 
+                                  height: `${Math.max((day.total / Math.max(...dashboardStats.salesChart.map(d => d.total))) * 200, 20)}px` 
+                                }}
+                              ></div>
+                              <p className="text-xs text-gray-500 mt-2">{new Date(day._id).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</p>
+                              <p className="text-xs font-medium text-dark">{day.total}₺</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                  <div className="text-center py-12">
+                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                      <h3 className="text-lg font-medium text-dark mb-2">İstatistikler yüklenemedi</h3>
+                      <p className="text-gray-500">Dashboard verileri yüklenirken bir hata oluştu.</p>
+                  </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* <!-- admin dashboard tab content end -->
+
           <!--== user dashboard content end ==--> */}
           </div>
         </div>
@@ -1859,7 +2453,10 @@ const MyAccount = () => {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-medium text-dark">Ürün Düzenle</h3>
                 <button
-                  onClick={() => setEditProduct(null)}
+                  onClick={() => {
+                    setEditProduct(null);
+                    setEditApplyDiscount(false);
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1868,21 +2465,29 @@ const MyAccount = () => {
                 </button>
               </div>
               
-              <form className="space-y-4">
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                await handleEditProduct(editProduct._id, formData);
+              }} className="space-y-4">
                 <div>
                   <label className="block mb-2 text-dark font-medium">Ürün Adı</label>
                   <input
                     type="text"
+                    name="name"
                     defaultValue={editProduct.name}
                     className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                    required
                   />
                 </div>
                 
                 <div>
                   <label className="block mb-2 text-dark font-medium">Kategori</label>
                   <select 
+                    name="category"
                     defaultValue={editProduct.category._id}
                     className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                    required
                   >
                     {categories.map((category) => (
                       <option key={category._id} value={category._id}>
@@ -1897,28 +2502,52 @@ const MyAccount = () => {
                     <label className="block mb-2 text-dark font-medium">Fiyat (₺)</label>
                     <input
                       type="number"
+                      name="price"
                       step="0.01"
                       defaultValue={editProduct.price}
                       className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block mb-2 text-dark font-medium">İndirimli Fiyat (₺)</label>
+                    <div className="flex items-center mb-2">
+                      <input
+                        type="checkbox"
+                        id="editApplyDiscount"
+                        checked={editApplyDiscount}
+                        onChange={(e) => setEditApplyDiscount(e.target.checked)}
+                        className="h-4 w-4 text-blue border-gray-300 rounded focus:ring-blue"
+                      />
+                      <label htmlFor="editApplyDiscount" className="ml-2 text-dark font-medium">
+                        İndirim Uygula
+                      </label>
+                    </div>
                     <input
                       type="number"
+                      name="salePrice"
                       step="0.01"
                       defaultValue={editProduct.salePrice || ''}
-                      className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                      className={`w-full rounded-lg border border-gray-3 py-2 px-3 text-dark outline-none transition-all focus:border-blue ${
+                        editApplyDiscount ? 'bg-gray-1' : 'bg-gray-100'
+                      }`}
+                      disabled={!editApplyDiscount}
                     />
+                    {editApplyDiscount && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        İndirimli fiyat normal fiyattan düşük olmalıdır
+                      </p>
+                    )}
                   </div>
                 </div>
                 
                 <div>
                   <label className="block mb-2 text-dark font-medium">Açıklama</label>
                   <textarea
+                    name="description"
                     rows={3}
                     defaultValue={editProduct.description}
                     className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue resize-none"
+                    required
                   />
                 </div>
                 
@@ -1927,24 +2556,68 @@ const MyAccount = () => {
                     <label className="block mb-2 text-dark font-medium">Stok</label>
                     <input
                       type="number"
+                      name="stock"
                       defaultValue={editProduct.stock}
                       className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                      required
                     />
                   </div>
                   <div>
                     <label className="block mb-2 text-dark font-medium">SKU</label>
                     <input
                       type="text"
+                      name="sku"
                       defaultValue={editProduct.sku}
                       className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block mb-2 text-dark font-medium">Durum</label>
+                  <select 
+                    name="status"
+                    defaultValue={editProduct.status}
+                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                  >
+                    <option value="active">Aktif</option>
+                    <option value="draft">Taslak</option>
+                    <option value="inactive">Pasif</option>
+                  </select>
+                </div>
+                
+                {/* Mevcut Resimler */}
+                {editProduct.images && editProduct.images.length > 0 && (
+                  <div>
+                    <label className="block mb-2 text-dark font-medium">Mevcut Resimler</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {editProduct.images.map((image, index) => (
+                        <div key={index} className="relative">
+                          <Image
+                            src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${image.url}`}
+                            alt={image.alt || 'Ürün resmi'}
+                            width={100}
+                            height={100}
+                            className="w-full h-24 object-cover rounded border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteImage(editProduct._id, image._id || '')}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <label className="block mb-2 text-dark font-medium">Yeni Resimler</label>
                   <input
                     type="file"
+                    name="images"
                     multiple
                     accept="image/*"
                     className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
@@ -1955,16 +2628,21 @@ const MyAccount = () => {
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setEditProduct(null)}
-                    className="px-4 py-2 text-gray-600 border border-gray-3 rounded-md hover:bg-gray-50"
+                    onClick={() => {
+                      setEditProduct(null);
+                      setEditApplyDiscount(false);
+                    }}
+                    disabled={editProductLoading}
+                    className="px-4 py-2 text-gray-600 border border-gray-3 rounded-md hover:bg-gray-50 disabled:opacity-50"
                   >
                     İptal
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark"
+                    disabled={editProductLoading}
+                    className="px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark disabled:opacity-50"
                   >
-                    Güncelle
+                    {editProductLoading ? 'Güncelleniyor...' : 'Güncelle'}
                   </button>
                 </div>
               </form>
@@ -2001,10 +2679,7 @@ const MyAccount = () => {
                   İptal
                 </button>
                 <button
-                  onClick={() => {
-                    console.log('Silme işlemi:', deleteProductId);
-                    setDeleteProductId(null);
-                  }}
+                  onClick={() => handleDeleteProduct(deleteProductId)}
                   className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                 >
                   Sil

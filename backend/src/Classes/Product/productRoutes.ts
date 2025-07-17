@@ -8,7 +8,12 @@ import {
   getAllProductsForAdmin,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  updateProductAdmin,
+  deleteProductAdmin,
+  bulkUpdateProducts,
+  deleteProductImage,
+  testProductImages
 } from './productsController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
 import { uploadMultiple } from '../../middleware/upload';
@@ -21,6 +26,13 @@ const router = express.Router();
  * @access  
  */
 router.get('/', getAllProducts);
+
+/**
+ * @route   get /api/products/test/images
+ * @desc    
+ * @access  
+ */
+router.get('/test/images', testProductImages);
 
 /**
  * @route   get /api/products/popular
@@ -77,5 +89,33 @@ router.put('/:id', authenticateToken, requireAdmin, uploadMultiple, updateProduc
  * @access  
  */
 router.delete('/:id', authenticateToken, requireAdmin, deleteProduct);
+
+/**
+ * @route   put /api/products/admin/bulk
+ * @desc    
+ * @access  
+ */
+router.put('/admin/bulk', authenticateToken, requireAdmin, bulkUpdateProducts);
+
+/**
+ * @route   put /api/products/admin/:id
+ * @desc    
+ * @access  
+ */
+router.put('/admin/:id', authenticateToken, requireAdmin, uploadMultiple, updateProductAdmin);
+
+/**
+ * @route   delete /api/products/admin/:id
+ * @desc    
+ * @access  
+ */
+router.delete('/admin/:id', authenticateToken, requireAdmin, deleteProductAdmin);
+
+/**
+ * @route   delete /api/products/admin/:id/images/:imageId
+ * @desc    
+ * @access  
+ */
+router.delete('/admin/:id/images/:imageId', authenticateToken, requireAdmin, deleteProductImage);
 
 export default router; 

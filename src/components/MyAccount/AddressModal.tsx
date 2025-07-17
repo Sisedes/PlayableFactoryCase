@@ -37,7 +37,6 @@ const AddressModal: React.FC<AddressModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Modal açıldığında düzenleme modundaysa formu doldur
   useEffect(() => {
     if (isOpen) {
       if (editingAddress) {
@@ -57,7 +56,6 @@ const AddressModal: React.FC<AddressModalProps> = ({
           isDefault: editingAddress.isDefault
         });
       } else {
-        // Yeni adres için formu sıfırla
         setFormData({
           type: 'home',
           title: '',
@@ -78,7 +76,6 @@ const AddressModal: React.FC<AddressModalProps> = ({
     }
   }, [isOpen, editingAddress]);
 
-  // Modal dışına tıklama kontrolü
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
@@ -103,7 +100,6 @@ const AddressModal: React.FC<AddressModalProps> = ({
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
 
-    // Hata mesajını temizle
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -121,12 +117,10 @@ const AddressModal: React.FC<AddressModalProps> = ({
     if (!formData.postalCode.trim()) newErrors.postalCode = 'Posta kodu gereklidir';
     if (!formData.country.trim()) newErrors.country = 'Ülke gereklidir';
 
-    // Posta kodu format kontrolü
     if (formData.postalCode && !/^\d{5}$/.test(formData.postalCode)) {
       newErrors.postalCode = 'Posta kodu 5 haneli olmalıdır';
     }
 
-    // Telefon format kontrolü (isteğe bağlı)
     if (formData.phone && !/^[+]?[\d\s\-\(\)]+$/.test(formData.phone)) {
       newErrors.phone = 'Geçerli bir telefon numarası giriniz';
     }
@@ -403,11 +397,11 @@ const AddressModal: React.FC<AddressModalProps> = ({
 
               {/* Butonlar */}
               <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
+              <button
+                type="submit"
                   disabled={isLoading}
                   className="inline-flex items-center justify-center font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+              >
                   {isLoading ? (
                     <>
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -425,7 +419,7 @@ const AddressModal: React.FC<AddressModalProps> = ({
                   className="inline-flex font-medium text-dark bg-gray-1 border border-gray-3 py-3 px-7 rounded-md ease-out duration-200 hover:bg-gray-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   İptal
-                </button>
+              </button>
               </div>
             </form>
           </div>
