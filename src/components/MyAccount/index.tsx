@@ -4,10 +4,16 @@ import Breadcrumb from "../Common/Breadcrumb";
 import Image from "next/image";
 import AddressModal from "./AddressModal";
 import Orders from "../Orders";
+import { useAuthStore } from "@/store/authStore";
+import { resendVerification } from "@/services";
 
 const MyAccount = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [addressModal, setAddressModal] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+
+  const { user, accessToken } = useAuthStore();
 
   const openAddressModal = () => {
     setAddressModal(true);
@@ -15,6 +21,30 @@ const MyAccount = () => {
 
   const closeAddressModal = () => {
     setAddressModal(false);
+  };
+
+  const handleResendVerification = async () => {
+    if (!accessToken) {
+      setResendMessage('Giriş yapmanız gereklidir.');
+      return;
+    }
+
+    setResendLoading(true);
+    setResendMessage(null);
+
+    const response = await resendVerification(accessToken);
+    if (response.success) {
+      setResendMessage('Doğrulama e-postası başarıyla gönderildi! E-posta kutunuzu kontrol edin.');
+    } else {
+      setResendMessage(response.message || 'E-posta gönderilirken hata oluştu.');
+    }
+    
+    setResendLoading(false);
+    
+    // Mesajı 5 saniye sonra temizle
+    setTimeout(() => {
+      setResendMessage(null);
+    }, 5000);
   };
 
   return (
@@ -261,20 +291,83 @@ const MyAccount = () => {
               }`}
             >
               <p className="text-dark">
-                Hello Annie (not Annie?
+                Merhaba {user?.firstName || 'Kullanıcı'} (not {user?.firstName}?
                 <a
                   href="#"
                   className="text-red ease-out duration-200 hover:underline"
                 >
-                  Log Out
+                  Çıkış Yap
                 </a>
                 )
               </p>
 
+              {/* E-posta doğrulama uyarısı */}
+              {user && !user.emailVerified && (
+                <div className="mt-6 p-4 rounded-lg bg-orange-50 border border-orange-200">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="w-5 h-5 text-orange-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <h3 className="text-sm font-medium text-orange-800">
+                        E-posta Adresinizi Doğrulayın
+                      </h3>
+                      <div className="mt-2 text-sm text-orange-700">
+                        <p>
+                          Hesabınızın güvenliği için e-posta adresinizi doğrulamanız gerekmektedir. 
+                          E-posta kutunuzu kontrol edin veya yeni bir doğrulama e-postası gönderin.
+                        </p>
+                      </div>
+                      <div className="mt-4">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={handleResendVerification}
+                            disabled={resendLoading}
+                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-orange-700 bg-orange-100 hover:bg-orange-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {resendLoading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-700 mr-2"></div>
+                            ) : null}
+                            {resendLoading ? 'Gönderiliyor...' : 'Doğrulama E-postası Gönder'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Resend mesajı */}
+              {resendMessage && (
+                <div className={`mt-4 p-4 rounded-lg ${
+                  resendMessage.includes('başarıyla') 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <div className="flex items-center">
+                    <svg className={`w-5 h-5 mr-2 ${
+                      resendMessage.includes('başarıyla') ? 'text-green-600' : 'text-red-600'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {resendMessage.includes('başarıyla') ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      )}
+                    </svg>
+                    <p className={`text-sm ${
+                      resendMessage.includes('başarıyla') ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                      {resendMessage}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <p className="text-custom-sm mt-4">
-                From your account dashboard you can view your recent orders,
-                manage your shipping and billing addresses, and edit your
-                password and account details.
+                Hesap panelinizden son siparişlerinizi görüntüleyebilir, 
+                teslimat ve fatura adreslerinizi yönetebilir, parolanızı ve hesap detaylarınızı düzenleyebilirsiniz.
               </p>
             </div>
             {/* <!-- dashboard tab content end -->

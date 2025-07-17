@@ -3,6 +3,9 @@
  * Bu dosya servislerin merkezi erişim noktasıdır
  */
 
+// Authentication Services
+export * from './authService';
+
 // Product Services
 export * from './productService';
 
@@ -10,4 +13,9 @@ export * from './productService';
 export * from './categoryService';
 
 // Service Types - Genel kullanım için tipleri export et
-export type { ApiResponse, ProductFilters } from './productService'; 
+export type { ApiResponse, ProductFilters } from './productService';
+export type { 
+  LoginRequest, 
+  RegisterRequest, 
+  AuthResponse 
+} from './authService'; 

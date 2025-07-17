@@ -1,9 +1,9 @@
 "use client";
 import Breadcrumb from "@/components/Common/Breadcrumb";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const Signin = () => {
   const [formData, setFormData] = useState({
@@ -11,9 +11,22 @@ const Signin = () => {
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
 
   const { login, isLoading, error, clearError } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    if (verified === 'true') {
+      setVerificationMessage('E-posta adresiniz başarıyla doğrulandı! Artık giriş yapabilirsiniz.');
+      
+      setTimeout(() => {
+        setVerificationMessage(null);
+      }, 5000);
+    }
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -21,7 +34,6 @@ const Signin = () => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (error) clearError();
   };
 
@@ -34,16 +46,13 @@ const Signin = () => {
 
     try {
       await login(formData);
-      // Login successful, redirect to home page
       router.push('/');
     } catch (err) {
-      // Error will be handled by the auth store
       console.error('Login error:', err);
     }
   };
 
   const handleForgotPassword = () => {
-    // Implement forgot password logic
     console.log('Forgot password clicked');
   };
 
@@ -59,6 +68,17 @@ const Signin = () => {
               </h2>
               <p>Bilgilerinizi aşağıya girin</p>
             </div>
+
+            {verificationMessage && (
+              <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-200">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-green-600 text-sm">{verificationMessage}</p>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">

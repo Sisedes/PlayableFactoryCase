@@ -1,33 +1,14 @@
 /**
- * Auth Service - Kimlik doğrulama ile ilgili tüm API çağrılarını yönetir
+ * Authentication Service
+ * Kullanıcı kimlik doğrulama ve hesap yönetimi işlemleri
  */
 
-// API Base URL
-const API_BASE = process.env.NODE_ENV === 'production' 
-  ? '/api/auth' 
-  : 'http://localhost:5000/api/auth';
-
-// Types
-export interface User {
-  id: string;
+export interface LoginRequest {
   email: string;
-  firstName: string;
-  lastName: string;
-  role: 'customer' | 'admin';
-  isEmailVerified: boolean;
+  password: string;
 }
 
-export interface AuthResponse {
-  success: boolean;
-  message?: string;
-  data?: {
-    user: User;
-    accessToken: string;
-  };
-  error?: string;
-}
-
-export interface RegisterData {
+export interface RegisterRequest {
   email: string;
   password: string;
   firstName: string;
@@ -35,193 +16,265 @@ export interface RegisterData {
   phone?: string;
 }
 
-export interface LoginData {
+export type RegisterData = RegisterRequest;
+export type LoginData = LoginRequest;
+
+export interface User {
+  id: string;
   email: string;
-  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  emailVerified: boolean;
+  avatar?: string;
+  role: string;
 }
 
-export interface ResetPasswordData {
-  password: string;
-  confirmPassword: string;
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    user: {
+      id: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      isEmailVerified: boolean;
+    };
+    accessToken: string;
+  };
+  error?: any;
 }
 
-export interface ChangePasswordData {
-  currentPassword: string;
-  newPassword: string;
-  confirmNewPassword: string;
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: any;
 }
 
-/**
- * Kullanıcı kaydı
- */
-export const register = async (userData: RegisterData): Promise<AuthResponse> => {
-  try {
-    const response = await fetch(`${API_BASE}/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(userData),
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Kayıt sırasında hata oluştu');
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Register error:', error);
-    throw error;
+const getBaseURL = () => {
+  if (typeof window !== 'undefined') {
+    return process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:5000' 
+      : process.env.NEXT_PUBLIC_API_URL || '';
   }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 };
+
+const BASE_URL = getBaseURL();
 
 /**
  * Kullanıcı girişi
  */
-export const login = async (credentials: LoginData): Promise<AuthResponse> => {
+export const login = async (formData: LoginRequest): Promise<AuthResponse> => {
   try {
-    const response = await fetch(`${API_BASE}/login`, {
+    const response = await fetch(`${BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify(formData),
     });
 
-    const data = await response.json();
-    
     if (!response.ok) {
-      throw new Error(data.message || 'Giriş sırasında hata oluştu');
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Giriş yapılırken hata oluştu'
+      };
     }
 
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Login error:', error);
-    throw error;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Giriş yapılırken hata oluştu'
+    };
+  }
+};
+
+/**
+ * Kullanıcı kayıt
+ */
+export const register = async (formData: RegisterRequest): Promise<AuthResponse> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(formData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Kayıt olurken hata oluştu'
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Register error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Kayıt olurken hata oluştu'
+    };
   }
 };
 
 /**
  * Kullanıcı çıkışı
  */
-export const logout = async (): Promise<void> => {
+export const logout = async (): Promise<ApiResponse> => {
   try {
-    const token = getStoredToken();
-    
-    const response = await fetch(`${API_BASE}/logout`, {
+    const response = await fetch(`${BASE_URL}/api/auth/logout`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
       credentials: 'include',
     });
 
     if (!response.ok) {
-      // Logout işlemi başarısız olsa bile local storage'ı temizle
-      console.warn('Logout API çağrısı başarısız, ancak local storage temizlendi');
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Çıkış yapılırken hata oluştu'
+      };
     }
+
+    return await response.json();
   } catch (error) {
     console.error('Logout error:', error);
-  } finally {
-    // Her durumda local storage'ı temizle
-    clearStoredAuth();
-  }
-};
-
-/**
- * Token yenileme
- */
-export const refreshToken = async (): Promise<string | null> => {
-  try {
-    const response = await fetch(`${API_BASE}/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error('Token yenileme başarısız');
-    }
-
-    const data = await response.json();
-    
-    if (data.success && data.data?.accessToken) {
-      setStoredToken(data.data.accessToken);
-      return data.data.accessToken;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Token refresh error:', error);
-    return null;
-  }
-};
-
-/**
- * Mevcut kullanıcı bilgilerini getir
- */
-export const getCurrentUser = async (): Promise<User | null> => {
-  try {
-    const token = getStoredToken();
-    
-    if (!token) {
-      return null;
-    }
-
-    const response = await fetch(`${API_BASE}/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token geçersiz, yenilemeyi dene
-        const newToken = await refreshToken();
-        if (newToken) {
-          return getCurrentUser(); // Yeni token ile tekrar dene
-        }
-      }
-      throw new Error('Kullanıcı bilgileri alınamadı');
-    }
-
-    const data = await response.json();
-    return data.data?.user || null;
-  } catch (error) {
-    console.error('Get current user error:', error);
-    return null;
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Çıkış yapılırken hata oluştu'
+    };
   }
 };
 
 /**
  * E-posta doğrulama
  */
-export const verifyEmail = async (token: string): Promise<{ success: boolean; message: string }> => {
+export const verifyEmail = async (token: string): Promise<ApiResponse> => {
   try {
-    const response = await fetch(`${API_BASE}/verify-email/${token}`, {
+    const response = await fetch(`${BASE_URL}/api/auth/verify-email/${token}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    const data = await response.json();
-    return data;
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'E-posta doğrulama sırasında hata oluştu'
+      };
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Email verification error:', error);
     return {
       success: false,
-      message: 'E-posta doğrulama sırasında hata oluştu'
+      message: error instanceof Error ? error.message : 'E-posta doğrulama sırasında hata oluştu'
+    };
+  }
+};
+
+/**
+ * E-posta doğrulama tekrar gönderme
+ */
+export const resendVerification = async (accessToken: string): Promise<ApiResponse> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/resend-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'E-posta tekrar gönderilirken hata oluştu'
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'E-posta tekrar gönderilirken hata oluştu'
+    };
+  }
+};
+
+/**
+ * Kullanıcı profili getirme  
+ */
+export const getProfile = async (accessToken: string): Promise<ApiResponse> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Profil getirilirken hata oluştu'
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get profile error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Profil getirilirken hata oluştu'
+    };
+  }
+};
+
+/**
+ * Token yenileme
+ */
+export const refreshToken = async (): Promise<AuthResponse> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Token yenilenirken hata oluştu'
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Token yenilenirken hata oluştu'
     };
   }
 };
@@ -229,9 +282,9 @@ export const verifyEmail = async (token: string): Promise<{ success: boolean; me
 /**
  * Parola sıfırlama isteği
  */
-export const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+export const forgotPassword = async (email: string): Promise<ApiResponse> => {
   try {
-    const response = await fetch(`${API_BASE}/forgot-password`, {
+    const response = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -239,13 +292,20 @@ export const forgotPassword = async (email: string): Promise<{ success: boolean;
       body: JSON.stringify({ email }),
     });
 
-    const data = await response.json();
-    return data;
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Parola sıfırlama isteği sırasında hata oluştu'
+      };
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Forgot password error:', error);
     return {
       success: false,
-      message: 'Parola sıfırlama isteği gönderilirken hata oluştu'
+      message: error instanceof Error ? error.message : 'Parola sıfırlama isteği sırasında hata oluştu'
     };
   }
 };
@@ -253,197 +313,143 @@ export const forgotPassword = async (email: string): Promise<{ success: boolean;
 /**
  * Parola sıfırlama
  */
-export const resetPassword = async (
-  token: string, 
-  passwordData: ResetPasswordData
-): Promise<{ success: boolean; message: string }> => {
+export const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse> => {
   try {
-    const response = await fetch(`${API_BASE}/reset-password/${token}`, {
+    const response = await fetch(`${BASE_URL}/api/auth/reset-password/${token}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(passwordData),
+      body: JSON.stringify({ password: newPassword }),
     });
 
-    const data = await response.json();
-    return data;
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Parola sıfırlanırken hata oluştu'
+      };
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Reset password error:', error);
     return {
       success: false,
-      message: 'Parola sıfırlama sırasında hata oluştu'
+      message: error instanceof Error ? error.message : 'Parola sıfırlanırken hata oluştu'
     };
   }
 };
 
 /**
- * E-posta doğrulama linkini yeniden gönder
+ * Kullanıcı profili getirme (getCurrentUser alias)
  */
-export const resendVerificationEmail = async (): Promise<{ success: boolean; message: string }> => {
-  try {
-    const token = getStoredToken();
-    
-    const response = await fetch(`${API_BASE}/resend-verification`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Resend verification error:', error);
-    return {
-      success: false,
-      message: 'Doğrulama e-postası gönderilirken hata oluştu'
-    };
-  }
+export const getCurrentUser = async (accessToken: string): Promise<ApiResponse> => {
+  return getProfile(accessToken);
 };
 
 /**
- * Profil resmi yükleme
+ * E-posta doğrulama tekrar gönderme (resendVerificationEmail alias)
  */
-export const uploadProfileImage = async (file: File): Promise<{ success: boolean; data?: any; message?: string }> => {
+export const resendVerificationEmail = async (accessToken: string): Promise<ApiResponse> => {
+  return resendVerification(accessToken);
+};
+
+/**
+ * Profil resmi yükleme (placeholder)
+ */
+export const uploadProfileImage = async (accessToken: string, formData: FormData): Promise<ApiResponse> => {
   try {
-    const token = getStoredToken();
-    
-    if (!token) {
-      throw new Error('Giriş yapmanız gereklidir');
-    }
-
-    const formData = new FormData();
-    formData.append('profileImage', file);
-
-    const response = await fetch(`${API_BASE}/upload-profile-image`, {
+    const response = await fetch(`${BASE_URL}/api/auth/upload-avatar`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
-      credentials: 'include',
       body: formData,
     });
 
-    const data = await response.json();
-    
     if (!response.ok) {
-      throw new Error(data.message || 'Dosya yükleme hatası');
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'Profil resmi yüklenirken hata oluştu'
+      };
     }
 
-    return data;
+    return await response.json();
   } catch (error) {
     console.error('Upload profile image error:', error);
-    throw error;
-  }
-};
-
-/**
- * Authentication durumunu kontrol et
- */
-export const checkAuthStatus = async (): Promise<{ isAuthenticated: boolean; user?: User }> => {
-  try {
-    const token = getStoredToken();
-    
-    const response = await fetch(`${API_BASE}/check-auth`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      return { isAuthenticated: false };
-    }
-
-    const data = await response.json();
     return {
-      isAuthenticated: data.isAuthenticated,
-      user: data.user
+      success: false,
+      message: error instanceof Error ? error.message : 'Profil resmi yüklenirken hata oluştu'
     };
-  } catch (error) {
-    console.error('Check auth status error:', error);
-    return { isAuthenticated: false };
   }
 };
 
-// Local Storage Helpers
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'auth_user';
-
 /**
- * Token'ı local storage'a kaydet
+ * Local Storage Utility Functions
  */
 export const setStoredToken = (token: string): void => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem('auth_token', token);
   }
 };
 
-/**
- * Local storage'dan token'ı al
- */
 export const getStoredToken = (): string | null => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem('auth_token');
   }
   return null;
 };
 
-/**
- * Kullanıcı bilgilerini local storage'a kaydet
- */
 export const setStoredUser = (user: User): void => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem('auth_user', JSON.stringify(user));
   }
 };
 
-/**
- * Local storage'dan kullanıcı bilgilerini al
- */
 export const getStoredUser = (): User | null => {
   if (typeof window !== 'undefined') {
-    const userStr = localStorage.getItem(USER_KEY);
-    try {
-      return userStr ? JSON.parse(userStr) : null;
-    } catch (error) {
-      console.error('Error parsing stored user:', error);
-      return null;
-    }
+    const stored = localStorage.getItem('auth_user');
+    return stored ? JSON.parse(stored) : null;
   }
   return null;
 };
 
-/**
- * Auth bilgilerini local storage'dan temizle
- */
 export const clearStoredAuth = (): void => {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
   }
 };
 
 /**
- * Token'ın geçerli olup olmadığını kontrol et
+ * Token geçerliliğini kontrol et
  */
-export const isTokenValid = (token: string): boolean => {
+export const isTokenValid = (token: string | null): boolean => {
   if (!token) return false;
   
   try {
-    // JWT token'ın payload kısmını decode et
+    // JWT token'ı decode et (basit kontrol)
     const payload = JSON.parse(atob(token.split('.')[1]));
-    const currentTime = Date.now() / 1000;
-    
-    // Token'ın süresi dolmuş mu kontrol et
+    const currentTime = Math.floor(Date.now() / 1000);
     return payload.exp > currentTime;
   } catch (error) {
-    console.error('Token validation error:', error);
     return false;
   }
+};
+
+/**
+ * Auth durumunu kontrol et
+ */
+export const checkAuthStatus = async (): Promise<{ isAuthenticated: boolean; user: User | null }> => {
+  const token = getStoredToken();
+  const user = getStoredUser();
+  
+  if (!token || !isTokenValid(token)) {
+    clearStoredAuth();
+    return { isAuthenticated: false, user: null };
+  }
+  
+  return { isAuthenticated: true, user };
 }; 

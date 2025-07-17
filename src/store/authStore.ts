@@ -22,25 +22,20 @@ import {
   isTokenValid
 } from '@/services/authService';
 
-// Auth Store State
 interface AuthState {
-  // Data
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   
-  // Loading states
   isLoading: boolean;
   isLoginLoading: boolean;
   isRegisterLoading: boolean;
   isLogoutLoading: boolean;
   isProfileLoading: boolean;
   
-  // Error states
   error: string | null;
   validationErrors: Record<string, string> | null;
   
-  // Actions
   initialize: () => Promise<void>;
   login: (credentials: LoginData) => Promise<{ success: boolean; message?: string }>;
   register: (userData: RegisterData) => Promise<{ success: boolean; message?: string }>;
@@ -57,7 +52,6 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  // Initial state
   user: null,
   accessToken: null,
   isAuthenticated: false,
@@ -69,35 +63,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   validationErrors: null,
 
-  // Actions
   initialize: async () => {
     set({ isLoading: true, error: null });
     
     try {
-      // Local storage'dan token ve user bilgilerini al
       const storedToken = getStoredToken();
       const storedUser = getStoredUser();
       
       if (storedToken && isTokenValid(storedToken) && storedUser) {
-        // Token geçerliyse ve user bilgileri varsa
         set({
           accessToken: storedToken,
           user: storedUser,
           isAuthenticated: true
         });
         
-        // Kullanıcı bilgilerini backend'den yenile
         try {
-          const currentUser = await getCurrentUser();
-          if (currentUser) {
-            set({ user: currentUser });
-            setStoredUser(currentUser);
+          const response = await getCurrentUser(storedToken);
+          if (response.success && response.data) {
+            const user = {
+              id: response.data.id,
+              email: response.data.email,
+              firstName: response.data.firstName,
+              lastName: response.data.lastName,
+              phone: response.data.phone,
+              emailVerified: response.data.isEmailVerified || false,
+              avatar: response.data.avatar,
+              role: response.data.role
+            };
+            set({ user });
+            setStoredUser(user);
           }
         } catch (error) {
           console.warn('User data refresh failed during initialization');
         }
       } else {
-        // Token geçersiz veya user bilgileri eksikse
         clearStoredAuth();
         set({
           user: null,
@@ -126,9 +125,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await loginService(credentials);
       
       if (response.success && response.data) {
-        const { user, accessToken } = response.data;
+        const { user: backendUser, accessToken } = response.data;
         
-        // Store token and user data
+        const user = {
+          id: backendUser.id,
+          email: backendUser.email,
+          firstName: backendUser.firstName,
+          lastName: backendUser.lastName,
+          phone: (backendUser as any).phone || undefined,
+          emailVerified: (backendUser as any).isEmailVerified || false,
+          avatar: (backendUser as any).avatar || undefined,
+          role: backendUser.role
+        };
+        
         setStoredToken(accessToken);
         setStoredUser(user);
         
@@ -148,7 +157,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const errorMessage = error.message || 'Giriş sırasında hata oluştu';
       set({ error: errorMessage });
       
-      // Validation errors varsa parse et
       if (error.errors && Array.isArray(error.errors)) {
         const validationErrors: Record<string, string> = {};
         error.errors.forEach((err: any) => {
@@ -171,17 +179,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await registerService(userData);
       
-      if (response.success && response.data) {
-        const { user, accessToken } = response.data;
-        
-        // Store token and user data
-        setStoredToken(accessToken);
-        setStoredUser(user);
-        
+      if (response.success) {
         set({
-          user,
-          accessToken,
-          isAuthenticated: true,
           error: null
         });
         
@@ -193,17 +192,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error: any) {
       const errorMessage = error.message || 'Kayıt sırasında hata oluştu';
       set({ error: errorMessage });
-      
-      // Validation errors varsa parse et
-      if (error.errors && Array.isArray(error.errors)) {
-        const validationErrors: Record<string, string> = {};
-        error.errors.forEach((err: any) => {
-          if (err.field) {
-            validationErrors[err.field] = err.message;
-          }
-        });
-        set({ validationErrors });
-      }
       
       return { success: false, message: errorMessage };
     } finally {
@@ -219,7 +207,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Her durumda state'i temizle
       set({
         user: null,
         accessToken: null,
@@ -235,12 +222,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isProfileLoading: true, error: null });
     
     try {
-      const currentUser = await getCurrentUser();
-      if (currentUser) {
-        set({ user: currentUser });
-        setStoredUser(currentUser);
+      const { accessToken } = get();
+      if (!accessToken) {
+        throw new Error('Access token not found');
+      }
+      
+      const response = await getCurrentUser(accessToken);
+      if (response.success && response.data) {
+        const user = {
+          id: response.data.id,
+          email: response.data.email,
+          firstName: response.data.firstName,
+          lastName: response.data.lastName,
+          phone: response.data.phone || undefined,
+          emailVerified: response.data.isEmailVerified || false,
+          avatar: response.data.avatar || undefined,
+          role: response.data.role
+        };
+        set({ user });
+        setStoredUser(user);
       } else {
-        // User data alınamazsa logout yap
         get().logout();
       }
     } catch (error) {
@@ -258,7 +259,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await verifyEmailService(token);
       
       if (result.success) {
-        // E-posta doğrulandıysa user data'yı yenile
         await get().refreshUserData();
       }
       
@@ -306,7 +306,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const result = await resendVerificationService();
+      const { accessToken } = get();
+      if (!accessToken) {
+        throw new Error('Access token not found');
+      }
+      
+      const result = await resendVerificationService(accessToken);
       return result;
     } catch (error: any) {
       const errorMessage = error.message || 'Doğrulama e-postası gönderilirken hata oluştu';
@@ -321,10 +326,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isProfileLoading: true, error: null });
     
     try {
-      const result = await uploadProfileImageService(file);
+      const { accessToken } = get();
+      if (!accessToken) {
+        throw new Error('Access token not found');
+      }
+      
+      const formData = new FormData();
+      formData.append('avatar', file);
+      
+      const result = await uploadProfileImageService(accessToken, formData);
       
       if (result.success) {
-        // Upload başarılıysa user data'yı yenile
         await get().refreshUserData();
       }
       
@@ -348,12 +360,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   }
 }));
 
-// Auth hook'u
 export const useAuth = () => {
   const authStore = useAuthStore();
   
   return {
-    // State
     user: authStore.user,
     accessToken: authStore.accessToken,
     isAuthenticated: authStore.isAuthenticated,
@@ -365,7 +375,6 @@ export const useAuth = () => {
     error: authStore.error,
     validationErrors: authStore.validationErrors,
     
-    // Actions
     initialize: authStore.initialize,
     login: authStore.login,
     register: authStore.register,
@@ -380,10 +389,9 @@ export const useAuth = () => {
     clearValidationErrors: authStore.clearValidationErrors,
     setUser: authStore.setUser,
     
-    // Computed
     isAdmin: authStore.user?.role === 'admin',
     isCustomer: authStore.user?.role === 'customer',
-    isEmailVerified: authStore.user?.isEmailVerified || false,
+    isEmailVerified: authStore.user?.emailVerified || false,
     fullName: authStore.user ? `${authStore.user.firstName} ${authStore.user.lastName}` : '',
   };
 }; 
