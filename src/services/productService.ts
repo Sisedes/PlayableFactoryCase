@@ -251,5 +251,92 @@ export const getInStockProducts = async (
   }
 };
 
+/**
+ * Yeni ürün oluştur (Admin)
+ */
+export const createProduct = async (productData: any, accessToken: string): Promise<ApiResponse<Product>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(productData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Ürün oluşturulurken hata oluştu');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('createProduct error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ürün güncelle (Admin)
+ */
+export const updateProduct = async (id: string, productData: any, accessToken: string): Promise<ApiResponse<Product>> => {
+  try {
+    if (!id) {
+      throw new Error('Ürün ID gereklidir');
+    }
+
+    const response = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(productData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Ürün güncellenirken hata oluştu');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('updateProduct error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ürün sil (Admin)
+ */
+export const deleteProduct = async (id: string, accessToken: string): Promise<ApiResponse<any>> => {
+  try {
+    if (!id) {
+      throw new Error('Ürün ID gereklidir');
+    }
+
+    const response = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Ürün silinirken hata oluştu');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('deleteProduct error:', error);
+    throw error;
+  }
+};
+
 // Export types for use in other files
 export type { ProductFilters, ApiResponse }; 

@@ -356,6 +356,37 @@ export const resendVerificationEmail = async (accessToken: string): Promise<ApiR
 };
 
 /**
+ * E-posta ile doğrulama e-postası tekrar gönderme (giriş yapmadan)
+ */
+export const resendVerificationByEmail = async (email: string): Promise<ApiResponse> => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/auth/resend-verification-by-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        success: false,
+        message: errorData.message || 'E-posta doğrulama tekrar gönderilirken hata oluştu'
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Resend verification by email error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'E-posta doğrulama tekrar gönderilirken hata oluştu'
+    };
+  }
+};
+
+/**
  * Profil resmi yükleme (placeholder)
  */
 export const uploadProfileImage = async (accessToken: string, formData: FormData): Promise<ApiResponse> => {
@@ -387,17 +418,29 @@ export const uploadProfileImage = async (accessToken: string, formData: FormData
 };
 
 /**
- * Local Storage Utility Functions
+ * Local Storage ve Cookie Utility Functions
  */
 export const setStoredToken = (token: string): void => {
   if (typeof window !== 'undefined') {
+    // LocalStorage'a kaydet
     localStorage.setItem('auth_token', token);
+    
+    // Cookie'ye kaydet (7 gün geçerli)
+    document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
   }
 };
 
 export const getStoredToken = (): string | null => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('auth_token');
+    // Önce localStorage'dan dene
+    const token = localStorage.getItem('auth_token');
+    if (token) return token;
+    
+    // Yoksa cookie'den dene
+    const tokenCookie = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('token='));
+    return tokenCookie ? tokenCookie.split('=')[1] : null;
   }
   return null;
 };
@@ -418,8 +461,12 @@ export const getStoredUser = (): User | null => {
 
 export const clearStoredAuth = (): void => {
   if (typeof window !== 'undefined') {
+    // LocalStorage'ı temizle
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    
+    // Cookie'yi temizle
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
   }
 };
 

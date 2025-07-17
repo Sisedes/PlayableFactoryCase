@@ -15,6 +15,8 @@ import ScrollToTop from "@/components/Common/ScrollToTop";
 import PreLoader from "@/components/Common/PreLoader";
 import ErrorBoundary from "@/components/Common/ErrorBoundary";
 import { useAuthStore } from "@/store/authStore";
+import AuthDebug from "@/components/AuthDebug";
+import "@/utils/clearAuth"; 
 
 export default function ClientLayout({
   children,
@@ -54,6 +56,7 @@ export default function ClientLayout({
           </ReduxProvider>
           <ScrollToTop />
           <Footer />
+          <AuthDebug />
         </>
       )}
     </ErrorBoundary>

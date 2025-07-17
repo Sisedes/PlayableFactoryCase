@@ -1,19 +1,237 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Breadcrumb from "../Common/Breadcrumb";
 import Image from "next/image";
 import AddressModal from "./AddressModal";
 import Orders from "../Orders";
-import { useAuthStore } from "@/store/authStore";
+import { useAuth } from "@/store/authStore";
 import { resendVerification } from "@/services";
+import { getAllCategories } from "@/services/categoryService";
+import { getAllProducts } from "@/services/productService";
+
+// Local types for this component
+interface LocalCategory {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image?: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  productCount?: number;
+}
+
+interface LocalProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  shortDescription?: string;
+  category: {
+    _id: string;
+    name: string;
+    slug: string;
+  };
+  price: number;
+  salePrice?: number;
+  currency?: string;
+  sku: string;
+  stock: number;
+  trackQuantity?: boolean;
+  lowStockThreshold?: number;
+  images: Array<{
+    _id?: string;
+    url: string;
+    alt: string;
+    isMain?: boolean;
+  }>;
+  tags?: string[];
+  status: 'draft' | 'active' | 'inactive';
+  isFeatured?: boolean;
+  averageRating?: number;
+  reviewCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const MyAccount = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [addressModal, setAddressModal] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  
+  // Yeni state'ler
+  const [categories, setCategories] = useState<LocalCategory[]>([]);
+  const [products, setProducts] = useState<LocalProduct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editProduct, setEditProduct] = useState<LocalProduct | null>(null);
+  const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
 
-  const { user, accessToken } = useAuthStore();
+  // Ürün ekleme formu state'leri
+  const [productForm, setProductForm] = useState({
+    name: '',
+    category: '',
+    price: '',
+    salePrice: '',
+    description: '',
+    stock: '',
+    sku: '',
+    status: 'active'
+  });
+  const [productImages, setProductImages] = useState<FileList | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+
+  const { user, accessToken, isAdmin } = useAuth();
+
+  // Kategorileri ve ürünleri yükle
+  useEffect(() => {
+    const fetchData = async () => {
+      if (isAdmin) {
+        setLoading(true);
+        try {
+          console.log('Admin verileri yükleniyor...');
+          
+          const [categoriesResponse, productsResponse] = await Promise.all([
+            getAllCategories().catch(error => {
+              console.error('Kategoriler yüklenirken hata:', error);
+              return { success: false, data: [], message: 'Kategoriler yüklenemedi' };
+            }),
+            getAllProducts().catch(error => {
+              console.error('Ürünler yüklenirken hata:', error);
+              return { success: false, data: [], message: 'Ürünler yüklenemedi' };
+            })
+          ]);
+          
+          if (categoriesResponse.success && categoriesResponse.data) {
+            setCategories(categoriesResponse.data as unknown as LocalCategory[]);
+          } else {
+            console.warn('Kategoriler yüklenemedi:', categoriesResponse.message);
+            setCategories([]);
+          }
+          
+          if (productsResponse.success && productsResponse.data) {
+            setProducts(productsResponse.data as unknown as LocalProduct[]);
+          } else {
+            console.warn('Ürünler yüklenemedi:', productsResponse.message);
+            setProducts([]);
+          }
+        } catch (error) {
+          console.error('Veri yükleme hatası:', error);
+          // Hata durumunda boş array'ler set et
+          setCategories([]);
+          setProducts([]);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    // user ve isAdmin değerlerinin tanımlı olduğundan emin ol
+    if (user !== null && typeof isAdmin !== 'undefined') {
+      fetchData();
+    }
+  }, [isAdmin, user]);
+
+  // Form handler'ları
+  const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setProductForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProductImages(e.target.files);
+  };
+
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!accessToken) {
+      alert('Giriş yapmanız gerekiyor');
+      return;
+    }
+
+    // Form validation
+    if (!productForm.name || !productForm.category || !productForm.price || !productForm.description || !productForm.stock) {
+      alert('Lütfen gerekli alanları doldurun');
+      return;
+    }
+
+    if (productForm.salePrice && parseFloat(productForm.salePrice) >= parseFloat(productForm.price)) {
+      alert('İndirimli fiyat normal fiyattan düşük olmalıdır');
+      return;
+    }
+
+    setSubmitLoading(true);
+    
+    try {
+      console.log('Gönderilecek status değeri:', productForm.status);
+      const formData = new FormData();
+      
+      // Form verilerini ekle
+      formData.append('name', productForm.name);
+      formData.append('category', productForm.category);
+      formData.append('price', productForm.price);
+      if (productForm.salePrice) formData.append('salePrice', productForm.salePrice);
+      formData.append('description', productForm.description);
+      formData.append('stock', productForm.stock);
+      if (productForm.sku) formData.append('sku', productForm.sku);
+      formData.append('status', productForm.status);
+      
+      // Resimleri ekle
+      if (productImages) {
+        for (let i = 0; i < productImages.length; i++) {
+          formData.append('images', productImages[i]);
+        }
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/products`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Ürün başarıyla eklendi!');
+        // Formu temizle
+        setProductForm({
+          name: '',
+          category: '',
+          price: '',
+          salePrice: '',
+          description: '',
+          stock: '',
+          sku: '',
+          status: 'active'
+        });
+        setProductImages(null);
+        
+        // Ürünleri yeniden yükle
+        const productsResponse = await getAllProducts();
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+        
+        // Add Product tab'ından Manage Products tab'ına geç
+        setActiveTab('manage-products');
+      } else {
+        alert('Hata: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Ürün ekleme hatası:', error);
+      alert('Ürün eklenirken bir hata oluştu');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
 
   const openAddressModal = () => {
     setAddressModal(true);
@@ -247,6 +465,109 @@ const MyAccount = () => {
                       </svg>
                       Account Details
                     </button>
+
+                    {/* Admin Sekmeler */}
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => setActiveTab("add-product")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "add-product"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M11 4.125C11.3797 4.125 11.6875 4.4328 11.6875 4.8125V10.3125H17.1875C17.5672 10.3125 17.875 10.6203 17.875 11C17.875 11.3797 17.5672 11.6875 17.1875 11.6875H11.6875V17.1875C11.6875 17.5672 11.3797 17.875 11 17.875C10.6203 17.875 10.3125 17.5672 10.3125 17.1875V11.6875H4.8125C4.4328 11.6875 4.125 11.3797 4.125 11C4.125 10.6203 4.4328 10.3125 4.8125 10.3125H10.3125V4.8125C10.3125 4.4328 10.6203 4.125 11 4.125Z"
+                              fill=""
+                            />
+                          </svg>
+                          Ürün Ekle
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("manage-products")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "manage-products"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M3.4375 4.8125C3.4375 4.4328 3.7453 4.125 4.125 4.125H17.875C18.2547 4.125 18.5625 4.4328 18.5625 4.8125C18.5625 5.1922 18.2547 5.5 17.875 5.5H4.125C3.7453 5.5 3.4375 5.1922 3.4375 4.8125Z"
+                              fill=""
+                            />
+                            <path
+                              d="M3.4375 11C3.4375 10.6203 3.7453 10.3125 4.125 10.3125H17.875C18.2547 10.3125 18.5625 10.6203 18.5625 11C18.5625 11.3797 18.2547 11.6875 17.875 11.6875H4.125C3.7453 11.6875 3.4375 11.3797 3.4375 11Z"
+                              fill=""
+                            />
+                            <path
+                              d="M3.4375 17.1875C3.4375 16.8078 3.7453 16.5 4.125 16.5H17.875C18.2547 16.5 18.5625 16.8078 18.5625 17.1875C18.5625 17.5672 18.2547 17.875 17.875 17.875H4.125C3.7453 17.875 3.4375 17.5672 3.4375 17.1875Z"
+                              fill=""
+                            />
+                          </svg>
+                          Ürün Yönetimi
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("manage-reviews")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "manage-reviews"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M3.4375 7.5625C3.4375 5.56802 5.06052 3.9375 7.0625 3.9375H14.9375C16.9395 3.9375 18.5625 5.56052 18.5625 7.5625V14.4375C18.5625 16.4395 16.9395 18.0625 14.9375 18.0625H7.0625C5.06052 18.0625 3.4375 16.4395 3.4375 14.4375V7.5625ZM7.0625 5.3125C5.8198 5.3125 4.8125 6.3198 4.8125 7.5625V14.4375C4.8125 15.6802 5.8198 16.6875 7.0625 16.6875H14.9375C16.1802 16.6875 17.1875 15.6802 17.1875 14.4375V7.5625C17.1875 6.3198 16.1802 5.3125 14.9375 5.3125H7.0625Z"
+                              fill=""
+                            />
+                            <path
+                              d="M9.625 9.625C9.625 9.24532 9.95532 8.9375 10.3125 8.9375H15.8125C16.1922 8.9375 16.5 9.24532 16.5 9.625C16.5 10.0047 16.1922 10.3125 15.8125 10.3125H10.3125C9.95532 10.3125 9.625 10.0047 9.625 9.625Z"
+                              fill=""
+                            />
+                            <path
+                              d="M9.625 12.375C9.625 11.9953 9.95532 11.6875 10.3125 11.6875H13.75C14.1297 11.6875 14.4375 11.9953 14.4375 12.375C14.4375 12.7547 14.1297 13.0625 13.75 13.0625H10.3125C9.95532 13.0625 9.625 12.7547 9.625 12.375Z"
+                              fill=""
+                            />
+                            <path
+                              d="M6.1875 9.625C6.1875 9.24532 6.51782 8.9375 6.875 8.9375H7.5625C7.94218 8.9375 8.25 9.24532 8.25 9.625C8.25 10.0047 7.94218 10.3125 7.5625 10.3125H6.875C6.51782 10.3125 6.1875 10.0047 6.1875 9.625Z"
+                              fill=""
+                            />
+                            <path
+                              d="M6.1875 12.375C6.1875 11.9953 6.51782 11.6875 6.875 11.6875H7.5625C7.94218 11.6875 8.25 11.9953 8.25 12.375C8.25 12.7547 7.94218 13.0625 7.5625 13.0625H6.875C6.51782 13.0625 6.1875 12.7547 6.1875 12.375Z"
+                              fill=""
+                            />
+                          </svg>
+                          Yorum Onaylama
+                        </button>
+                      </>
+                    )}
 
                     <button
                       onClick={() => setActiveTab("logout")}
@@ -683,7 +1004,7 @@ const MyAccount = () => {
                         name="firstName"
                         id="firstName"
                         placeholder="Jhon"
-                        value="Jhon"
+                        defaultValue="Jhon"
                         className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
                       />
                     </div>
@@ -698,7 +1019,7 @@ const MyAccount = () => {
                         name="lastName"
                         id="lastName"
                         placeholder="Deo"
-                        value="Deo"
+                        defaultValue="Deo"
                         className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
                       />
                     </div>
@@ -729,7 +1050,7 @@ const MyAccount = () => {
                             d="M2.41469 5.03569L2.41467 5.03571L2.41749 5.03846L7.76749 10.2635L8.0015 10.492L8.23442 10.2623L13.5844 4.98735L13.5844 4.98735L13.5861 4.98569C13.6809 4.89086 13.8199 4.89087 13.9147 4.98569C14.0092 5.08024 14.0095 5.21864 13.9155 5.31345C13.9152 5.31373 13.915 5.31401 13.9147 5.31429L8.16676 10.9622L8.16676 10.9622L8.16469 10.9643C8.06838 11.0606 8.02352 11.0667 8.00039 11.0667C7.94147 11.0667 7.89042 11.0522 7.82064 10.9991L2.08526 5.36345C1.99127 5.26865 1.99154 5.13024 2.08609 5.03569C2.18092 4.94086 2.31986 4.94086 2.41469 5.03569Z"
                             fill=""
                             stroke=""
-                            stroke-width="0.666667"
+                            strokeWidth="0.666667"
                           />
                         </svg>
                       </span>
@@ -809,12 +1130,722 @@ const MyAccount = () => {
               </form>
             </div>
             {/* <!-- details tab content end -->
+
+          <!-- add product tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "add-product" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Yeni Ürün Ekle
+                  </h2>
+                  
+                  <form className="space-y-6" onSubmit={handleProductSubmit}>
+                    {/* Ürün Adı */}
+                    <div>
+                      <label className="block mb-2.5 text-dark font-medium">
+                        Ürün Adı <span className="text-red">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={productForm.name}
+                        onChange={handleProductFormChange}
+                        placeholder="Ürün adını girin"
+                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                        required
+                        disabled={submitLoading}
+                      />
+                    </div>
+
+                    {/* Kategori Seçimi */}
+                    <div>
+                      <label className="block mb-2.5 text-dark font-medium">
+                        Kategori <span className="text-red">*</span>
+                      </label>
+                      <select 
+                        name="category"
+                        value={productForm.category}
+                        onChange={handleProductFormChange}
+                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                        required
+                        disabled={submitLoading}
+                      >
+                        <option value="">Kategori seçin</option>
+                        {categories.map((category) => (
+                          <option key={category._id} value={category._id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Fiyat */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block mb-2.5 text-dark font-medium">
+                          Fiyat (₺) <span className="text-red">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="price"
+                          value={productForm.price}
+                          onChange={handleProductFormChange}
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          required
+                          disabled={submitLoading}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block mb-2.5 text-dark font-medium">
+                          İndirimli Fiyat (₺)
+                        </label>
+                        <input
+                          type="number"
+                          name="salePrice"
+                          value={productForm.salePrice}
+                          onChange={handleProductFormChange}
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          disabled={submitLoading}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Açıklama */}
+                    <div>
+                      <label className="block mb-2.5 text-dark font-medium">
+                        Ürün Açıklaması <span className="text-red">*</span>
+                      </label>
+                      <textarea
+                        name="description"
+                        value={productForm.description}
+                        onChange={handleProductFormChange}
+                        rows={4}
+                        placeholder="Ürün açıklamasını girin"
+                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white resize-none"
+                        required
+                        disabled={submitLoading}
+                      />
+                    </div>
+
+                    {/* Stok */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block mb-2.5 text-dark font-medium">
+                          Stok Miktarı <span className="text-red">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="stock"
+                          value={productForm.stock}
+                          onChange={handleProductFormChange}
+                          min="0"
+                          placeholder="0"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          required
+                          disabled={submitLoading}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block mb-2.5 text-dark font-medium">
+                          SKU Kodu
+                        </label>
+                        <input
+                          type="text"
+                          name="sku"
+                          value={productForm.sku}
+                          onChange={handleProductFormChange}
+                          placeholder="SKU123"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          disabled={submitLoading}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Resim Yükleme */}
+                    <div>
+                      <label className="block mb-2.5 text-dark font-medium">
+                        Ürün Resimleri <span className="text-red">*</span>
+                      </label>
+                      <div className="border-2 border-dashed border-gray-3 rounded-lg p-6 text-center">
+                        <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <div className="text-sm text-gray-600">
+                          <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue hover:text-blue-dark">
+                            <span>Dosya seçin</span>
+                            <input 
+                              type="file" 
+                              className="sr-only" 
+                              multiple 
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              disabled={submitLoading}
+                            />
+                          </label>
+                          <p className="pl-1">veya sürükleyip bırakın</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF max 5MB</p>
+                        {productImages && productImages.length > 0 && (
+                          <div className="mt-3 text-sm text-green-600">
+                            {productImages.length} dosya seçildi
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Durum */}
+                    <div>
+                      <label className="block mb-2.5 text-dark font-medium">
+                        Ürün Durumu
+                      </label>
+                      <div className="flex items-center space-x-6">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="status"
+                            value="active"
+                            checked={productForm.status === 'active'}
+                            onChange={handleProductFormChange}
+                            className="h-4 w-4 text-blue border-gray-300 focus:ring-blue"
+                            disabled={submitLoading}
+                          />
+                          <span className="ml-2 text-dark">Aktif</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="status"
+                            value="draft"
+                            checked={productForm.status === 'draft'}
+                            onChange={handleProductFormChange}
+                            className="h-4 w-4 text-blue border-gray-300 focus:ring-blue"
+                            disabled={submitLoading}
+                          />
+                          <span className="ml-2 text-dark">Taslak</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button
+                        type="submit"
+                        disabled={submitLoading}
+                        className="inline-flex items-center justify-center font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submitLoading ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Kaydediliyor...
+                          </>
+                        ) : (
+                          'Ürünü Kaydet'
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submitLoading}
+                        className="inline-flex font-medium text-dark bg-gray-1 border border-gray-3 py-3 px-7 rounded-md ease-out duration-200 hover:bg-gray-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => {
+                          setProductForm({
+                            name: '',
+                            category: '',
+                            price: '',
+                            salePrice: '',
+                            description: '',
+                            stock: '',
+                            sku: '',
+                            status: 'active'
+                          });
+                          setProductImages(null);
+                        }}
+                      >
+                        İptal
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+            {/* <!-- add product tab content end -->
+
+          <!-- product management tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "manage-products" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Ürün Yönetimi
+                  </h2>
+                  
+                  {loading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Kategorilere göre ürünler */}
+                      {categories.map((category) => {
+                        const categoryProducts = products.filter(
+                          (product) => product.category._id === category._id
+                        );
+                        
+                        if (categoryProducts.length === 0) return null;
+                        
+                        return (
+                          <div key={category._id} className="border border-gray-3 rounded-lg overflow-hidden">
+                            <div className="bg-gray-1 px-4 py-3 border-b border-gray-3">
+                              <h3 className="font-medium text-lg text-dark">
+                                {category.name} ({categoryProducts.length} ürün)
+                              </h3>
+                            </div>
+                            
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Ürün
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Fiyat
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Stok
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Durum
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      İşlemler
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {categoryProducts.map((product) => (
+                                    <tr key={product._id} className="hover:bg-gray-50">
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                          <div className="flex-shrink-0 h-10 w-10">
+                                            <Image
+                                              className="h-10 w-10 rounded object-cover"
+                                              src={product.images?.[0]?.url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}` : "/images/products/default.png"}
+                                              alt={product.name}
+                                              width={40}
+                                              height={40}
+                                            />
+                                          </div>
+                                          <div className="ml-4">
+                                            <div className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                                              {product.name}
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                              SKU: {product.sku}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-gray-900">
+                                          {product.salePrice ? (
+                                            <>
+                                              <span className="text-red font-medium">{product.salePrice}₺</span>
+                                              <span className="text-gray-500 line-through ml-2">{product.price}₺</span>
+                                            </>
+                                          ) : (
+                                            <span className="font-medium">{product.price}₺</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <div className="text-sm text-gray-900">
+                                          {product.stock} adet
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                          product.status === 'active' 
+                                            ? 'bg-green-100 text-green-800'
+                                            : product.status === 'draft'
+                                            ? 'bg-yellow-100 text-yellow-800'
+                                            : 'bg-red-100 text-red-800'
+                                        }`}>
+                                          {product.status === 'active' ? 'Aktif' : 
+                                           product.status === 'draft' ? 'Taslak' : 'Pasif'}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex justify-end space-x-2">
+                                          <button
+                                            onClick={() => setEditProduct(product)}
+                                            className="text-blue hover:text-blue-dark transition-colors duration-200 px-3 py-1 rounded border border-blue hover:bg-blue hover:text-white"
+                                          >
+                                            Düzenle
+                                          </button>
+                                          <button
+                                            onClick={() => setDeleteProductId(product._id)}
+                                            className="text-red hover:text-red-dark transition-colors duration-200 px-3 py-1 rounded border border-red hover:bg-red hover:text-white"
+                                          >
+                                            Sil
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {products.length === 0 && (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500">Henüz ürün bulunmuyor.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* <!-- product management tab content end -->
+
+          <!-- manage reviews tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "manage-reviews" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Yorum Onaylama
+                  </h2>
+                  
+                  {/* Bekleyen Yorumlar */}
+                  <div className="space-y-4">
+                    {/* Örnek Yorum */}
+                    <div className="border border-gray-3 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue rounded-full flex items-center justify-center">
+                            <span className="text-white font-medium">AH</span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-dark">Ahmet Yılmaz</h4>
+                            <p className="text-sm text-gray-500">2 gün önce</p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                          Bekliyor
+                        </span>
+                      </div>
+                      
+                      <div className="mb-3">
+                        <div className="flex items-center mb-2">
+                          <div className="flex text-yellow-400">
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                          </div>
+                          <span className="ml-2 text-sm text-gray-600">(5/5)</span>
+                        </div>
+                        <p className="text-dark font-medium mb-1">iPhone 14 Pro - Harika bir telefon!</p>
+                      </div>
+                      
+                      <p className="text-gray-600 mb-4">
+                        Bu telefonu 3 aydır kullanıyorum ve çok memnunum. Kamera kalitesi harika, 
+                        batarya ömrü uzun ve performansı çok iyi. Kesinlikle tavsiye ederim.
+                      </p>
+                      
+                      <div className="flex space-x-3">
+                        <button className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                          Onayla
+                        </button>
+                        <button className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                          Reddet
+                        </button>
+                        <button className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">
+                          Detay
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Örnek Yorum 2 */}
+                    <div className="border border-gray-3 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-medium">MK</span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-dark">Melisa Kaya</h4>
+                            <p className="text-sm text-gray-500">1 hafta önce</p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                          Bekliyor
+                        </span>
+                      </div>
+                      
+                      <div className="mb-3">
+                        <div className="flex items-center mb-2">
+                          <div className="flex text-yellow-400">
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                            <svg className="w-4 h-4 text-gray-300 fill-current" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                            </svg>
+                          </div>
+                          <span className="ml-2 text-sm text-gray-600">(4/5)</span>
+                        </div>
+                        <p className="text-dark font-medium mb-1">MacBook Air M2 - İdeal laptop</p>
+                      </div>
+                      
+                      <p className="text-gray-600 mb-4">
+                        Çok hafif ve sessiz. Bataryası harika, günlük işlerimi rahatlıkla karşılıyor. 
+                        Sadece fiyatı biraz yüksek ama değer.
+                      </p>
+                      
+                      <div className="flex space-x-3">
+                        <button className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                          Onayla
+                        </button>
+                        <button className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                          Reddet
+                        </button>
+                        <button className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">
+                          Detay
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Yoksa boş durum */}
+                  {/* 
+                  <div className="text-center py-12">
+                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-dark mb-2">Bekleyen yorum bulunmuyor</h3>
+                    <p className="text-gray-500">Şu anda onay bekleyen herhangi bir yorum yok.</p>
+                  </div>
+                  */}
+                </div>
+              </div>
+            )}
+            {/* <!-- manage reviews tab content end -->
           <!--== user dashboard content end ==--> */}
           </div>
         </div>
       </section>
 
       <AddressModal isOpen={addressModal} closeModal={closeAddressModal} />
+      
+      {/* Ürün Düzenleme Popup'ı */}
+      {editProduct && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-medium text-dark">Ürün Düzenle</h3>
+                <button
+                  onClick={() => setEditProduct(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <form className="space-y-4">
+                <div>
+                  <label className="block mb-2 text-dark font-medium">Ürün Adı</label>
+                  <input
+                    type="text"
+                    defaultValue={editProduct.name}
+                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block mb-2 text-dark font-medium">Kategori</label>
+                  <select 
+                    defaultValue={editProduct.category._id}
+                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                  >
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block mb-2 text-dark font-medium">Fiyat (₺)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={editProduct.price}
+                      className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-dark font-medium">İndirimli Fiyat (₺)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={editProduct.salePrice || ''}
+                      className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block mb-2 text-dark font-medium">Açıklama</label>
+                  <textarea
+                    rows={3}
+                    defaultValue={editProduct.description}
+                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue resize-none"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block mb-2 text-dark font-medium">Stok</label>
+                    <input
+                      type="number"
+                      defaultValue={editProduct.stock}
+                      className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-dark font-medium">SKU</label>
+                    <input
+                      type="text"
+                      defaultValue={editProduct.sku}
+                      className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block mb-2 text-dark font-medium">Yeni Resimler</label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Mevcut resimlere ek olarak yeni resimler ekleyebilirsiniz</p>
+                </div>
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditProduct(null)}
+                    className="px-4 py-2 text-gray-600 border border-gray-3 rounded-md hover:bg-gray-50"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark"
+                  >
+                    Güncelle
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Ürün Silme Onay Popup'ı */}
+      {deleteProductId && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-dark">Ürünü Sil</h3>
+                </div>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Bu ürünü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+              </p>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setDeleteProductId(null)}
+                  className="px-4 py-2 text-gray-600 border border-gray-3 rounded-md hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={() => {
+                    // TODO: Silme işlemi
+                    console.log('Silme işlemi:', deleteProductId);
+                    setDeleteProductId(null);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  Sil
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -5,21 +5,28 @@ import Link from "next/link";
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  preserveAuth?: boolean; // Auth durumunu korumak için
 }
 
 interface State {
   hasError: boolean;
   error?: Error;
   errorInfo?: ErrorInfo;
+  retryCount: number;
 }
 
 class ErrorBoundary extends Component<Props, State> {
+  private retryTimeout: NodeJS.Timeout | null = null;
+
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { 
+      hasError: false,
+      retryCount: 0
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     // Update state so the next render will show the fallback UI
     return { hasError: true, error };
   }
@@ -36,6 +43,50 @@ class ErrorBoundary extends Component<Props, State> {
     // You can also log the error to an error reporting service here
     // Example: errorReportingService.captureException(error, { extra: errorInfo });
   }
+
+  componentDidUpdate(prevProps: Props, prevState: State) {
+    // Otomatik retry mekanizması
+    if (this.state.hasError && !prevState.hasError && this.state.retryCount < 3) {
+      this.retryTimeout = setTimeout(() => {
+        console.log(`Error boundary retry attempt ${this.state.retryCount + 1}`);
+        this.setState({ 
+          hasError: false, 
+          error: undefined, 
+          errorInfo: undefined,
+          retryCount: this.state.retryCount + 1 
+        });
+      }, 2000);
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+    }
+  }
+
+  handleRetry = () => {
+    this.setState({ 
+      hasError: false, 
+      error: undefined, 
+      errorInfo: undefined,
+      retryCount: this.state.retryCount + 1 
+    });
+  };
+
+  handleReload = () => {
+    // Auth durumunu korumak için localStorage'ı kontrol et
+    if (this.props.preserveAuth) {
+      const token = localStorage.getItem('authToken');
+      const user = localStorage.getItem('authUser');
+      
+      if (token && user) {
+        console.log('Auth korunarak sayfa yenileniyor...');
+      }
+    }
+    
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
@@ -54,11 +105,23 @@ class ErrorBoundary extends Component<Props, State> {
               <p className="mt-2 text-sm text-gray-600">
                 Beklenmeyen bir hata oluştu. Lütfen sayfayı yenileyin veya ana sayfaya dönün.
               </p>
+              {this.state.retryCount > 0 && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Otomatik yeniden deneme: {this.state.retryCount}/3
+                </p>
+              )}
             </div>
             
             <div className="mt-8 space-y-4">
               <button
-                onClick={() => window.location.reload()}
+                onClick={this.handleRetry}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue hover:bg-blue-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue"
+              >
+                Tekrar Dene
+              </button>
+              
+              <button
+                onClick={this.handleReload}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-dark hover:bg-dark-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark"
               >
                 Sayfayı Yenile

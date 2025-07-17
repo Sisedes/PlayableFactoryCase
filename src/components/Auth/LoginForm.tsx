@@ -12,7 +12,10 @@ const LoginForm = () => {
     error, 
     validationErrors, 
     clearError, 
-    clearValidationErrors 
+    clearValidationErrors,
+    user,
+    isAuthenticated,
+    accessToken
   } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -30,7 +33,6 @@ const LoginForm = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Input değiştiğinde hataları temizle
     if (error) clearError();
     if (validationErrors) clearValidationErrors();
   };
@@ -38,14 +40,26 @@ const LoginForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Login işlemi başlıyor...');
+    
     const result = await login({
       email: formData.email,
       password: formData.password
     });
 
+    console.log('Login sonucu:', result);
+    console.log('Auth state sonrası:', {
+      user,
+      isAuthenticated,
+      accessToken: accessToken ? 'exists' : 'null'
+    });
+
     if (result.success) {
+      console.log('Login başarılı, ana sayfaya yönlendiriliyor...');
       // Login başarılı - ana sayfaya yönlendir
       router.push('/');
+    } else {
+      console.error('Login başarısız:', result.message);
     }
   };
 

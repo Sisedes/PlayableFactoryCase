@@ -14,10 +14,6 @@ declare global {
   }
 }
 
-/**
- * JWT Token doğrulama middleware'i
- * Authorization header'ında Bearer token bekler
- */
 export const authenticateToken = async (
   req: Request, 
   res: Response, 
@@ -64,10 +60,6 @@ export const authenticateToken = async (
   }
 };
 
-/**
- * Admin rolü kontrol middleware'i
- * authenticateToken'dan sonra
- */
 export const requireAdmin = (
   req: Request, 
   res: Response, 
@@ -92,10 +84,6 @@ export const requireAdmin = (
   next();
 };
 
-/**
- * Customer rolü kontrol middleware'i
- * authenticateToken'dan sonra kullanılmalı
- */
 export const requireCustomer = (
   req: Request, 
   res: Response, 
@@ -120,10 +108,6 @@ export const requireCustomer = (
   next();
 };
 
-/**
- * Kullanıcının kendi verilerine erişip erişemediğini kontrol eden middleware
- * URL'deki :userId parametresi ile JWT'deki userId'yi karşılaştırır
- */
 export const requireOwnership = (
   req: Request, 
   res: Response, 
@@ -155,9 +139,7 @@ export const requireOwnership = (
   next();
 };
 
-/**
- * E-posta doğrulaması yapılmış kullanıcıları kontrol eden middleware
- */
+
 export const requireEmailVerification = async (
   req: Request, 
   res: Response, 
@@ -200,11 +182,6 @@ export const requireEmailVerification = async (
   }
 };
 
-/**
- * Optional authentication middleware
- * Token varsa doğrula, yoksa işleme devam et
- * Hem giriş yapmış hem de misafir kullanıcıların erişebileceği endpoint'ler için
- */
 export const optionalAuth = async (
   req: Request, 
   res: Response, 
@@ -233,7 +210,6 @@ export const optionalAuth = async (
         };
       }
     } catch (tokenError) {
-      // Token geçersizse misafir kullanıcı olarak devam et
       console.warn('Invalid optional token:', tokenError);
     }
 

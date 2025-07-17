@@ -8,7 +8,8 @@ import {
   verifyEmail,
   forgotPassword,
   resetPassword,
-  getMe
+  getMe,
+  resendVerificationByEmail
 } from '../controllers/authController';
 import {
   authenticateToken,
@@ -29,7 +30,7 @@ const router = express.Router();
 // Rate limiters
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 5, // 15 dakikada maksimum 5 deneme
+  max: 50, // 15 dakikada maksimum 50 deneme (development için artırıldı)
   message: {
     success: false,
     message: 'Çok fazla deneme yapıldı. Lütfen 15 dakika sonra tekrar deneyin.'
@@ -162,7 +163,7 @@ router.post('/upload-profile-image',
 
       const fileUrl = `/uploads/profiles/${req.file?.filename}`;
       
-      res.status(200).json({
+  res.status(200).json({
         success: true,
         message: 'Profil resmi başarıyla yüklendi',
         data: {
@@ -194,7 +195,7 @@ router.get('/check-auth',
       success: true,
       isAuthenticated: !!req.user,
       user: req.user || null
-    });
+  });
   }
 );
 
@@ -238,7 +239,7 @@ router.post('/resend-verification',
           verificationToken, 
           user?.profile.firstName
         );
-        res.status(200).json({
+  res.status(200).json({
           success: true,
           message: 'Doğrulama e-postası yeniden gönderildi'
         });
@@ -257,6 +258,16 @@ router.post('/resend-verification',
       });
     }
   }
+);
+
+/**
+ * @route   post /api/auth/resend-verification-by-email
+ * @desc    
+ * @access  
+ */
+router.post('/resend-verification-by-email',
+  authLimiter,
+  resendVerificationByEmail
 );
 
 export default router; 

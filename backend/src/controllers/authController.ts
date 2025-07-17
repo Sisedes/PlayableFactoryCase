@@ -124,6 +124,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // E-posta doğrulama kontrolü
+    if (!user.authentication.isEmailVerified) {
+      res.status(401).json({
+        success: false,
+        message: 'E-posta adresinizi doğrulamanız gerekiyor. E-posta kutunuzu kontrol edin.',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
+      return;
+    }
+
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       await user.increaseLoginAttempts();
@@ -425,6 +435,68 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({
       success: false,
       message: 'Kullanıcı bilgileri alınamadı'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/auth/resend-verification-by-email
+ * @access  
+ */
+export const resendVerificationByEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        message: 'E-posta adresi gereklidir'
+      });
+      return;
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'Bu e-posta adresi ile kayıtlı bir kullanıcı bulunamadı'
+      });
+      return;
+    }
+
+    if (user.authentication.isEmailVerified) {
+      res.status(400).json({
+        success: false,
+        message: 'E-posta adresiniz zaten doğrulanmış'
+      });
+      return;
+    }
+
+    const verificationToken = user.createEmailVerificationToken();
+    await user.save();
+
+    try {
+      const { sendVerificationEmail } = require('../utils/emailService');
+      await sendVerificationEmail(user.email, verificationToken, user.profile.firstName);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Doğrulama e-postası tekrar gönderildi. E-posta kutunuzu kontrol edin.'
+      });
+    } catch (emailError) {
+      console.error('Email gönderme hatası:', emailError);
+      res.status(500).json({
+        success: false,
+        message: 'E-posta gönderilirken hata oluştu. Lütfen tekrar deneyin.'
+      });
+    }
+  } catch (error) {
+    console.error('Resend verification by email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Doğrulama e-postası gönderilirken hata oluştu'
     });
   }
 }; 

@@ -70,13 +70,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const storedToken = getStoredToken();
       const storedUser = getStoredUser();
       
+      console.log('Auth initialization başladı:', { 
+        hasToken: !!storedToken, 
+        hasUser: !!storedUser 
+      });
+      
       if (storedToken && isTokenValid(storedToken) && storedUser) {
+        // İlk olarak local storage'dan verileri set et
         set({
           accessToken: storedToken,
           user: storedUser,
           isAuthenticated: true
         });
         
+        console.log("Local storage'dan auth restore edildi");
+        
+        // Arka planda user verilerini güncelle
         try {
           const response = await getCurrentUser(storedToken);
           if (response.success && response.data) {
@@ -92,11 +101,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             };
             set({ user });
             setStoredUser(user);
+            console.log("User verileri API'den güncellendi");
+          } else {
+            console.warn("User verileri API'den alınamadı, local storage korundu");
           }
         } catch (error) {
-          console.warn('User data refresh failed during initialization');
+          console.warn('User data refresh failed during initialization, using stored data:', error);
+          // Hata durumunda local storage verilerini koru
         }
       } else {
+        console.log('Auth verileri bulunamadı veya geçersiz, temizleniyor');
         clearStoredAuth();
         set({
           user: null,
@@ -106,13 +120,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
-      clearStoredAuth();
-      set({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
-        error: 'Kimlik doğrulama başlatılamadı'
-      });
+      // Kritik hata durumunda bile local storage'ı kontrol et
+      try {
+        const fallbackToken = getStoredToken();
+        const fallbackUser = getStoredUser();
+        
+        if (fallbackToken && fallbackUser) {
+          console.log('Fallback auth restore yapılıyor');
+          set({
+            accessToken: fallbackToken,
+            user: fallbackUser,
+            isAuthenticated: true,
+            error: null
+          });
+        } else {
+          clearStoredAuth();
+          set({
+            user: null,
+            accessToken: null,
+            isAuthenticated: false,
+            error: 'Kimlik doğrulama başlatılamadı'
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Fallback auth restore failed:', fallbackError);
+        clearStoredAuth();
+        set({
+          user: null,
+          accessToken: null,
+          isAuthenticated: false,
+          error: 'Kimlik doğrulama başlatılamadı'
+        });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -207,6 +246,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // localStorage'ı temizle
+      clearStoredAuth();
+      
       set({
         user: null,
         accessToken: null,

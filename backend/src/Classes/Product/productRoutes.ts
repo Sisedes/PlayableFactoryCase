@@ -4,8 +4,13 @@ import {
   getProductById, 
   getProductsByCategory,
   getPopularProducts,
-  getLatestProducts
+  getLatestProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct
 } from './productsController';
+import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
+import { uploadMultiple } from '../../middleware/upload';
 
 const router = express.Router();
 
@@ -43,5 +48,27 @@ router.get('/category/:categoryId', getProductsByCategory);
  * @access  
  */
 router.get('/:id', getProductById);
+
+// Admin Routes
+/**
+ * @route   post /api/products
+ * @desc    
+ * @access  
+ */
+router.post('/', authenticateToken, requireAdmin, uploadMultiple, createProduct);
+
+/**
+ * @route   put /api/products/:id
+ * @desc    
+ * @access  
+ */
+router.put('/:id', authenticateToken, requireAdmin, uploadMultiple, updateProduct);
+
+/**
+ * @route   delete /api/products/:id
+ * @desc    
+ * @access  
+ */
+router.delete('/:id', authenticateToken, requireAdmin, deleteProduct);
 
 export default router; 
