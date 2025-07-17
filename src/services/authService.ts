@@ -1,6 +1,5 @@
 /**
  * Authentication Service
- * Kullanıcı kimlik doğrulama ve hesap yönetimi işlemleri
  */
 
 export interface LoginRequest {
@@ -28,6 +27,11 @@ export interface User {
   emailVerified: boolean;
   avatar?: string;
   role: string;
+  profile?: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+  };
 }
 
 export interface AuthResponse {

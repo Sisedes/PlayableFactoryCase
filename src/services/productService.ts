@@ -34,14 +34,10 @@ interface ProductFilters {
   inStock?: boolean;
 }
 
-/**
- * Tüm ürünleri getirir (filtreleme, sayfalama, arama ile)
- */
 export const getAllProducts = async (filters: ProductFilters = {}): Promise<ApiResponse<Product[]>> => {
   try {
     const queryParams = new URLSearchParams();
     
-    // Filtreleri query parametrelerine dönüştür
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         queryParams.append(key, value.toString());
@@ -70,9 +66,7 @@ export const getAllProducts = async (filters: ProductFilters = {}): Promise<ApiR
   }
 };
 
-/**
- * ID'ye göre tekil ürün getirir
- */
+
 export const getProductById = async (id: string): Promise<ApiResponse<{ product: Product; relatedProducts: Product[] }>> => {
   try {
     if (!id) {
@@ -101,9 +95,7 @@ export const getProductById = async (id: string): Promise<ApiResponse<{ product:
   }
 };
 
-/**
- * Popüler ürünleri getirir
- */
+
 export const getPopularProducts = async (limit: number = 8): Promise<ApiResponse<Product[]>> => {
   try {
     const response = await fetch(`${API_BASE}/products/popular?limit=${limit}`, {
@@ -125,9 +117,6 @@ export const getPopularProducts = async (limit: number = 8): Promise<ApiResponse
   }
 };
 
-/**
- * En yeni ürünleri getirir
- */
 export const getLatestProducts = async (limit: number = 8): Promise<ApiResponse<Product[]>> => {
   try {
     const response = await fetch(`${API_BASE}/products/latest?limit=${limit}`, {
@@ -149,9 +138,6 @@ export const getLatestProducts = async (limit: number = 8): Promise<ApiResponse<
   }
 };
 
-/**
- * Kategoriye göre ürünleri getirir
- */
 export const getProductsByCategory = async (
   categoryId: string, 
   filters: Omit<ProductFilters, 'category'> = {}
@@ -195,9 +181,6 @@ export const getProductsByCategory = async (
   }
 };
 
-/**
- * Ürün arama işlemi
- */
 export const searchProducts = async (
   searchTerm: string, 
   filters: Omit<ProductFilters, 'search'> = {}
@@ -215,9 +198,7 @@ export const searchProducts = async (
   }
 };
 
-/**
- * Fiyat aralığına göre ürünleri getirir
- */
+
 export const getProductsByPriceRange = async (
   minPrice: number,
   maxPrice: number,

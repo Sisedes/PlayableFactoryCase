@@ -58,6 +58,7 @@ interface AuthState {
   stopTokenValidation: () => void;
   forceLogout: () => void;
   setUser: (user: User) => void;
+  updateUserProfile: (profileData: { firstName?: string; lastName?: string; phone?: string }) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -421,6 +422,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     setStoredUser(user);
   },
 
+  updateUserProfile: (profileData: { firstName?: string; lastName?: string; phone?: string }) => {
+    const { user } = get();
+    if (!user) return;
+
+    const updatedUser = {
+      ...user,
+      firstName: profileData.firstName !== undefined ? profileData.firstName : user.firstName,
+      lastName: profileData.lastName !== undefined ? profileData.lastName : user.lastName,
+      phone: profileData.phone !== undefined ? profileData.phone : user.phone,
+    };
+
+    set({ user: updatedUser });
+    setStoredUser(updatedUser);
+  },
+
   validateCurrentToken: async () => {
     const { accessToken } = get();
     if (!accessToken) return false;
@@ -515,6 +531,7 @@ export const useAuth = () => {
     clearError: authStore.clearError,
     clearValidationErrors: authStore.clearValidationErrors,
     setUser: authStore.setUser,
+    updateUserProfile: authStore.updateUserProfile,
     
     // Token validation fonksiyonları
     validateCurrentToken: authStore.validateCurrentToken,

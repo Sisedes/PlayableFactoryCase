@@ -14,28 +14,27 @@ export interface IUser extends Document {
   addresses: IAddress[];
   preferences: {
     favoriteCategories: Types.ObjectId[];
+    favoriteProducts: Types.ObjectId[];
     newsletter: boolean;
   };
   authentication: {
     isEmailVerified: boolean;
     emailVerificationToken?: string;
     emailVerificationExpires?: Date | null;
-    passwordResetToken?: string;
+    passwordResetToken?: string | null;
     passwordResetExpires?: Date | null;
     lastLogin?: Date;
     loginAttempts: number;
-    lockUntil?: Date | undefined;
+    lockUntil?: Date | null;
   };
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
   
-  // Virtual properties
   fullName: string;
   isLocked: boolean;
   defaultAddress?: IAddress;
   
-  // Instance methods
   comparePassword(candidatePassword: string): Promise<boolean>;
   createEmailVerificationToken(): string;
   createPasswordResetToken(): string;
@@ -43,7 +42,7 @@ export interface IUser extends Document {
   resetLoginAttempts(): Promise<void>;
 }
 
-// User Model Static Methods Interface
+// User Model 
 export interface IUserModel {
   findByEmail(email: string): Promise<IUser | null>;
   findActiveUsers(): Promise<IUser[]>;
@@ -126,15 +125,15 @@ export interface IProductVariant {
 }
 
 export interface IVariantOption {
-  name: string; // size, color, etc.
-  value: string; // M, red, etc.
+  name: string;
+  value: string;
 }
 
 // ===== CART TYPES =====
 export interface ICart extends Document {
   _id: Types.ObjectId;
-  user?: Types.ObjectId; // null for guest users
-  sessionId?: string; // for guest users
+  user?: Types.ObjectId;
+  sessionId?: string;
   items: ICartItem[];
   totals: {
     subtotal: number;

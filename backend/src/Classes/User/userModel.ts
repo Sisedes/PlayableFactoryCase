@@ -132,6 +132,10 @@ const userSchema = new Schema<IUser>({
       type: Schema.Types.ObjectId,
       ref: 'Category'
     }],
+    favoriteProducts: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Product'
+    }],
     newsletter: {
       type: Boolean,
       default: true

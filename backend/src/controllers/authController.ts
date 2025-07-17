@@ -389,7 +389,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     user.authentication.passwordResetToken = '';
     user.authentication.passwordResetExpires = null;
     user.authentication.loginAttempts = 0;
-    user.authentication.lockUntil = undefined;
+    user.authentication.lockUntil = null;
     await user.save();
 
     res.status(200).json({

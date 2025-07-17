@@ -17,8 +17,20 @@ import {
   Address,
   AddressFormData 
 } from "@/services/addressService";
+import { 
+  updateProfile, 
+  sendPasswordResetCode, 
+  resetPasswordWithCode,
+  ProfileUpdateData 
+} from "@/services/userService";
+import { 
+  getFavoriteProducts, 
+  addToFavorites, 
+  removeFromFavorites,
+  FavoriteProduct 
+} from "@/services/favoriteService";
+import PasswordResetModal from "./PasswordResetModal";
 
-// Local types for this component
 interface LocalCategory {
   _id: string;
   name: string;
@@ -66,20 +78,18 @@ interface LocalProduct {
 }
 
 const MyAccount = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("favorites");
   const [addressModal, setAddressModal] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   
-  // Yeni state'ler
   const [categories, setCategories] = useState<LocalCategory[]>([]);
   const [products, setProducts] = useState<LocalProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [editProduct, setEditProduct] = useState<LocalProduct | null>(null);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all'); // Seçilen kategori
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Ürün ekleme formu state'leri
   const [productForm, setProductForm] = useState({
     name: '',
     category: '',
@@ -93,15 +103,27 @@ const MyAccount = () => {
   const [productImages, setProductImages] = useState<FileList | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  // Adres yönetimi state'leri
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [addressModalLoading, setAddressModalLoading] = useState(false);
 
-  const { user, accessToken, isAdmin } = useAuth();
+  const { user, accessToken, isAdmin, updateUserProfile } = useAuth();
 
-  // Kategorileri ve ürünleri yükle
+  const [profileForm, setProfileForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: ''
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+
+  const [passwordResetModal, setPasswordResetModal] = useState(false);
+  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
+
+  const [favoriteProducts, setFavoriteProducts] = useState<FavoriteProduct[]>([]);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       if (isAdmin) {
@@ -135,7 +157,6 @@ const MyAccount = () => {
           }
         } catch (error) {
           console.error('Veri yükleme hatası:', error);
-          // Hata durumunda boş array'ler set et
           setCategories([]);
           setProducts([]);
         } finally {
@@ -144,14 +165,19 @@ const MyAccount = () => {
       }
     };
 
-    // user ve isAdmin değerlerinin tanımlı olduğundan emin ol
     if (user !== null && typeof isAdmin !== 'undefined' && accessToken) {
       fetchData();
-      loadAddresses(); // Kullanıcının adreslerini yükle
+      loadAddresses();
+      loadFavoriteProducts();
+      
+      setProfileForm({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        phone: user.phone || ''
+      });
     }
   }, [isAdmin, user, accessToken]);
 
-  // Form handler'ları
   const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setProductForm(prev => ({
@@ -172,7 +198,6 @@ const MyAccount = () => {
       return;
     }
 
-    // Form validation
     if (!productForm.name || !productForm.category || !productForm.price || !productForm.description || !productForm.stock) {
       alert('Lütfen gerekli alanları doldurun');
       return;
@@ -189,7 +214,6 @@ const MyAccount = () => {
       console.log('Gönderilecek status değeri:', productForm.status);
       const formData = new FormData();
       
-      // Form verilerini ekle
       formData.append('name', productForm.name);
       formData.append('category', productForm.category);
       formData.append('price', productForm.price);
@@ -199,7 +223,6 @@ const MyAccount = () => {
       if (productForm.sku) formData.append('sku', productForm.sku);
       formData.append('status', productForm.status);
       
-      // Resimleri ekle
       if (productImages) {
         for (let i = 0; i < productImages.length; i++) {
           formData.append('images', productImages[i]);
@@ -218,7 +241,6 @@ const MyAccount = () => {
       
       if (result.success) {
         alert('Ürün başarıyla eklendi!');
-        // Formu temizle
         setProductForm({
           name: '',
           category: '',
@@ -231,13 +253,11 @@ const MyAccount = () => {
         });
         setProductImages(null);
         
-        // Ürünleri yeniden yükle
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
         }
         
-        // Add Product tab'ından Manage Products tab'ına geç
         setActiveTab('manage-products');
       } else {
         alert('Hata: ' + result.message);
@@ -283,13 +303,11 @@ const MyAccount = () => {
     
     setResendLoading(false);
     
-    // Mesajı 5 saniye sonra temizle
     setTimeout(() => {
       setResendMessage(null);
     }, 5000);
   };
 
-  // Adres yönetimi fonksiyonları
   const loadAddresses = async () => {
     if (!accessToken) return;
     
@@ -313,15 +331,13 @@ const MyAccount = () => {
     try {
       let response;
       if (editingAddress) {
-        // Adres güncelleme
         response = await updateAddress(editingAddress._id!, addressData, accessToken);
       } else {
-        // Yeni adres ekleme
         response = await addAddress(addressData, accessToken);
       }
 
       if (response.success) {
-        await loadAddresses(); // Adresleri yeniden yükle
+        await loadAddresses();
         alert(response.message || (editingAddress ? 'Adres güncellendi' : 'Adres eklendi'));
       } else {
         alert(response.message || 'İşlem başarısız');
@@ -340,7 +356,7 @@ const MyAccount = () => {
     try {
       const response = await deleteAddress(addressId, accessToken);
       if (response.success) {
-        await loadAddresses(); // Adresleri yeniden yükle
+        await loadAddresses();
         alert('Adres silindi');
       } else {
         alert(response.message || 'Adres silinemedi');
@@ -357,7 +373,7 @@ const MyAccount = () => {
     try {
       const response = await setDefaultAddress(addressId, accessToken);
       if (response.success) {
-        await loadAddresses(); // Adresleri yeniden yükle
+        await loadAddresses();
         alert('Varsayılan adres güncellendi');
       } else {
         alert(response.message || 'Varsayılan adres güncellenemedi');
@@ -365,6 +381,126 @@ const MyAccount = () => {
     } catch (error) {
       console.error('Varsayılan adres ayarlama hatası:', error);
       alert('Varsayılan adres ayarlanırken hata oluştu');
+    }
+  };
+
+  const handleProfileFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProfileForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessToken) return;
+
+    setProfileLoading(true);
+    setProfileMessage(null);
+
+    try {
+      const response = await updateProfile(profileForm, accessToken);
+      if (response.success) {
+        setProfileMessage('Profil başarıyla güncellendi');
+        updateUserProfile(profileForm);
+      } else {
+        setProfileMessage(response.message || 'Profil güncellenirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Profil güncelleme hatası:', error);
+      setProfileMessage('Profil güncellenirken hata oluştu');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleSendResetCode = async (email: string) => {
+    if (!accessToken) return;
+
+    setPasswordResetLoading(true);
+    try {
+      const response = await sendPasswordResetCode({ email }, accessToken);
+      if (response.success) {
+        alert(response.message || 'Kod gönderildi');
+      } else {
+        alert(response.message || 'Kod gönderilirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Kod gönderme hatası:', error);
+      alert('Kod gönderilirken hata oluştu');
+    } finally {
+      setPasswordResetLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (code: string, newPassword: string) => {
+    if (!accessToken) return;
+
+    setPasswordResetLoading(true);
+    try {
+      const response = await resetPasswordWithCode({ code, newPassword }, accessToken);
+      if (response.success) {
+        alert(response.message || 'Parola başarıyla güncellendi');
+        setPasswordResetModal(false);
+      } else {
+        alert(response.message || 'Parola güncellenirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Parola güncelleme hatası:', error);
+      alert('Parola güncellenirken hata oluştu');
+    } finally {
+      setPasswordResetLoading(false);
+    }
+  };
+
+  const loadFavoriteProducts = async () => {
+    if (!accessToken) return;
+    
+    setFavoritesLoading(true);
+    try {
+      const response = await getFavoriteProducts(accessToken);
+      if (response.success && response.data) {
+        setFavoriteProducts(response.data);
+      }
+    } catch (error) {
+      console.error('Favori ürünler yüklenirken hata:', error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
+
+  const handleAddToFavorites = async (productId: string) => {
+    if (!accessToken) return;
+
+    try {
+      const response = await addToFavorites(productId, accessToken);
+      if (response.success) {
+        await loadFavoriteProducts();
+        alert(response.message || 'Ürün favorilere eklendi');
+      } else {
+        alert(response.message || 'Ürün favorilere eklenemedi');
+      }
+    } catch (error) {
+      console.error('Favorilere ekleme hatası:', error);
+      alert('Ürün favorilere eklenirken hata oluştu');
+    }
+  };
+
+  const handleRemoveFromFavorites = async (productId: string) => {
+    if (!accessToken || !confirm('Bu ürünü favorilerden çıkarmak istediğinizden emin misiniz?')) return;
+
+    try {
+      const response = await removeFromFavorites(productId, accessToken);
+      if (response.success) {
+        await loadFavoriteProducts();
+        alert('Ürün favorilerden çıkarıldı');
+      } else {
+        alert(response.message || 'Ürün favorilerden çıkarılamadı');
+      }
+    } catch (error) {
+      console.error('Favorilerden çıkarma hatası:', error);
+      alert('Ürün favorilerden çıkarılırken hata oluştu');
     }
   };
 
@@ -399,9 +535,9 @@ const MyAccount = () => {
                 <div className="p-4 sm:p-7.5 xl:p-9">
                   <div className="flex flex-wrap xl:flex-nowrap xl:flex-col gap-4">
                     <button
-                      onClick={() => setActiveTab("dashboard")}
+                      onClick={() => setActiveTab("favorites")}
                       className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                        activeTab === "dashboard"
+                        activeTab === "favorites"
                           ? "text-white bg-blue"
                           : "text-dark-2 bg-gray-1"
                       }`}
@@ -415,31 +551,11 @@ const MyAccount = () => {
                         xmlns="http://www.w3.org/2000/svg"
                       >
                         <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M5.91002 1.60413C5.08642 1.6041 4.39962 1.60408 3.85441 1.67738C3.27893 1.75475 2.75937 1.92495 2.34185 2.34246C1.92434 2.75998 1.75414 3.27954 1.67677 3.85502C1.60347 4.40023 1.60349 5.08701 1.60352 5.9106V6.00596C1.60349 6.82956 1.60347 7.51636 1.67677 8.06157C1.75414 8.63705 1.92434 9.15661 2.34185 9.57413C2.75937 9.99164 3.27893 10.1618 3.85441 10.2392C4.39962 10.3125 5.0864 10.3125 5.90999 10.3125H6.00535C6.82894 10.3125 7.51575 10.3125 8.06096 10.2392C8.63644 10.1618 9.156 9.99164 9.57352 9.57413C9.99103 9.15661 10.1612 8.63705 10.2386 8.06157C10.3119 7.51636 10.3119 6.82958 10.3119 6.00599V5.91063C10.3119 5.08704 10.3119 4.40023 10.2386 3.85502C10.1612 3.27954 9.99103 2.75998 9.57352 2.34246C9.156 1.92495 8.63644 1.75475 8.06096 1.67738C7.51575 1.60408 6.82897 1.6041 6.00538 1.60413H5.91002ZM3.31413 3.31474C3.43358 3.19528 3.61462 3.09699 4.03763 3.04012C4.48041 2.98059 5.07401 2.97913 5.95768 2.97913C6.84136 2.97913 7.43496 2.98059 7.87774 3.04012C8.30075 3.09699 8.48179 3.19528 8.60124 3.31474C8.7207 3.43419 8.81899 3.61523 8.87586 4.03824C8.93539 4.48102 8.93685 5.07462 8.93685 5.9583C8.93685 6.84197 8.93539 7.43557 8.87586 7.87835C8.81899 8.30136 8.7207 8.4824 8.60124 8.60186C8.48179 8.72131 8.30075 8.8196 7.87774 8.87647C7.43496 8.936 6.84136 8.93746 5.95768 8.93746C5.07401 8.93746 4.48041 8.936 4.03763 8.87647C3.61462 8.8196 3.43358 8.72131 3.31413 8.60186C3.19467 8.4824 3.09638 8.30136 3.03951 7.87835C2.97998 7.43557 2.97852 6.84197 2.97852 5.9583C2.97852 5.07462 2.97998 4.48102 3.03951 4.03824C3.09638 3.61523 3.19467 3.43419 3.31413 3.31474Z"
-                          fill=""
-                        />
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M15.9934 11.6875C15.1697 11.6874 14.483 11.6874 13.9377 11.7607C13.3623 11.8381 12.8427 12.0083 12.4252 12.4258C12.0077 12.8433 11.8375 13.3629 11.7601 13.9384C11.6868 14.4836 11.6868 15.1704 11.6869 15.994V16.0893C11.6868 16.9129 11.6868 17.5997 11.7601 18.1449C11.8375 18.7204 12.0077 19.2399 12.4252 19.6575C12.8427 20.075 13.3623 20.2452 13.9377 20.3225C14.4829 20.3958 15.1697 20.3958 15.9933 20.3958H16.0887C16.9123 20.3958 17.5991 20.3958 18.1443 20.3225C18.7198 20.2452 19.2393 20.075 19.6569 19.6575C20.0744 19.2399 20.2446 18.7204 20.3219 18.1449C20.3952 17.5997 20.3952 16.913 20.3952 16.0894V15.994C20.3952 15.1704 20.3952 14.4836 20.3219 13.9384C20.2446 13.3629 20.0744 12.8433 19.6569 12.4258C19.2393 12.0083 18.7198 11.8381 18.1443 11.7607C17.5991 11.6874 16.9123 11.6874 16.0887 11.6875H15.9934ZM13.3975 13.3981C13.5169 13.2786 13.698 13.1803 14.121 13.1235C14.5637 13.0639 15.1573 13.0625 16.041 13.0625C16.9247 13.0625 17.5183 13.0639 17.9611 13.1235C18.3841 13.1803 18.5651 13.2786 18.6846 13.3981C18.804 13.5175 18.9023 13.6986 18.9592 14.1216C19.0187 14.5644 19.0202 15.158 19.0202 16.0416C19.0202 16.9253 19.0187 17.5189 18.9592 17.9617C18.9023 18.3847 18.804 18.5657 18.6846 18.6852C18.5651 18.8046 18.3841 18.9029 17.9611 18.9598C17.5183 19.0193 16.9247 19.0208 16.041 19.0208C15.1573 19.0208 14.5637 19.0193 14.121 18.9598C13.698 18.9029 13.5169 18.8046 13.3975 18.6852C13.278 18.5657 13.1797 18.3847 13.1228 17.9617C13.0633 17.5189 13.0619 16.9253 13.0619 16.0416C13.0619 15.158 13.0633 14.5644 13.1228 14.1216C13.1797 13.6986 13.278 13.5175 13.3975 13.3981Z"
-                          fill=""
-                        />
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M5.91002 11.6875H6.00535C6.82896 11.6874 7.51574 11.6874 8.06096 11.7607C8.63644 11.8381 9.156 12.0083 9.57352 12.4258C9.99103 12.8433 10.1612 13.3629 10.2386 13.9384C10.3119 14.4836 10.3119 15.1703 10.3119 15.9939V16.0893C10.3119 16.9129 10.3119 17.5997 10.2386 18.1449C10.1612 18.7204 9.99103 19.2399 9.57352 19.6575C9.156 20.075 8.63644 20.2452 8.06096 20.3225C7.51575 20.3958 6.82899 20.3958 6.0054 20.3958H5.91002C5.08644 20.3958 4.39962 20.3958 3.85441 20.3225C3.27893 20.2452 2.75937 20.075 2.34185 19.6575C1.92434 19.2399 1.75414 18.7204 1.67677 18.1449C1.60347 17.5997 1.60349 16.9129 1.60352 16.0893V15.994C1.60349 15.1704 1.60347 14.4836 1.67677 13.9384C1.75414 13.3629 1.92434 12.8433 2.34185 12.4258C2.75937 12.0083 3.27893 11.8381 3.85441 11.7607C4.39963 11.6874 5.08641 11.6874 5.91002 11.6875ZM4.03763 13.1235C3.61462 13.1803 3.43358 13.2786 3.31413 13.3981C3.19467 13.5175 3.09638 13.6986 3.03951 14.1216C2.97998 14.5644 2.97852 15.158 2.97852 16.0416C2.97852 16.9253 2.97998 17.5189 3.03951 17.9617C3.09638 18.3847 3.19467 18.5657 3.31413 18.6852C3.43358 18.8046 3.61462 18.9029 4.03763 18.9598C4.48041 19.0193 5.07401 19.0208 5.95768 19.0208C6.84136 19.0208 7.43496 19.0193 7.87774 18.9598C8.30075 18.9029 8.48179 18.8046 8.60124 18.6852C8.7207 18.5657 8.81899 18.3847 8.87586 17.9617C8.93539 17.5189 8.93685 16.9253 8.93685 16.0416C8.93685 15.158 8.93539 14.5644 8.87586 14.1216C8.81899 13.6986 8.7207 13.5175 8.60124 13.3981C8.48179 13.2786 8.30075 13.1803 7.87774 13.1235C7.43496 13.0639 6.84136 13.0625 5.95768 13.0625C5.07401 13.0625 4.48041 13.0639 4.03763 13.1235Z"
-                          fill=""
-                        />
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M15.9934 1.60413C15.1698 1.6041 14.483 1.60408 13.9377 1.67738C13.3623 1.75475 12.8427 1.92495 12.4252 2.34246C12.0077 2.75998 11.8375 3.27954 11.7601 3.85502C11.6868 4.40024 11.6868 5.08702 11.6869 5.91063V6.00596C11.6868 6.82957 11.6868 7.51635 11.7601 8.06157C11.8375 8.63705 12.0077 9.15661 12.4252 9.57413C12.8427 9.99164 13.3623 10.1618 13.9377 10.2392C14.483 10.3125 15.1697 10.3125 15.9933 10.3125H16.0887C16.9123 10.3125 17.5991 10.3125 18.1443 10.2392C18.7198 10.1618 19.2393 9.99164 19.6569 9.57413C20.0744 9.15661 20.2446 8.63705 20.3219 8.06157C20.3952 7.51636 20.3952 6.82958 20.3952 6.00599V5.91063C20.3952 5.08704 20.3952 4.40023 20.3219 3.85502C20.2446 3.27954 20.0744 2.75998 19.6569 2.34246C19.2393 1.92495 18.7198 1.75475 18.1443 1.67738C17.5991 1.60408 16.9123 1.6041 16.0887 1.60413H15.9934ZM13.3975 3.31474C13.5169 3.19528 13.698 3.09699 14.121 3.04012C14.5637 2.98059 15.1573 2.97913 16.041 2.97913C16.9247 2.97913 17.5183 2.98059 17.9611 3.04012C18.3841 3.09699 18.5651 3.19528 18.6846 3.31474C18.804 3.43419 18.9023 3.61523 18.9592 4.03824C19.0187 4.48102 19.0202 5.07462 19.0202 5.9583C19.0202 6.84197 19.0187 7.43557 18.9592 7.87835C18.9023 8.30136 18.804 8.4824 18.6846 8.60186C18.5651 8.72131 18.3841 8.8196 17.9611 8.87647C17.5183 8.936 16.9247 8.93746 16.041 8.93746C15.1573 8.93746 14.5637 8.936 14.121 8.87647C13.698 8.8196 13.5169 8.72131 13.3975 8.60186C13.278 8.4824 13.1797 8.30136 13.1228 7.87835C13.0633 7.43557 13.0619 6.84197 13.0619 5.9583C13.0619 5.07462 13.0633 4.48102 13.1228 4.03824C13.1797 3.61523 13.278 3.43419 13.3975 3.31474Z"
+                          d="M11 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L11 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L11 2Z"
                           fill=""
                         />
                       </svg>
-                      Dashboard
+                      Favorilerim
                     </button>
                     <button
                       onClick={() => setActiveTab("orders")}
@@ -711,88 +827,113 @@ const MyAccount = () => {
 
             <div
               className={`xl:max-w-[770px] w-full bg-white rounded-xl shadow-1 py-9.5 px-4 sm:px-7.5 xl:px-10 ${
-                activeTab === "dashboard" ? "block" : "hidden"
+                activeTab === "favorites" ? "block" : "hidden"
               }`}
             >
-              <p className="text-dark">
-                Merhaba {user?.firstName || 'Kullanıcı'} (not {user?.firstName}?
-                <a
-                  href="#"
-                  className="text-red ease-out duration-200 hover:underline"
-                >
-                  Çıkış Yap
-                </a>
-                )
-              </p>
+              <div className="flex items-center justify-between mb-7">
+                <h2 className="font-medium text-xl sm:text-2xl text-dark">
+                  Favori Ürünlerim
+                </h2>
+                <span className="text-sm text-gray-500">
+                  {favoriteProducts.length} ürün
+                </span>
+              </div>
 
-              {/* E-posta doğrulama uyarısı */}
-              {user && !user.emailVerified && (
-                <div className="mt-6 p-4 rounded-lg bg-orange-50 border border-orange-200">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg className="w-5 h-5 text-orange-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 18.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    <div className="ml-3 flex-1">
-                      <h3 className="text-sm font-medium text-orange-800">
-                        E-posta Adresinizi Doğrulayın
-                      </h3>
-                      <div className="mt-2 text-sm text-orange-700">
-                        <p>
-                          Hesabınızın güvenliği için e-posta adresinizi doğrulamanız gerekmektedir. 
-                          E-posta kutunuzu kontrol edin veya yeni bir doğrulama e-postası gönderin.
-                        </p>
+              {favoritesLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                </div>
+              ) : favoriteProducts.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {favoriteProducts.map((product) => (
+                    <div key={product._id} className="border border-gray-3 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                      <div className="relative">
+                        <Image
+                          src={product.images?.[0]?.url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}` : "/images/products/default.png"}
+                          alt={product.name}
+                          width={300}
+                          height={200}
+                          className="w-full h-48 object-cover"
+                        />
+                        <button
+                          onClick={() => handleRemoveFromFavorites(product._id)}
+                          className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors duration-200"
+                          title="Favorilerden çıkar"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
-                      <div className="mt-4">
-                        <div className="flex space-x-2">
+                      
+                      <div className="p-4">
+                        <div className="mb-2">
+                          <span className="text-xs text-blue bg-blue/10 px-2 py-1 rounded-full">
+                            {product.category.name}
+                          </span>
+                        </div>
+                        
+                        <h3 className="font-medium text-dark mb-2 line-clamp-2">
+                          {product.name}
+                        </h3>
+                        
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-1">
+                            {product.averageRating ? (
+                              <>
+                                <div className="flex text-yellow-400">
+                                  {[...Array(5)].map((_, i) => (
+                                    <svg key={i} className={`w-4 h-4 ${i < Math.floor(product.averageRating!) ? 'fill-current' : 'text-gray-300'}`} viewBox="0 0 24 24">
+                                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L16.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                    </svg>
+                                  ))}
+                                </div>
+                                <span className="text-sm text-gray-500">({product.reviewCount || 0})</span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">Henüz değerlendirme yok</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            {product.salePrice ? (
+                              <>
+                                <span className="text-lg font-bold text-red">{product.salePrice}₺</span>
+                                <span className="text-sm text-gray-500 line-through">{product.price}₺</span>
+                              </>
+                            ) : (
+                              <span className="text-lg font-bold text-dark">{product.price}₺</span>
+                            )}
+                          </div>
+                          
                           <button
-                            onClick={handleResendVerification}
-                            disabled={resendLoading}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-orange-700 bg-orange-100 hover:bg-orange-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => window.location.href = `/shop-details/${product.slug}`}
+                            className="text-blue hover:text-blue-dark text-sm font-medium transition-colors duration-200"
                           >
-                            {resendLoading ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-700 mr-2"></div>
-                            ) : null}
-                            {resendLoading ? 'Gönderiliyor...' : 'Doğrulama E-postası Gönder'}
+                            Ürünü Gör
                           </button>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-dark mb-2">Henüz favori ürününüz yok</h3>
+                  <p className="text-gray-500 mb-4">Beğendiğiniz ürünleri favorilerinize ekleyerek buradan kolayca erişebilirsiniz.</p>
+                  <button
+                    onClick={() => window.location.href = '/shop-with-sidebar'}
+                    className="inline-flex items-center font-medium text-white bg-blue py-2 px-4 rounded-md ease-out duration-200 hover:bg-blue-dark"
+                  >
+                    Alışverişe Başla
+                  </button>
                 </div>
               )}
-
-              {/* Resend mesajı */}
-              {resendMessage && (
-                <div className={`mt-4 p-4 rounded-lg ${
-                  resendMessage.includes('başarıyla') 
-                    ? 'bg-green-50 border border-green-200' 
-                    : 'bg-red-50 border border-red-200'
-                }`}>
-                  <div className="flex items-center">
-                    <svg className={`w-5 h-5 mr-2 ${
-                      resendMessage.includes('başarıyla') ? 'text-green-600' : 'text-red-600'
-                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {resendMessage.includes('başarıyla') ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      )}
-                    </svg>
-                    <p className={`text-sm ${
-                      resendMessage.includes('başarıyla') ? 'text-green-700' : 'text-red-700'
-                    }`}>
-                      {resendMessage}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <p className="text-custom-sm mt-4">
-                Hesap panelinizden son siparişlerinizi görüntüleyebilir, 
-                teslimat ve fatura adreslerinizi yönetebilir, parolanızı ve hesap detaylarınızı düzenleyebilirsiniz.
-              </p>
             </div>
             {/* <!-- dashboard tab content end -->
 
@@ -974,143 +1115,136 @@ const MyAccount = () => {
                 activeTab === "account-details" ? "block" : "hidden"
               }`}
             >
-              <form>
-                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+              {/* Profil Bilgileri */}
+              <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5 mb-8">
+                <h3 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                  Profil Bilgileri
+                </h3>
+
+                <form onSubmit={handleProfileSubmit}>
                   <div className="flex flex-col lg:flex-row gap-5 sm:gap-8 mb-5">
                     <div className="w-full">
                       <label htmlFor="firstName" className="block mb-2.5">
-                        First Name <span className="text-red">*</span>
+                        Ad <span className="text-red">*</span>
                       </label>
 
                       <input
                         type="text"
                         name="firstName"
                         id="firstName"
-                        placeholder="Jhon"
-                        defaultValue="Jhon"
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                        value={profileForm.firstName}
+                        onChange={handleProfileFormChange}
+                        placeholder={user?.firstName || "Adınızı girin"}
+                        disabled={profileLoading}
+                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20 disabled:opacity-50"
                       />
                     </div>
 
                     <div className="w-full">
                       <label htmlFor="lastName" className="block mb-2.5">
-                        Last Name <span className="text-red">*</span>
+                        Soyad <span className="text-red">*</span>
                       </label>
 
                       <input
                         type="text"
                         name="lastName"
                         id="lastName"
-                        placeholder="Deo"
-                        defaultValue="Deo"
-                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
+                        value={profileForm.lastName}
+                        onChange={handleProfileFormChange}
+                        placeholder={user?.lastName || "Soyadınızı girin"}
+                        disabled={profileLoading}
+                        className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20 disabled:opacity-50"
                       />
                     </div>
                   </div>
 
                   <div className="mb-5">
-                    <label htmlFor="countryName" className="block mb-2.5">
-                      Country/ Region <span className="text-red">*</span>
+                    <label htmlFor="phone" className="block mb-2.5">
+                      Telefon Numarası
                     </label>
 
-                    <div className="relative">
-                      <select className="w-full bg-gray-1 rounded-md border border-gray-3 text-dark-4 py-3 pl-5 pr-9 duration-200 appearance-none outline-none focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20">
-                        <option value="0">Australia</option>
-                        <option value="1">America</option>
-                        <option value="2">England</option>
-                      </select>
+                    <input
+                      type="tel"
+                      name="phone"
+                      id="phone"
+                      value={profileForm.phone}
+                      onChange={handleProfileFormChange}
+                      placeholder={user?.phone || "Telefon numaranızı girin"}
+                      disabled={profileLoading}
+                      className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20 disabled:opacity-50"
+                    />
+                  </div>
 
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-4">
-                        <svg
-                          className="fill-current"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M2.41469 5.03569L2.41467 5.03571L2.41749 5.03846L7.76749 10.2635L8.0015 10.492L8.23442 10.2623L13.5844 4.98735L13.5844 4.98735L13.5861 4.98569C13.6809 4.89086 13.8199 4.89087 13.9147 4.98569C14.0092 5.08024 14.0095 5.21864 13.9155 5.31345C13.9152 5.31373 13.915 5.31401 13.9147 5.31429L8.16676 10.9622L8.16676 10.9622L8.16469 10.9643C8.06838 11.0606 8.02352 11.0667 8.00039 11.0667C7.94147 11.0667 7.89042 11.0522 7.82064 10.9991L2.08526 5.36345C1.99127 5.26865 1.99154 5.13024 2.08609 5.03569C2.18092 4.94086 2.31986 4.94086 2.41469 5.03569Z"
-                            fill=""
-                            stroke=""
-                            strokeWidth="0.666667"
-                          />
+                  {/* Profil mesajı */}
+                  {profileMessage && (
+                    <div className={`mb-5 p-4 rounded-lg ${
+                      profileMessage.includes('başarıyla') 
+                        ? 'bg-green-50 border border-green-200' 
+                        : 'bg-red-50 border border-red-200'
+                    }`}>
+                      <div className="flex items-center">
+                        <svg className={`w-5 h-5 mr-2 ${
+                          profileMessage.includes('başarıyla') ? 'text-green-600' : 'text-red-600'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {profileMessage.includes('başarıyla') ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          )}
                         </svg>
-                      </span>
+                        <p className={`text-sm ${
+                          profileMessage.includes('başarıyla') ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          {profileMessage}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <button
                     type="submit"
-                    className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark"
+                    disabled={profileLoading}
+                    className="inline-flex items-center justify-center font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save Changes
+                    {profileLoading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Güncelleniyor...
+                      </>
+                    ) : (
+                      'Değişiklikleri Kaydet'
+                    )}
                   </button>
-                </div>
+                </form>
 
-                <p className="text-custom-sm mt-5 mb-9">
-                  This will be how your name will be displayed in the account
-                  section and in reviews
+                <p className="text-custom-sm mt-5">
+                  Bu bilgiler hesap bölümünde ve yorumlarda görüntülenecektir
                 </p>
+              </div>
 
-                <p className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                  Password Change
-                </p>
+              {/* Parola Değiştirme */}
+              <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                <h3 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                  Parola Değiştirme
+                </h3>
 
-                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
-                  <div className="mb-5">
-                    <label htmlFor="oldPassword" className="block mb-2.5">
-                      Old Password
-                    </label>
-
-                    <input
-                      type="password"
-                      name="oldPassword"
-                      id="oldPassword"
-                      autoComplete="on"
-                      className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                    />
-                  </div>
-
-                  <div className="mb-5">
-                    <label htmlFor="newPassword" className="block mb-2.5">
-                      New Password
-                    </label>
-
-                    <input
-                      type="password"
-                      name="newPassword"
-                      id="newPassword"
-                      autoComplete="on"
-                      className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                    />
-                  </div>
-
-                  <div className="mb-5">
-                    <label
-                      htmlFor="confirmNewPassword"
-                      className="block mb-2.5"
-                    >
-                      Confirm New Password
-                    </label>
-
-                    <input
-                      type="password"
-                      name="confirmNewPassword"
-                      id="confirmNewPassword"
-                      autoComplete="on"
-                      className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                    />
-                  </div>
-
+                <div className="mb-5">
+                  <p className="text-gray-600 mb-4">
+                    Parolanızı güvenli bir şekilde değiştirmek için e-posta adresinize doğrulama kodu göndereceğiz.
+                  </p>
+                  
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={() => setPasswordResetModal(true)}
                     className="inline-flex font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark"
                   >
-                    Change Password
+                    Parolayı Değiştir
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
             {/* <!-- details tab content end -->
 
@@ -1707,6 +1841,15 @@ const MyAccount = () => {
         editingAddress={editingAddress}
         isLoading={addressModalLoading}
       />
+
+      <PasswordResetModal
+        isOpen={passwordResetModal}
+        closeModal={() => setPasswordResetModal(false)}
+        onSendCode={handleSendResetCode}
+        onResetPassword={handleResetPassword}
+        userEmail={user?.email || ''}
+        isLoading={passwordResetLoading}
+      />
       
       {/* Ürün Düzenleme Popup'ı */}
       {editProduct && (
@@ -1859,7 +2002,6 @@ const MyAccount = () => {
                 </button>
                 <button
                   onClick={() => {
-                    // TODO: Silme işlemi
                     console.log('Silme işlemi:', deleteProductId);
                     setDeleteProductId(null);
                   }}
