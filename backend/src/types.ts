@@ -120,6 +120,7 @@ export interface IProductVariant {
   options: IVariantOption[];
   sku: string;
   price?: number;
+  salePrice?: number;
   stock: number;
   image?: string;
   isDefault: boolean;

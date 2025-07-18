@@ -198,6 +198,9 @@ userSchema.virtual('isLocked').get(function(this: IUser) {
 });
 
 userSchema.virtual('defaultAddress').get(function(this: IUser) {
+  if (!this.addresses || this.addresses.length === 0) {
+    return null;
+  }
   return this.addresses.find(addr => addr.isDefault) || this.addresses[0];
 });
 

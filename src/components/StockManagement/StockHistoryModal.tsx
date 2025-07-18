@@ -3,10 +3,11 @@ import { getStockHistory } from '@/services/productService';
 
 interface StockHistoryItem {
   _id: string;
+  variantId?: string;
   previousStock: number;
   newStock: number;
   changeAmount: number;
-  changeType: 'manual' | 'order' | 'return' | 'adjustment' | 'initial';
+  changeType: 'manual' | 'variant_manual' | 'order' | 'return' | 'adjustment' | 'initial';
   reason?: string;
   performedBy: {
     firstName: string;
@@ -22,6 +23,8 @@ interface StockHistoryModalProps {
   onClose: () => void;
   productId: string;
   productName: string;
+  variantId?: string;
+  variantName?: string;
   accessToken: string;
 }
 
@@ -30,6 +33,8 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   onClose,
   productId,
   productName,
+  variantId,
+  variantName,
   accessToken
 }) => {
   const [history, setHistory] = useState<StockHistoryItem[]>([]);
@@ -47,10 +52,24 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
 
     setLoading(true);
     try {
-      const response = await getStockHistory(productId, { page, limit: 20 }, accessToken);
+      let response;
+      if (variantId) {
+        // Varyasyon stok geçmişi
+        response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/products/${productId}/variants/${variantId}/stock-history?page=${page}&limit=20`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        const data = await response.json();
+        response = data;
+      } else {
+        // Ana ürün stok geçmişi
+        response = await getStockHistory(productId, { page, limit: 20 }, accessToken);
+      }
+      
       if (response.success) {
         setHistory(response.data);
-        setPagination(response.data.pagination || {
+        setPagination(response.pagination || {
           currentPage: 1,
           totalPages: 1,
           totalHistory: 0,
@@ -74,12 +93,29 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   const getChangeTypeText = (type: string) => {
     const types = {
       manual: 'Manuel',
+      variant_manual: 'Varyasyon Manuel',
       order: 'Sipariş',
       return: 'İade',
       adjustment: 'Düzeltme',
       initial: 'İlk Stok'
     };
     return types[type as keyof typeof types] || type;
+  };
+
+  const getReasonText = (reason: string) => {
+    const reasons = {
+      'manual_adjustment': 'Manuel Düzeltme',
+      'inventory_count': 'Envanter Sayımı',
+      'damaged_goods': 'Hasarlı Ürün',
+      'returned_goods': 'İade Edilen Ürün',
+      'new_shipment': 'Yeni Sevkiyat',
+      'Yeni ürün girişi': 'Yeni Ürün Girişi',
+      'Stok düzeltmesi': 'Stok Düzeltmesi',
+      'Hasar/Defo': 'Hasar/Defo',
+      'Sayım düzeltmesi': 'Sayım Düzeltmesi',
+      'Diğer': 'Diğer'
+    };
+    return reasons[reason as keyof typeof reasons] || reason;
   };
 
   const getChangeTypeColor = (type: string) => {
@@ -105,6 +141,11 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
             Stok Geçmişi - {productName}
+            {variantName && (
+              <span className="text-lg font-normal text-gray-600 ml-2">
+                ({variantName})
+              </span>
+            )}
           </h2>
           <button
             onClick={onClose}
@@ -153,7 +194,7 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
                   {item.reason && (
                     <div className="mt-2">
                       <span className="text-gray-600 text-sm">Sebep:</span>
-                      <span className="ml-2 text-sm">{item.reason}</span>
+                      <span className="ml-2 text-sm">{getReasonText(item.reason)}</span>
                     </div>
                   )}
                   

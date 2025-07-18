@@ -1,21 +1,25 @@
 import React, { useState } from 'react';
-import { updateStock } from '@/services/productService';
+import { updateVariantStock } from '@/services/variationService';
 
-interface UpdateStockModalProps {
+interface UpdateVariantStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   productId: string;
   productName: string;
+  variantId: string;
+  variantName: string;
   currentStock: number;
   accessToken: string;
   onStockUpdated: () => void;
 }
 
-const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
+const UpdateVariantStockModal: React.FC<UpdateVariantStockModalProps> = ({
   isOpen,
   onClose,
   productId,
   productName,
+  variantId,
+  variantName,
   currentStock,
   accessToken,
   onStockUpdated
@@ -48,9 +52,9 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
     setError(null);
 
     try {
-      const response = await updateStock(productId, formData, accessToken);
+      const response = await updateVariantStock(productId, variantId, formData, accessToken);
       if (response.success) {
-        alert('Stok başarıyla güncellendi!');
+        alert('Varyasyon stoku başarıyla güncellendi!');
         onStockUpdated();
         onClose();
         setFormData({
@@ -59,11 +63,11 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
           notes: ''
         });
       } else {
-        setError(response.message || 'Stok güncellenirken hata oluştu');
+        setError(response.message || 'Varyasyon stoku güncellenirken hata oluştu');
       }
     } catch (error) {
-      console.error('Stok güncelleme hatası:', error);
-      setError('Stok güncellenirken hata oluştu');
+      console.error('Varyasyon stok güncelleme hatası:', error);
+      setError('Varyasyon stoku güncellenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -83,11 +87,9 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 relative">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Stok Güncelle
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900">Varyasyon Stok Güncelle</h2>
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600"
@@ -99,8 +101,15 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
         </div>
 
         <div className="mb-4">
-          <p className="text-sm text-gray-600 mb-2">Ürün: <span className="font-medium">{productName}</span></p>
-          <p className="text-sm text-gray-600">Mevcut Stok: <span className="font-medium">{currentStock}</span></p>
+          <p className="text-sm text-gray-600 mb-2">
+            <strong>Ürün:</strong> {productName}
+          </p>
+          <p className="text-sm text-gray-600 mb-2">
+            <strong>Varyasyon:</strong> {variantName}
+          </p>
+          <p className="text-sm text-gray-600">
+            <strong>Mevcut Stok:</strong> {currentStock}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -114,7 +123,8 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
               value={formData.newStock}
               onChange={handleInputChange}
               min="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="0"
+              className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 px-3 text-gray-900 outline-none transition-all focus:border-blue-500 focus:bg-white"
               required
               disabled={loading}
             />
@@ -122,21 +132,22 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Değişim Sebebi
+              Güncelleme Nedeni
             </label>
             <select
               name="reason"
               value={formData.reason}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 px-3 text-gray-900 outline-none transition-all focus:border-blue-500 focus:bg-white"
               disabled={loading}
             >
-              <option value="">Sebep seçin</option>
-              <option value="Yeni ürün girişi">Yeni ürün girişi</option>
-              <option value="Stok düzeltmesi">Stok düzeltmesi</option>
-              <option value="Hasar/Defo">Hasar/Defo</option>
-              <option value="Sayım düzeltmesi">Sayım düzeltmesi</option>
-              <option value="Diğer">Diğer</option>
+              <option value="">Neden seçin</option>
+              <option value="manual_adjustment">Manuel Düzeltme</option>
+              <option value="inventory_count">Envanter Sayımı</option>
+              <option value="damaged_goods">Hasarlı Ürün</option>
+              <option value="returned_goods">İade Edilen Ürün</option>
+              <option value="new_shipment">Yeni Sevkiyat</option>
+              <option value="other">Diğer</option>
             </select>
           </div>
 
@@ -149,14 +160,14 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
               value={formData.notes}
               onChange={handleInputChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ek notlar..."
+              placeholder="Stok güncelleme hakkında notlar..."
+              className="w-full rounded-lg border border-gray-300 bg-gray-50 py-2 px-3 text-gray-900 outline-none transition-all focus:border-blue-500 focus:bg-white"
               disabled={loading}
             />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
+            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">
               {error}
             </div>
           )}
@@ -165,15 +176,15 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
             <button
               type="button"
               onClick={handleClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               disabled={loading}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
             >
               İptal
             </button>
             <button
               type="submit"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               disabled={loading}
-              className="px-4 py-2 text-sm font-medium bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             >
               {loading ? 'Güncelleniyor...' : 'Güncelle'}
             </button>
@@ -184,4 +195,4 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
   );
 };
 
-export default UpdateStockModal; 
+export default UpdateVariantStockModal; 

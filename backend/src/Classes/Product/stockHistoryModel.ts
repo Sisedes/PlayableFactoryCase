@@ -2,10 +2,11 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IStockHistory extends Document {
   product: mongoose.Types.ObjectId;
+  variantId?: mongoose.Types.ObjectId;
   previousStock: number;
   newStock: number;
   changeAmount: number;
-  changeType: 'manual' | 'order' | 'return' | 'adjustment' | 'initial';
+  changeType: 'manual' | 'variant_manual' | 'order' | 'return' | 'adjustment' | 'initial';
   reason?: string;
   performedBy: mongoose.Types.ObjectId;
   performedAt: Date;
@@ -17,6 +18,10 @@ const stockHistorySchema = new Schema<IStockHistory>({
     type: Schema.Types.ObjectId,
     ref: 'Product',
     required: true,
+    index: true
+  },
+  variantId: {
+    type: Schema.Types.ObjectId,
     index: true
   },
   previousStock: {
@@ -35,7 +40,7 @@ const stockHistorySchema = new Schema<IStockHistory>({
   },
   changeType: {
     type: String,
-    enum: ['manual', 'order', 'return', 'adjustment', 'initial'],
+    enum: ['manual', 'variant_manual', 'order', 'return', 'adjustment', 'initial'],
     required: true
   },
   reason: {

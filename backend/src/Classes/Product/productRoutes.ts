@@ -18,7 +18,11 @@ import {
   getStockHistory,
   updateStock,
   getLowStockAlerts,
-  getStockStatistics
+  getStockStatistics,
+  updateProductVariants,
+  getProductVariants,
+  updateVariantStock,
+  createTestVariantProduct
 } from './productsController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
 import { uploadMultiple } from '../../middleware/upload';
@@ -157,5 +161,40 @@ router.get('/admin/low-stock-alerts', authenticateToken, requireAdmin, getLowSto
  * @access  
  */
 router.get('/admin/stock-statistics', authenticateToken, requireAdmin, getStockStatistics);
+
+/**
+ * @route   get /api/products/:id/variants
+ * @desc    Ürün varyasyonlarını getir
+ * @access  Private (Admin)
+ */
+router.get('/:id/variants', authenticateToken, requireAdmin, getProductVariants);
+
+/**
+ * @route   put /api/products/:id/variants
+ * @desc    Ürün varyasyonlarını güncelle
+ * @access  Private (Admin)
+ */
+router.put('/:id/variants', authenticateToken, requireAdmin, uploadMultiple, updateProductVariants);
+
+/**
+ * @route   put /api/products/:id/variants/:variantId/stock
+ * @desc    Varyasyon stok güncelle
+ * @access  Private (Admin)
+ */
+router.put('/:id/variants/:variantId/stock', authenticateToken, requireAdmin, updateVariantStock);
+
+/**
+ * @route   get /api/products/:id/variants/:variantId/stock-history
+ * @desc    Varyasyon stok geçmişi
+ * @access  Private (Admin)
+ */
+router.get('/:id/variants/:variantId/stock-history', authenticateToken, requireAdmin, getStockHistory);
+
+/**
+ * @route   post /api/products/test/variant-product
+ * @desc    Test için varyasyonlu ürün oluştur
+ * @access  Private (Admin)
+ */
+router.post('/test/variant-product', authenticateToken, requireAdmin, createTestVariantProduct);
 
 export default router; 

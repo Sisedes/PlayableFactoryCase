@@ -31,7 +31,7 @@ export const sendVerificationEmail = async (
   
   const mailOptions = {
     from: {
-      name: 'E-Ticaret Mağazası',
+      name: 'Pazarcık | Alışverişin Model Hali',
       address: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com'
     },
     to: email,
@@ -96,7 +96,7 @@ export const sendPasswordResetEmail = async (
   
   const mailOptions = {
     from: {
-      name: 'E-Ticaret Mağazası',
+      name: 'Pazarcık | Alışverişin Model Hali',
       address: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com'
     },
     to: email,
@@ -111,7 +111,7 @@ export const sendPasswordResetEmail = async (
       </head>
       <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-          <div style="padding: 40px 30px; text-align: center; background-color: #dc3545;">
+          <div style="padding: 40px 30px; text-align: center; background-color: #2563eb;">
             <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Parola Sıfırlama</h1>
           </div>
           <div style="padding: 40px 30px;">
@@ -124,13 +124,13 @@ export const sendPasswordResetEmail = async (
             </p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetUrl}" 
-                 style="display: inline-block; padding: 15px 30px; background-color: #dc3545; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                 style="display: inline-block; padding: 15px 30px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
                 Parolayı Sıfırla
               </a>
             </div>
             <p style="font-size: 14px; color: #666666; line-height: 1.6; margin: 30px 0 0 0;">
               Eğer yukarıdaki buton çalışmıyorsa, aşağıdaki linki kopyalayıp tarayıcınıza yapıştırın:<br>
-              <a href="${resetUrl}" style="color: #dc3545; word-break: break-all;">${resetUrl}</a>
+              <a href="${resetUrl}" style="color: #2563eb; word-break: break-all;">${resetUrl}</a>
             </p>
             <p style="font-size: 14px; color: #666666; margin: 30px 0 0 0;">
               Bu link 10 dakika içinde geçerliliğini yitirecektir.
@@ -167,7 +167,7 @@ export const sendNotificationEmail = async (
 ): Promise<void> => {
   const mailOptions = {
     from: {
-      name: 'E-Ticaret Mağazası',
+      name: 'Pazarcık | Alışverişin Model Hali',
       address: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com'
     },
     to: email,
@@ -185,7 +185,7 @@ export const sendOrderConfirmationEmail = async (
 ): Promise<void> => {
   const mailOptions = {
     from: {
-      name: 'E-Ticaret Mağazası',
+      name: 'Pazarcık | Alışverişin Model Hali',
       address: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com'
     },
     to: email,
@@ -200,7 +200,7 @@ export const sendOrderConfirmationEmail = async (
       </head>
       <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-          <div style="padding: 40px 30px; text-align: center; background-color: #28a745;">
+          <div style="padding: 40px 30px; text-align: center; background-color: #2563eb;">
             <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Siparişiniz Alındı!</h1>
           </div>
           <div style="padding: 40px 30px;">
@@ -221,6 +221,74 @@ export const sendOrderConfirmationEmail = async (
           <div style="padding: 20px 30px; background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
             <p style="font-size: 12px; color: #6c757d; margin: 0; text-align: center;">
               Siparişiniz için teşekkür ederiz!
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+}; 
+
+export const sendNewsletterWelcomeEmail = async (
+  email: string
+): Promise<void> => {
+  const mailOptions = {
+    from: {
+      name: 'Pazarcık | Alışverişin Model Hali',
+      address: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com'
+    },
+    to: email,
+    subject: 'Bülten Aboneliğiniz Başarıyla Tamamlandı!',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Bülten Aboneliği</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <div style="padding: 40px 30px; text-align: center; background-color: #2563eb;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Bülten Aboneliği</h1>
+          </div>
+          <div style="padding: 40px 30px;">
+            <p style="font-size: 16px; color: #333333; margin: 0 0 20px 0;">
+              Merhaba,
+            </p>
+            <p style="font-size: 16px; color: #333333; line-height: 1.6; margin: 0 0 30px 0;">
+              Pazarcık | Alışverişin Model Hali bültenine başarıyla abone oldunuz! Artık en son ürünler, 
+              özel indirimler, kampanyalar ve sektördeki yenilikler hakkında ilk siz haberdar olacaksınız.
+            </p>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Bültenimizde Neler Var?</h3>
+              <ul style="color: #555; line-height: 1.6; margin: 0; padding-left: 20px;">
+                <li>Yeni ürün duyuruları ve öncelikli erişim</li>
+                <li>Özel indirim kodları ve kampanyalar</li>
+                <li>Sezonsal fırsatlar ve flash satışlar</li>
+                <li>Müşteri deneyimleri ve ürün incelemeleri</li>
+                <li>Teknoloji ve e-ticaret trendleri</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL}" 
+                 style="display: inline-block; padding: 15px 30px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                Alışverişe Başla
+              </a>
+            </div>
+
+            <p style="font-size: 14px; color: #666666; line-height: 1.6; margin: 30px 0 0 0;">
+              İlk bültenimiz yakında e-posta adresinize ulaşacak. Sabırsızlıkla bekliyoruz!
+            </p>
+          </div>
+          <div style="padding: 20px 30px; background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
+            <p style="font-size: 12px; color: #6c757d; margin: 0; text-align: center;">
+              Bu e-postayı almak istemiyorsanız, <a href="${process.env.FRONTEND_URL}/unsubscribe" style="color: #2563eb;">aboneliğinizi iptal edebilirsiniz</a>.
             </p>
           </div>
         </div>

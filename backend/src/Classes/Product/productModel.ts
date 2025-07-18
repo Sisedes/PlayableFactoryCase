@@ -66,6 +66,10 @@ const productVariantSchema = new Schema<IProductVariant>({
     type: Number,
     min: 0
   },
+  salePrice: {
+    type: Number,
+    min: 0
+  },
   stock: {
     type: Number,
     required: true,

@@ -25,6 +25,7 @@ import orderRoutes from './routes/orderRoutes';
 import adminRoutes from './Classes/User/adminRoutes';
 import categoriesRoutes from './Classes/Categories/categoriesRoutes';
 import reviewRoutes from './Classes/Review/reviewRoutes';
+import newsletterRoutes from './Classes/Newsletter/newsletterRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -94,6 +95,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

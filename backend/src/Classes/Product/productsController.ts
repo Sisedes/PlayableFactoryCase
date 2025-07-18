@@ -383,10 +383,17 @@ export const getAllProductsForAdmin = async (req: Request, res: Response) => {
 
     const products = await Product.find(filter)
       .populate('category', 'name slug')
-      .select('name slug shortDescription description price salePrice images stock status sku createdAt updatedAt')
+      .select('name slug shortDescription description price salePrice images stock status sku lowStockThreshold variants createdAt updatedAt')
       .sort(sort)
       .skip(skip)
       .limit(limitNum);
+
+    console.log('Admin ürünleri getirildi:', products.length);
+    console.log('İlk ürün örneği:', products[0] ? {
+      name: products[0].name,
+      variants: products[0].variants,
+      variantsCount: products[0].variants?.length || 0
+    } : 'Ürün yok');
 
     const totalProducts = await Product.countDocuments(filter);
     const totalPages = Math.ceil(totalProducts / limitNum);
@@ -437,7 +444,8 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       images,
       tags,
       status = 'active',
-      isFeatured = false
+      isFeatured = false,
+      variants
     } = req.body;
 
 
@@ -513,6 +521,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       trackQuantity,
       lowStockThreshold,
       images: uploadedImages.length > 0 ? uploadedImages : (images || []),
+      variants: variants || [],
       tags: tags || [],
       status,
       isFeatured
@@ -1000,7 +1009,7 @@ export const setMainImage = async (req: Request, res: Response) => {
  */
 export const getStockHistory = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id, variantId } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
     const StockHistory = require('./stockHistoryModel').default;
@@ -1009,13 +1018,18 @@ export const getStockHistory = async (req: Request, res: Response) => {
     const limitNum = Math.min(100, Math.max(1, Number(limit)));
     const skip = (pageNum - 1) * limitNum;
 
-    const history = await StockHistory.find({ product: id })
+    const filter: any = { product: id };
+    if (variantId) {
+      filter.variantId = variantId;
+    }
+
+    const history = await StockHistory.find(filter)
       .populate('performedBy', 'firstName lastName email')
       .sort({ performedAt: -1 })
       .skip(skip)
       .limit(limitNum);
 
-    const totalHistory = await StockHistory.countDocuments({ product: id });
+    const totalHistory = await StockHistory.countDocuments(filter);
 
     res.status(200).json({
       success: true,
@@ -1046,7 +1060,7 @@ export const updateStock = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { newStock, reason, notes } = req.body;
-    const userId = (req as any).user.id;
+    const userId = req.user?.userId;
 
     if (typeof newStock !== 'number' || newStock < 0) {
       return res.status(400).json({
@@ -1107,17 +1121,14 @@ export const updateStock = async (req: Request, res: Response) => {
  * @route   get /api/products/admin/low-stock-alerts
  * @access  
  */
-export const getLowStockAlerts = async (req: Request, res: Response) => {
+export const getLowStockAlerts = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page = 1, limit = 20 } = req.query;
-
-    const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-
-
-    const lowStockQuery = {
+    const lowStockProducts = await Product.find({
       $expr: {
         $and: [
           { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
@@ -1125,69 +1136,81 @@ export const getLowStockAlerts = async (req: Request, res: Response) => {
         ]
       },
       status: 'active'
-    };
+    })
+    .populate('category', 'name slug')
+    .select('name sku stock lowStockThreshold category status')
+    .skip(skip)
+    .limit(limitNum);
 
-    console.log('getLowStockAlerts - Low stock query:', JSON.stringify(lowStockQuery, null, 2));
-
-    const lowStockProducts = await Product.find(lowStockQuery)
-      .populate('category', 'name slug')
-      .select('name sku stock lowStockThreshold category status')
-      .sort({ stock: 1 })
-      .skip(skip)
-      .limit(limitNum);
-
-    console.log('getLowStockAlerts - Low stock products found:', lowStockProducts.map(p => ({
-      name: p.name,
-      stock: p.stock,
-      lowStockThreshold: p.lowStockThreshold
-    })));
-
-    const totalLowStock = await Product.countDocuments(lowStockQuery);
-
-    const allProducts = await Product.find({ status: 'active' }).select('name sku stock lowStockThreshold');
-    console.log('getLowStockAlerts - All products:', allProducts.map(p => ({
-      name: p.name,
-      stock: p.stock,
-      lowStockThreshold: p.lowStockThreshold,
-      isLowStock: p.stock <= (p.lowStockThreshold || 10) && p.stock > 0
-    })));
-
-    const outOfStockQuery = {
+    const outOfStockProducts = await Product.find({
       stock: 0,
       status: 'active'
-    };
+    })
+    .populate('category', 'name slug')
+    .select('name sku stock lowStockThreshold category status')
+    .skip(skip)
+    .limit(limitNum);
 
-    const outOfStockProducts = await Product.find(outOfStockQuery)
-      .populate('category', 'name slug')
-      .select('name sku stock lowStockThreshold category status')
-      .sort({ updatedAt: -1 })
-      .limit(10);
+    const productsWithLowStockVariants = await Product.find({
+      'variants.stock': { $lte: 5, $gt: 0 },
+      status: 'active'
+    })
+    .populate('category', 'name slug')
+    .select('name sku stock lowStockThreshold category status variants');
 
-    const totalOutOfStock = await Product.countDocuments(outOfStockQuery);
+    const productsWithOutOfStockVariants = await Product.find({
+      'variants.stock': 0,
+      status: 'active'
+    })
+    .populate('category', 'name slug')
+    .select('name sku stock lowStockThreshold category status variants');
 
-    const paginationData = {
-      currentPage: pageNum,
-      totalPages: Math.ceil(totalLowStock / limitNum),
-      totalLowStock,
-      totalOutOfStock,
-      hasNextPage: pageNum < Math.ceil(totalLowStock / limitNum),
-      hasPrevPage: pageNum > 1
-    };
+    const totalLowStock = await Product.countDocuments({
+      $or: [
+        {
+          $expr: {
+            $and: [
+              { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
+              { $gt: ['$stock', 0] }
+            ]
+          },
+          status: 'active'
+        },
+        {
+          'variants.stock': { $lte: 5, $gt: 0 },
+          status: 'active'
+        }
+      ]
+    });
 
-
-
-
+    const totalOutOfStock = await Product.countDocuments({
+      $or: [
+        {
+          stock: 0,
+          status: 'active'
+        },
+        {
+          'variants.stock': 0,
+          status: 'active'
+        }
+      ]
+    });
 
     res.status(200).json({
       success: true,
       data: {
         lowStockProducts,
         outOfStockProducts,
-        summary: {
-          lowStockCount: totalLowStock,
-          outOfStockCount: totalOutOfStock
-        },
-        pagination: paginationData
+        productsWithLowStockVariants,
+        productsWithOutOfStockVariants,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalLowStock / limitNum),
+          totalLowStock,
+          totalOutOfStock,
+          hasNextPage: pageNum * limitNum < totalLowStock,
+          hasPrevPage: pageNum > 1
+        }
       }
     });
   } catch (error) {
@@ -1320,4 +1343,411 @@ export const getStockStatistics = async (req: Request, res: Response) => {
       message: 'Stok istatistikleri getirilirken hata oluştu'
     });
   }
+};
+
+/**
+ * @desc    
+ * @route   put /api/products/:id/variants
+ * @access  
+ */
+export const updateProductVariants = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    let variants;
+
+    if (req.body.variants) {
+      try {
+        variants = JSON.parse(req.body.variants);
+      } catch (error) {
+        res.status(400).json({
+          success: false,
+          message: 'Varyasyon verisi geçersiz JSON formatında'
+        });
+        return;
+      }
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Varyasyon verisi bulunamadı'
+      });
+      return;
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+      return;
+    }
+
+    if (!Array.isArray(variants)) {
+      res.status(400).json({
+        success: false,
+        message: 'Varyasyonlar dizi formatında olmalıdır'
+      });
+      return;
+    }
+
+    for (let i = 0; i < variants.length; i++) {
+      const variant = variants[i];
+      
+      if (!variant.name || !variant.name.trim()) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: Varyant adı gereklidir`
+        });
+        return;
+      }
+
+      if (!variant.sku || !variant.sku.trim()) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: SKU gereklidir`
+        });
+        return;
+      }
+
+      if (variant.stock < 0) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: Stok negatif olamaz`
+        });
+        return;
+      }
+
+      if (variant.price && variant.price < 0) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: Fiyat negatif olamaz`
+        });
+        return;
+      }
+
+      if (variant.salePrice && variant.salePrice < 0) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: İndirimli fiyat negatif olamaz`
+        });
+        return;
+      }
+
+      if (variant.salePrice && variant.price && variant.salePrice >= variant.price) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: İndirimli fiyat normal fiyattan düşük olmalıdır`
+        });
+        return;
+      }
+
+      if (!Array.isArray(variant.options) || variant.options.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: `Varyasyon ${i + 1}: En az bir seçenek gereklidir`
+        });
+        return;
+      }
+
+      for (let j = 0; j < variant.options.length; j++) {
+        const option = variant.options[j];
+        if (!option.name || !option.name.trim()) {
+          res.status(400).json({
+            success: false,
+            message: `Varyasyon ${i + 1}, Seçenek ${j + 1}: Seçenek adı gereklidir`
+          });
+          return;
+        }
+        if (!option.value || !option.value.trim()) {
+          res.status(400).json({
+            success: false,
+            message: `Varyasyon ${i + 1}, Seçenek ${j + 1}: Seçenek değeri gereklidir`
+          });
+          return;
+        }
+      }
+    }
+
+    const defaultVariants = variants.filter(v => v.isDefault);
+    if (defaultVariants.length === 0 && variants.length > 0) {
+      variants[0].isDefault = true;
+    } else if (defaultVariants.length > 1) {
+      variants.forEach((variant, index) => {
+        variant.isDefault = index === 0;
+      });
+    }
+
+    if (req.files && Array.isArray(req.files)) {
+      const variantImages = req.files as Express.Multer.File[];
+      
+      variantImages.forEach((file, index) => {
+        const variantIndex = parseInt(file.fieldname.split('-')[1]);
+        if (variants[variantIndex]) {
+          variants[variantIndex].image = `/uploads/products/${file.filename}`;
+        }
+      });
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      { variants },
+      { new: true, runValidators: true }
+    ).populate('category', 'name slug');
+
+    res.status(200).json({
+      success: true,
+      message: 'Ürün varyasyonları başarıyla güncellendi',
+      data: updatedProduct
+    });
+  } catch (error: any) {
+    console.error('Update product variants error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      res.status(400).json({
+        success: false,
+        message: validationErrors.join(', ')
+      });
+      return;
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Ürün varyasyonları güncellenirken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   get /api/products/:id/variants
+ * @access  
+ */
+export const getProductVariants = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id).select('name variants');
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        productName: product.name,
+        variants: product.variants || []
+      }
+    });
+  } catch (error) {
+    console.error('Get product variants error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ürün varyasyonları getirilirken hata oluştu'
+    });
+  }
 }; 
+
+/**
+ * @desc    Varyasyon stok güncelle
+ * @route   PUT /api/products/:id/variants/:variantId/stock
+ * @access  Private (Admin)
+ */
+export const updateVariantStock = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id, variantId } = req.params;
+    const { newStock, reason, notes } = req.body;
+    const userId = req.user?.userId;
+
+    if (typeof newStock !== 'number' || newStock < 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Geçerli bir stok miktarı girin'
+      });
+      return;
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+      return;
+    }
+
+    const variant = product.variants?.find(v => v._id?.toString() === variantId);
+    if (!variant) {
+      res.status(404).json({
+        success: false,
+        message: 'Varyasyon bulunamadı'
+      });
+      return;
+    }
+
+    const previousStock = variant.stock;
+    const changeAmount = newStock - previousStock;
+
+    const StockHistory = require('./stockHistoryModel').default;
+    await StockHistory.create({
+      product: id,
+      variantId: variantId,
+      previousStock,
+      newStock,
+      changeAmount,
+      changeType: 'variant_manual',
+      reason,
+      performedBy: userId,
+      notes
+    });
+
+    variant.stock = newStock;
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Varyasyon stoku başarıyla güncellendi',
+      data: {
+        product,
+        variant,
+        stockChange: {
+          previousStock,
+          newStock,
+          changeAmount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update variant stock error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Varyasyon stoku güncellenirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/products/test/variant-product
+ * @access  
+ */
+export const createTestVariantProduct = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const giyimCategory = await Category.findOne({ slug: 'giyim' });
+    if (!giyimCategory) {
+      res.status(404).json({
+        success: false,
+        message: 'Giyim kategorisi bulunamadı'
+      });
+      return;
+    }
+
+    const testProduct = new Product({
+      name: 'T-Shirt',
+      slug: 'tshirt',
+      description: '%20 sentetik %80 pamuklu kumaştan yapılmış yazlık giyim için uygundur.',
+      category: giyimCategory._id,
+      price: 500,
+      salePrice: 450,
+      currency: 'TRY',
+      sku: 'TSHIRT1',
+      stock: 500,
+      trackQuantity: true,
+      lowStockThreshold: 5,
+      images: [
+        {
+          url: '/uploads/products/product-1752862160305-928708826.jpg',
+          alt: 'T-Shirt - Görsel 1',
+          isPrimary: true,
+          sortOrder: 0
+        }
+      ],
+      variants: [
+        {
+          name: 'Kırmızı T-SHIRT',
+          options: [
+            {
+              name: 'Renk',
+              value: 'Kırmızı'
+            }
+          ],
+          sku: 'TSHIRT1-KIRMIZI',
+          price: 500,
+          salePrice: 450,
+          stock: 50,
+          isDefault: true
+        },
+        {
+          name: 'Mavi T-SHIRT',
+          options: [
+            {
+              name: 'Renk',
+              value: 'Mavi'
+            }
+          ],
+          sku: 'TSHIRT1-MAVI',
+          price: 500,
+          salePrice: 450,
+          stock: 30,
+          isDefault: false
+        },
+        {
+          name: 'Yeşil T-SHIRT',
+          options: [
+            {
+              name: 'Renk',
+              value: 'Yeşil'
+            }
+          ],
+          sku: 'TSHIRT1-YESIL',
+          price: 500,
+          salePrice: 450,
+          stock: 2, 
+          isDefault: false
+        },
+        {
+          name: 'Siyah T-SHIRT',
+          options: [
+            {
+              name: 'Renk',
+              value: 'Siyah'
+            }
+          ],
+          sku: 'TSHIRT1-SIYAH',
+          price: 500,
+          salePrice: 450,
+          stock: 0, 
+          isDefault: false
+        }
+      ],
+      tags: ['tshirt', 'giyim', 'yazlık'],
+      status: 'active',
+      isFeatured: false,
+      averageRating: 0,
+      reviewCount: 0
+    });
+
+    const savedProduct = await testProduct.save();
+    await savedProduct.populate('category', 'name slug');
+
+    res.status(201).json({
+      success: true,
+      message: 'Test varyasyonlu ürün başarıyla oluşturuldu',
+      data: savedProduct
+    });
+  } catch (error) {
+    console.error('Create test variant product error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test ürünü oluşturulurken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+}; 
+
+ 

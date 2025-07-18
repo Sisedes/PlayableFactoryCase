@@ -107,13 +107,13 @@ const ProductItem = ({ item }: { item: Product }) => {
 
   return (
     <div className="group w-full">
-      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] w-full h-[270px] mb-4">
+      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] w-full h-[320px] mb-4">
         <Image 
           src={getImageUrl(item.images?.[0]?.url || "/images/products/default.png")} 
-          alt={item.name} 
+          alt={item.name || "Ürün görseli"} 
           width={250} 
           height={250}
-          className="object-contain w-full h-full max-w-[220px] max-h-[220px] p-4"
+          className="object-contain w-full h-full p-1"
           style={{ 
             aspectRatio: '1/1',
             objectFit: 'contain'

@@ -20,6 +20,7 @@ import {
   getLowStockAlerts,
   getStockStatistics
 } from "@/services/productService";
+import { getProductVariants, updateProductVariants } from "@/services/variationService";
 import { 
   getUserAddresses, 
   addAddress, 
@@ -61,7 +62,9 @@ import PasswordResetModal from "./PasswordResetModal";
 import AdminOrders from "../Orders/AdminOrders";
 import StockHistoryModal from "../StockManagement/StockHistoryModal";
 import UpdateStockModal from "../StockManagement/UpdateStockModal";
+import UpdateVariantStockModal from "../StockManagement/UpdateVariantStockModal";
 import LowStockAlerts from "../StockManagement/LowStockAlerts";
+import VariationModal from "../ProductVariations/VariationModal";
 import axios from "axios";
 
 interface LocalCategory {
@@ -101,6 +104,19 @@ interface LocalProduct {
     alt: string;
     isMain?: boolean;
   }>;
+  variants?: Array<{
+    _id?: string;
+    name: string;
+    options: Array<{
+      name: string;
+      value: string;
+    }>;
+    sku: string;
+    price?: number;
+    stock: number;
+    image?: string;
+    isDefault: boolean;
+  }>;
   tags?: string[];
   status: 'draft' | 'active' | 'inactive';
   isFeatured?: boolean;
@@ -133,6 +149,12 @@ const MyAccount = () => {
   const [editApplyDiscount, setEditApplyDiscount] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Varyasyon yönetimi state'leri
+  const [variationModal, setVariationModal] = useState(false);
+  const [selectedProductForVariation, setSelectedProductForVariation] = useState<LocalProduct | null>(null);
+  const [productVariants, setProductVariants] = useState<any[]>([]);
+  const [variationLoading, setVariationLoading] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: '',
@@ -208,7 +230,9 @@ const MyAccount = () => {
 
   const [stockHistoryModal, setStockHistoryModal] = useState(false);
   const [updateStockModal, setUpdateStockModal] = useState(false);
+  const [updateVariantStockModal, setUpdateVariantStockModal] = useState(false);
   const [selectedProductForStock, setSelectedProductForStock] = useState<LocalProduct | null>(null);
+  const [selectedVariantForStock, setSelectedVariantForStock] = useState<any>(null);
   const [stockStatistics, setStockStatistics] = useState<any>(null);
   const [stockStatsLoading, setStockStatsLoading] = useState(false);
 
@@ -264,6 +288,7 @@ const MyAccount = () => {
           }
           
           if (productsResponse.success && productsResponse.data) {
+            console.log('Gelen ürünler:', productsResponse.data);
             setProducts(productsResponse.data as unknown as LocalProduct[]);
           } else {
             console.warn('Ürünler yüklenemedi:', productsResponse.message);
@@ -885,6 +910,69 @@ const MyAccount = () => {
     }
   };
 
+  // Varyasyon yönetimi fonksiyonları
+  const handleOpenVariationModal = async (product: LocalProduct) => {
+    if (!accessToken) return;
+    
+    setSelectedProductForVariation(product);
+    setVariationLoading(true);
+    
+    try {
+      const response = await getProductVariants(product._id, accessToken);
+      if (response.success && response.data) {
+        setProductVariants(response.data.variants || []);
+        setVariationModal(true);
+      } else {
+        alert(response.message || 'Varyasyonlar getirilirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Get variants error:', error);
+      alert('Varyasyonlar getirilirken hata oluştu');
+    } finally {
+      setVariationLoading(false);
+    }
+  };
+
+  const handleSaveVariations = async (variants: any[]) => {
+    if (!accessToken || !selectedProductForVariation) return;
+    
+    setVariationLoading(true);
+    
+    try {
+      const response = await updateProductVariants(
+        selectedProductForVariation._id, 
+        variants, 
+        accessToken
+      );
+      
+      if (response.success) {
+        alert('Varyasyonlar başarıyla kaydedildi!');
+        setVariationModal(false);
+        setSelectedProductForVariation(null);
+        setProductVariants([]);
+        
+        // Ürün listesini yenile
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      } else {
+        alert(response.message || 'Varyasyonlar kaydedilirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Save variants error:', error);
+      alert('Varyasyonlar kaydedilirken hata oluştu');
+    } finally {
+      setVariationLoading(false);
+    }
+  };
+
+  const handleCloseVariationModal = () => {
+    setVariationModal(false);
+    setSelectedProductForVariation(null);
+    setProductVariants([]);
+  };
+
   const handleDeleteImage = async (productId: string, imageId: string) => {
     if (!accessToken) return;
 
@@ -1291,8 +1379,9 @@ const MyAccount = () => {
     }
   };
 
-  const handleViewStockHistory = (product: LocalProduct) => {
+  const handleViewStockHistory = (product: LocalProduct, variant?: any) => {
     setSelectedProductForStock(product);
+    setSelectedVariantForStock(variant);
     setStockHistoryModal(true);
   };
 
@@ -1301,12 +1390,47 @@ const MyAccount = () => {
     setUpdateStockModal(true);
   };
 
+  const handleUpdateVariantStock = (product: any, variant: any) => {
+    setSelectedProductForStock(product);
+    setSelectedVariantForStock(variant);
+    setUpdateVariantStockModal(true);
+  };
+
   const handleStockUpdated = async () => {
     if (accessToken) {
       const productsResponse = await getAllProductsForAdmin({}, accessToken);
       if (productsResponse.success) {
         setProducts(productsResponse.data as unknown as LocalProduct[]);
       }
+    }
+  };
+
+  const createTestVariantProduct = async () => {
+    if (!accessToken) return;
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/products/test/variant-product`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('Test varyasyonlu ürün oluşturuldu!');
+        // Ürün listesini yenile
+        const productsResponse = await getAllProductsForAdmin({}, accessToken);
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      } else {
+        alert(result.message || 'Test ürünü oluşturulurken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Test ürünü oluşturma hatası:', error);
+      alert('Test ürünü oluşturulurken hata oluştu');
     }
   };
 
@@ -2653,6 +2777,22 @@ const MyAccount = () => {
                       </div>
                     </div>
 
+                    {/* Varyasyon Notu */}
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <svg className="w-5 h-5 text-purple-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <h4 className="text-sm font-medium text-purple-800 mb-1">Varyasyon Yönetimi</h4>
+                          <p className="text-sm text-purple-700">
+                            Ürünü kaydettikten sonra "Ürün Yönetimi" sekmesinden varyasyonları (renk, boyut, vb.) ekleyebilirsiniz. 
+                            Her varyasyon için ayrı fiyat, stok ve SKU tanımlayabilirsiniz.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex gap-4">
                       <button
                         type="submit"
@@ -2937,6 +3077,11 @@ const MyAccount = () => {
                                       <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">
                                           {product.stock} adet
+                                          {product.variants && product.variants.length > 0 && (
+                                            <div className="text-xs text-purple-600 mt-1">
+                                              {product.variants.length} varyasyon
+                                            </div>
+                                          )}
                                         </div>
                                       </td>
                                       <td className="px-4 py-4 whitespace-nowrap">
@@ -2953,6 +3098,13 @@ const MyAccount = () => {
                                       </td>
                                       <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex justify-end space-x-2">
+                                          <button
+                                            onClick={() => handleOpenVariationModal(product)}
+                                            className="text-purple-600 hover:text-purple-700 transition-colors duration-200 px-3 py-1 rounded border border-purple-600 hover:bg-purple-600 hover:text-white"
+                                            title="Varyasyonları Yönet"
+                                          >
+                                            Varyasyonlar
+                                          </button>
                                           <button
                                             onClick={() => {
                                               setEditProduct(product);
@@ -3577,9 +3729,17 @@ const MyAccount = () => {
                 }`}
               >
                 <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
-                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                    Stok Yönetimi
-                  </h2>
+                  <div className="flex justify-between items-center mb-7">
+                    <h2 className="font-medium text-xl sm:text-2xl text-dark">
+                      Stok Yönetimi
+                    </h2>
+                    <button
+                      onClick={createTestVariantProduct}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      Test Varyasyonlu Ürün Oluştur
+                    </button>
+                  </div>
 
                   {/* Düşük Stok Uyarıları */}
                   <div className="mb-8">
@@ -3605,6 +3765,7 @@ const MyAccount = () => {
                         };
                         handleUpdateStock(localProduct);
                       }}
+                      onUpdateVariantStock={handleUpdateVariantStock}
                     />
                   </div>
 
@@ -3642,67 +3803,123 @@ const MyAccount = () => {
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {products.map((product) => (
-                              <tr key={product._id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div className="flex-shrink-0 h-10 w-10">
-                                      {product.images && product.images.length > 0 ? (
-                                        <img
-                                          className="h-10 w-10 rounded-lg object-cover"
-                                          src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`}
-                                          alt={product.name}
-                                        />
-                                      ) : (
-                                        <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
-                                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                          </svg>
+                              <React.Fragment key={product._id}>
+                                {/* Ana ürün satırı */}
+                                <tr className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="flex items-center">
+                                      <div className="flex-shrink-0 h-10 w-10">
+                                        {product.images && product.images.length > 0 ? (
+                                          <img
+                                            className="h-10 w-10 rounded-lg object-cover"
+                                            src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`}
+                                            alt={product.name}
+                                          />
+                                        ) : (
+                                          <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="ml-4">
+                                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                        <div className="text-sm text-gray-500">{product.sku}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {product.category.name}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {product.stock}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {product.lowStockThreshold || 5}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                      product.stock === 0 ? 'bg-red-100 text-red-800' :
+                                      product.stock <= (product.lowStockThreshold || 5) ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-green-100 text-green-800'
+                                    }`}>
+                                      {product.stock === 0 ? 'Stok Tükendi' :
+                                       product.stock <= (product.lowStockThreshold || 5) ? 'Düşük Stok' :
+                                       'Stokta'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div className="flex justify-end space-x-2">
+                                      <button
+                                        onClick={() => handleViewStockHistory(product)}
+                                        className="text-blue-600 hover:text-blue-900 text-sm"
+                                      >
+                                        Geçmiş
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdateStock(product)}
+                                        className="text-green-600 hover:text-green-900 text-sm"
+                                      >
+                                        Güncelle
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                                
+                                {/* Varyasyon satırları */}
+                                {product.variants && product.variants.length > 0 && product.variants.map((variant: any) => (
+                                  <tr key={`${product._id}-${variant._id}`} className="hover:bg-gray-50 bg-gray-25">
+                                    <td className="px-6 py-3 whitespace-nowrap pl-8">
+                                      <div>
+                                        <div className="text-sm font-medium text-gray-700">
+                                          <span className="text-gray-400">└─</span> {variant.name}
                                         </div>
-                                      )}
-                                    </div>
-                                    <div className="ml-4">
-                                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                      <div className="text-sm text-gray-500">{product.sku}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {product.category.name}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {product.stock}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {product.lowStockThreshold || 5}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                    product.stock === 0 ? 'bg-red-100 text-red-800' :
-                                    product.stock <= (product.lowStockThreshold || 5) ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-green-100 text-green-800'
-                                  }`}>
-                                    {product.stock === 0 ? 'Stok Tükendi' :
-                                     product.stock <= (product.lowStockThreshold || 5) ? 'Düşük Stok' :
-                                     'Stokta'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <div className="flex justify-end space-x-2">
-                                    <button
-                                      onClick={() => handleViewStockHistory(product)}
-                                      className="text-blue-600 hover:text-blue-900 text-sm"
-                                    >
-                                      Geçmiş
-                                    </button>
-                                    <button
-                                      onClick={() => handleUpdateStock(product)}
-                                      className="text-green-600 hover:text-green-900 text-sm"
-                                    >
-                                      Güncelle
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
+                                        <div className="text-sm text-gray-500">{variant.sku}</div>
+                                        <div className="text-xs text-gray-400">
+                                          {variant.options?.map((opt: any) => `${opt.name}: ${opt.value}`).join(', ')}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                      <span className="text-gray-400">Varyasyon</span>
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                                      {variant.stock}
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
+                                      <span className="text-gray-400">-</span>
+                                    </td>
+                                    <td className="px-6 py-3 whitespace-nowrap">
+                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                        variant.stock === 0 ? 'bg-red-100 text-red-800' :
+                                        variant.stock <= 5 ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-green-100 text-green-800'
+                                      }`}>
+                                        {variant.stock === 0 ? 'Stok Tükendi' :
+                                         variant.stock <= 5 ? 'Düşük Stok' :
+                                         'Stokta'}
+                                      </span>
+                                    </td>
+                                                  <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => handleViewStockHistory(product, variant)}
+                    className="text-blue-600 hover:text-blue-900 text-sm"
+                  >
+                    Geçmiş
+                  </button>
+                  <button
+                    onClick={() => handleUpdateVariantStock(product, variant)}
+                    className="text-green-600 hover:text-green-900 text-sm"
+                  >
+                    Güncelle
+                  </button>
+                </div>
+              </td>
+                                  </tr>
+                                ))}
+                              </React.Fragment>
                             ))}
                           </tbody>
                         </table>
@@ -5033,9 +5250,12 @@ const MyAccount = () => {
           onClose={() => {
             setStockHistoryModal(false);
             setSelectedProductForStock(null);
+            setSelectedVariantForStock(null);
           }}
           productId={selectedProductForStock._id}
           productName={selectedProductForStock.name}
+          variantId={selectedVariantForStock?._id}
+          variantName={selectedVariantForStock?.name}
           accessToken={accessToken || ''}
         />
       )}
@@ -5051,6 +5271,37 @@ const MyAccount = () => {
           productId={selectedProductForStock._id}
           productName={selectedProductForStock.name}
           currentStock={selectedProductForStock.stock}
+          accessToken={accessToken || ''}
+          onStockUpdated={handleStockUpdated}
+        />
+      )}
+
+      {/* Varyasyon Yönetimi Modal'ı */}
+      {variationModal && selectedProductForVariation && (
+        <VariationModal
+          isOpen={variationModal}
+          onClose={handleCloseVariationModal}
+          productName={selectedProductForVariation.name}
+          variants={productVariants}
+          onSave={handleSaveVariations}
+          loading={variationLoading}
+        />
+      )}
+
+      {/* Varyasyon Stok Güncelleme Modal'ı */}
+      {updateVariantStockModal && selectedProductForStock && selectedVariantForStock && (
+        <UpdateVariantStockModal
+          isOpen={updateVariantStockModal}
+          onClose={() => {
+            setUpdateVariantStockModal(false);
+            setSelectedProductForStock(null);
+            setSelectedVariantForStock(null);
+          }}
+          productId={selectedProductForStock._id}
+          productName={selectedProductForStock.name}
+          variantId={selectedVariantForStock._id}
+          variantName={selectedVariantForStock.name}
+          currentStock={selectedVariantForStock.stock}
           accessToken={accessToken || ''}
           onStockUpdated={handleStockUpdated}
         />
