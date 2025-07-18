@@ -41,7 +41,6 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
 
     setLoading(true);
     try {
-      // Hem düşük stok uyarılarını hem de stok istatistiklerini yükle
       const [alertsResponse, statsResponse] = await Promise.all([
         getLowStockAlerts({ page, limit: 20 }, accessToken),
         getStockStatistics({ period: 30 }, accessToken)
@@ -51,7 +50,6 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
         setLowStockProducts(alertsResponse.data.lowStockProducts || []);
         setOutOfStockProducts(alertsResponse.data.outOfStockProducts || []);
         
-        // Pagination'ı güvenli şekilde ayarla
         const paginationData = alertsResponse.data.pagination || {
           currentPage: 1,
           totalPages: 1,
@@ -69,7 +67,6 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
       }
     } catch (error) {
       console.error('Düşük stok uyarıları yüklenirken hata:', error);
-      // Hata durumunda varsayılan değerleri ayarla
       setPagination({
         currentPage: 1,
         totalPages: 1,

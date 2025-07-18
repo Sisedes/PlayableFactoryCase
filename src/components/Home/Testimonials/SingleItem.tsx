@@ -1,40 +1,16 @@
 import React from "react";
 import { Testimonial } from "@/types/testimonial";
 import Image from "next/image";
+import StarRating from '../../Common/StarRating';
 
 const SingleItem = ({ testimonial }: { testimonial: Testimonial }) => {
   return (
     <div className="shadow-testimonial bg-white rounded-[10px] py-7.5 px-4 sm:px-8.5 m-1">
-      <div className="flex items-center gap-1 mb-5">
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
-        />
-        <Image
-          src="/images/icons/icon-star.svg"
-          alt="star icon"
-          width={15}
-          height={15}
+      <div className="mb-5">
+        <StarRating 
+          rating={testimonial.rating || 5} 
+          showCount={false}
+          size="sm"
         />
       </div>
 

@@ -13,6 +13,7 @@ import {
   deleteProductAdmin,
   bulkUpdateProducts,
   deleteProductImage,
+  setMainImage,
   testProductImages,
   getStockHistory,
   updateStock,
@@ -121,6 +122,13 @@ router.delete('/admin/:id', authenticateToken, requireAdmin, deleteProductAdmin)
  * @access  
  */
 router.delete('/admin/:id/images/:imageId', authenticateToken, requireAdmin, deleteProductImage);
+
+/**
+ * @route   put /api/products/admin/:id/images/:imageId/set-main
+ * @desc    
+ * @access  
+ */
+router.put('/admin/:id/images/:imageId/set-main', authenticateToken, requireAdmin, setMainImage);
 
 /**
  * @route   get /api/products/admin/:id/stock-history

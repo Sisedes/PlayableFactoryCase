@@ -1,9 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { Product } from "@/types/product";
+import { Product } from "@/types";
 import { useModalContext } from "@/app/context/QuickViewModalContext";
-import { updateQuickView } from "@/redux/features/quickView-slice";
 import { addItemToCart } from "@/redux/features/cart-slice";
 import { addItemToWishlist } from "@/redux/features/wishlist-slice";
 import { updateproductDetails } from "@/redux/features/product-details";
@@ -12,6 +11,8 @@ import { AppDispatch } from "@/redux/store";
 import Link from "next/link";
 import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
+import { getImageUrl } from "@/utils/apiUtils";
+import StarRating from './StarRating';
 
 const ProductItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
@@ -31,8 +32,8 @@ const ProductItem = ({ item }: { item: Product }) => {
     }
   }, [accessToken, item._id]);
 
-  const handleQuickViewUpdate = () => {
-    dispatch(updateQuickView({ ...item }));
+  const handleQuickView = () => {
+    openModal(item);
   };
 
   const handleAddToCart = () => {
@@ -43,8 +44,8 @@ const ProductItem = ({ item }: { item: Product }) => {
         price: item.price,
         discountedPrice: item.salePrice || item.price,
         imgs: { 
-          thumbnails: item.images?.map(img => img.url) || [],
-          previews: item.images?.map(img => img.url) || [] 
+          thumbnails: item.images?.map(img => getImageUrl(img.url)) || [],
+          previews: item.images?.map(img => getImageUrl(img.url)) || [] 
         },
         quantity: 1,
       })
@@ -59,8 +60,8 @@ const ProductItem = ({ item }: { item: Product }) => {
         price: item.price,
         discountedPrice: item.salePrice || item.price,
         imgs: { 
-          thumbnails: item.images?.map(img => img.url) || [],
-          previews: item.images?.map(img => img.url) || [] 
+          thumbnails: item.images?.map(img => getImageUrl(img.url)) || [],
+          previews: item.images?.map(img => getImageUrl(img.url)) || [] 
         },
         status: "available",
         quantity: 1,
@@ -102,17 +103,26 @@ const ProductItem = ({ item }: { item: Product }) => {
     }
   };
 
+
+
   return (
-    <div className="group">
-      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] min-h-[270px] mb-4">
-        <Image src={item.images?.[0]?.url || "/images/products/default.png"} alt="" width={250} height={250} />
+    <div className="group w-full">
+      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] w-full h-[270px] mb-4">
+        <Image 
+          src={getImageUrl(item.images?.[0]?.url || "/images/products/default.png")} 
+          alt={item.name} 
+          width={250} 
+          height={250}
+          className="object-contain w-full h-full max-w-[220px] max-h-[220px] p-4"
+          style={{ 
+            aspectRatio: '1/1',
+            objectFit: 'contain'
+          }}
+        />
 
         <div className="absolute left-0 bottom-0 translate-y-full w-full flex items-center justify-center gap-2.5 pb-5 ease-linear duration-200 group-hover:translate-y-0">
           <button
-            onClick={() => {
-              openModal();
-              handleQuickViewUpdate();
-            }}
+            onClick={handleQuickView}
             id="newOne"
             aria-label="button for quick view"
             className="flex items-center justify-center w-9 h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue"
@@ -141,10 +151,10 @@ const ProductItem = ({ item }: { item: Product }) => {
           </button>
 
           <button
-            onClick={() => handleAddToCart()}
+            onClick={handleAddToCart}
             className="inline-flex font-medium text-custom-sm py-[7px] px-5 rounded-[5px] bg-blue text-white ease-out duration-200 hover:bg-blue-dark"
           >
-            Add to cart
+            Sepete Ekle
           </button>
 
           <button
@@ -189,52 +199,23 @@ const ProductItem = ({ item }: { item: Product }) => {
       </div>
 
       <div className="flex items-center gap-2.5 mb-2">
-        <div className="flex items-center gap-1">
-          <Image
-            src="/images/icons/icon-star.svg"
-            alt="star icon"
-            width={14}
-            height={14}
-          />
-          <Image
-            src="/images/icons/icon-star.svg"
-            alt="star icon"
-            width={14}
-            height={14}
-          />
-          <Image
-            src="/images/icons/icon-star.svg"
-            alt="star icon"
-            width={14}
-            height={14}
-          />
-          <Image
-            src="/images/icons/icon-star.svg"
-            alt="star icon"
-            width={14}
-            height={14}
-          />
-          <Image
-            src="/images/icons/icon-star.svg"
-            alt="star icon"
-            width={14}
-            height={14}
-          />
-        </div>
-
-        <p className="text-custom-sm">({item.reviewCount || 0})</p>
+        <StarRating 
+          rating={item.averageRating || 0} 
+          reviewCount={item.reviewCount || 0}
+          size="sm"
+        />
       </div>
 
       <h3
         className="font-medium text-dark ease-out duration-200 hover:text-blue mb-1.5"
         onClick={() => handleProductDetails()}
       >
-        <Link href="/shop-details"> {item.name} </Link>
+        <Link href={`/product/${item._id}`}> {item.name} </Link>
       </h3>
 
       <span className="flex items-center gap-2 font-medium text-lg">
-        <span className="text-dark">${item.salePrice || item.price}</span>
-        {item.salePrice && <span className="text-dark-4 line-through">${item.price}</span>}
+        <span className="text-dark">₺{item.salePrice || item.price}</span>
+        {item.salePrice && <span className="text-dark-4 line-through">₺{item.price}</span>}
       </span>
     </div>
   );

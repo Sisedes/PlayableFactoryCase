@@ -120,13 +120,7 @@ const productSchema = new Schema<IProduct>({
   },
   salePrice: {
     type: Number,
-    min: [0, 'İndirimli fiyat negatif olamaz'],
-    validate: {
-      validator: function(this: IProduct, value: number) {
-        return !value || value < this.price;
-      },
-      message: 'İndirimli fiyat normal fiyattan düşük olmalıdır'
-    }
+    min: [0, 'İndirimli fiyat negatif olamaz']
   },
   currency: {
     type: String,
@@ -248,6 +242,10 @@ productSchema.pre('save', function(next) {
       .replace(/[^a-z0-9\s]/g, '')
       .replace(/\s+/g, '-')
       .trim();
+  }
+
+  if (this.salePrice && this.salePrice >= this.price) {
+    return next(new Error('İndirimli fiyat normal fiyattan düşük olmalıdır'));
   }
 
   if (this.isModified('images')) {

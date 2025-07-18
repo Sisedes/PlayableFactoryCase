@@ -14,6 +14,7 @@ import {
   deleteProductAdmin, 
   bulkUpdateProducts,
   deleteProductImage,
+  setMainImage,
   getStockHistory,
   updateStock,
   getLowStockAlerts,
@@ -130,6 +131,8 @@ const MyAccount = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [editProductLoading, setEditProductLoading] = useState(false);
   const [editApplyDiscount, setEditApplyDiscount] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const [productForm, setProductForm] = useState({
     name: '',
@@ -180,8 +183,11 @@ const MyAccount = () => {
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
-    description: ''
+    description: '',
+    sortOrder: 0
   });
+  const [categoryImage, setCategoryImage] = useState<File | null>(null);
+  const [categoryImagePreview, setCategoryImagePreview] = useState<string>('');
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [editCategory, setEditCategory] = useState<LocalCategory | null>(null);
   const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
@@ -833,6 +839,7 @@ const MyAccount = () => {
     if (!editApplyDiscount) {
       formData.delete('salePrice');
     }
+
     if (!accessToken) return;
 
     setEditProductLoading(true);
@@ -841,6 +848,7 @@ const MyAccount = () => {
       if (response.success) {
         alert('Ürün başarıyla güncellendi');
         setEditProduct(null);
+        setSelectedFiles([]); 
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
@@ -878,16 +886,35 @@ const MyAccount = () => {
   };
 
   const handleDeleteImage = async (productId: string, imageId: string) => {
-    if (!accessToken || !confirm('Bu resmi silmek istediğinizden emin misiniz?')) return;
+    if (!accessToken) return;
+
+    const imageToDelete = editProduct?.images.find(img => img._id === imageId);
+    
+    if (imageToDelete?.isMain) {
+      alert('Ana resim silinemez! Önce başka bir resmi ana resim yapın, sonra bu resmi silebilirsiniz.');
+      return;
+    }
+
+    if (!confirm('Bu resmi silmek istediğinizden emin misiniz?')) return;
 
     try {
       const response = await deleteProductImage(productId, imageId, accessToken);
       if (response.success) {
-        alert('Resim başarıyla silindi');
+        // Popup'ta anında güncelleme
+        if (editProduct && editProduct._id === productId) {
+          const updatedImages = editProduct.images.filter(img => img._id !== imageId);
+          setEditProduct({
+            ...editProduct,
+            images: updatedImages
+          });
+        }
+        
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
         }
+        
+        alert('Resim başarıyla silindi');
       } else {
         alert(response.message || 'Resim silinirken hata oluştu');
       }
@@ -897,12 +924,129 @@ const MyAccount = () => {
     }
   };
 
+  const handleSetMainImage = async (productId: string, imageId: string, imageIndex: number) => {
+    if (!accessToken) return;
+
+    try {
+      const response = await setMainImage(productId, imageId, accessToken);
+      if (response.success) {
+        if (editProduct && editProduct._id === productId) {
+          const updatedImages = editProduct.images.map(img => ({
+            ...img,
+            isMain: img._id === imageId
+          }));
+          setEditProduct({
+            ...editProduct,
+            images: updatedImages
+          });
+        }
+        
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+        
+        alert('Ana resim başarıyla ayarlandı');
+      } else {
+        alert(response.message || 'Ana resim ayarlanırken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Ana resim ayarlama hatası:', error);
+      alert('Ana resim ayarlanırken hata oluştu');
+    }
+  };
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter(file => {
+      const isValidType = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type);
+      const isValidSize = file.size <= 5 * 1024 * 1024; // 5Mb
+      return isValidType && isValidSize;
+    });
+
+    if (validFiles.length !== fileArray.length) {
+      alert('Bazı dosyalar geçersiz format veya boyutta. Sadece PNG, JPG, JPEG, WebP formatında ve 5MB\'dan küçük dosyalar kabul edilir.');
+    }
+
+    const currentCount = selectedFiles.length;
+    const newFiles = validFiles.slice(0, 10 - currentCount);
+    
+    if (validFiles.length > 10 - currentCount) {
+      alert(`Maksimum 10 resim yükleyebilirsiniz. ${10 - currentCount} resim daha eklenebilir.`);
+    }
+
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const handleFileRemove = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    handleFileSelect(files);
+  };
+
   const handleCategoryFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setCategoryForm(prev => ({
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleCategoryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processCategoryImage(file);
+    }
+  };
+
+  const processCategoryImage = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) { // 5Mb
+      alert('Resim dosyası 5MB\'dan büyük olamaz');
+      return;
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Sadece JPEG, PNG, WebP ve GIF dosyaları yükleyebilirsiniz');
+      return;
+    }
+
+    setCategoryImage(file);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setCategoryImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCategoryImageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      processCategoryImage(files[0]);
+    }
+  };
+
+  const handleCategoryImageDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
   };
 
 
@@ -927,6 +1071,14 @@ const MyAccount = () => {
       formData.append('name', categoryForm.name);
       formData.append('description', categoryForm.description);
       
+      if (categoryForm.sortOrder !== undefined) {
+        formData.append('sortOrder', categoryForm.sortOrder.toString());
+      }
+      
+      if (categoryImage) {
+        formData.append('categoryImage', categoryImage);
+      }
+      
       let result;
       
       if (editCategory) {
@@ -937,10 +1089,13 @@ const MyAccount = () => {
       
       if (result.success) {
         alert(editCategory ? 'Kategori başarıyla güncellendi!' : 'Kategori başarıyla eklendi!');
-        setCategoryForm({
-          name: '',
-          description: ''
-        });
+                                        setCategoryForm({
+                                  name: '',
+                                  description: '',
+                                  sortOrder: 0
+                                });
+        setCategoryImage(null);
+        setCategoryImagePreview('');
         setEditCategory(null);
         
         const categoriesResponse = await getAllCategoriesForAdmin(accessToken || '');
@@ -962,8 +1117,11 @@ const MyAccount = () => {
     setEditCategory(category);
     setCategoryForm({
       name: category.name,
-      description: category.description
+      description: category.description,
+      sortOrder: category.sortOrder
     });
+    setCategoryImage(null);
+    setCategoryImagePreview(category.image ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${category.image}` : '');
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -986,6 +1144,33 @@ const MyAccount = () => {
     } catch (error) {
       console.error('Kategori silme hatası:', error);
       alert('Kategori silinirken hata oluştu');
+    }
+  };
+
+  const handleToggleCategoryStatus = async (categoryId: string, currentStatus: boolean) => {
+    if (!accessToken) {
+      alert('Giriş yapmanız gerekiyor');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('isActive', (!currentStatus).toString());
+      
+      const result = await updateCategory(categoryId, formData, accessToken);
+      if (result.success) {
+        alert(`Kategori ${!currentStatus ? 'aktif' : 'pasif'} hale getirildi!`);
+        
+        const categoriesResponse = await getAllCategoriesForAdmin(accessToken);
+        if (categoriesResponse.success) {
+          setCategories(categoriesResponse.data as unknown as LocalCategory[]);
+        }
+      } else {
+        alert('Hata: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Kategori durum değiştirme hatası:', error);
+      alert('Kategori durumu değiştirilirken bir hata oluştu');
     }
   };
 
@@ -1303,7 +1488,9 @@ const MyAccount = () => {
 
   return (
     <>
-      <Breadcrumb title={"My Account"} pages={["my account"]} />
+              <Breadcrumb title={"Hesabım"} pages={[
+          { name: "Hesabım" }
+        ]} />
 
       <section className="overflow-hidden py-20 bg-gray-2">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
@@ -2957,6 +3144,88 @@ const MyAccount = () => {
                           />
                         </div>
 
+                        {/* Sıralama */}
+                        <div>
+                          <label className="block mb-2 text-dark font-medium">
+                            Sıralama
+                          </label>
+                          <input
+                            type="number"
+                            name="sortOrder"
+                            value={categoryForm.sortOrder}
+                            onChange={handleCategoryFormChange}
+                            min="0"
+                            placeholder="Sıralama numarası"
+                            className="w-full rounded-lg border border-gray-3 bg-white py-3 px-4 text-dark outline-none transition-all focus:border-blue"
+                            disabled={categoryLoading}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Düşük sayılar önce görünür</p>
+                        </div>
+
+                        {/* Kategori Resmi */}
+                        <div>
+                          <label className="block mb-2 text-dark font-medium">
+                            Kategori Resmi
+                          </label>
+                          <div className="space-y-3">
+                            {/* Resim Yükleme Alanı */}
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleCategoryImageChange}
+                                className="hidden"
+                                id="categoryImageInput"
+                                disabled={categoryLoading}
+                              />
+                              <label
+                                htmlFor="categoryImageInput"
+                                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue transition-colors bg-gray-50 hover:bg-gray-100"
+                                onDrop={handleCategoryImageDrop}
+                                onDragOver={handleCategoryImageDragOver}
+                              >
+                                <div className="text-center">
+                                  <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                  </svg>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium text-blue hover:text-blue-dark">Resim seç</span> veya sürükle bırak
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">PNG, JPG, WebP, GIF (max. 5MB)</p>
+                                </div>
+                              </label>
+                            </div>
+
+                            {/* Resim Önizleme */}
+                            {categoryImagePreview && (
+                              <div className="relative">
+                                <div className="w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+                                  <Image
+                                    src={categoryImagePreview}
+                                    alt="Kategori resmi önizleme"
+                                    width={128}
+                                    height={128}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCategoryImage(null);
+                                    setCategoryImagePreview('');
+                                  }}
+                                  className="absolute -top-2 -right-2 bg-red text-white rounded-full p-1 hover:bg-red-dark transition-colors"
+                                  title="Resmi kaldır"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
 
 
 
@@ -2990,10 +3259,13 @@ const MyAccount = () => {
                               type="button"
                               onClick={() => {
                                 setEditCategory(null);
-                                setCategoryForm({
-                                  name: '',
-                                  description: ''
-                                });
+                                        setCategoryForm({
+          name: '',
+          description: '',
+          sortOrder: 0
+        });
+                                setCategoryImage(null);
+                                setCategoryImagePreview('');
                               }}
                               disabled={categoryLoading}
                               className="px-6 py-3 text-sm font-bold rounded-lg border-2 transition-all duration-200 bg-gray-500 text-white border-gray-600 hover:bg-gray-600 disabled:opacity-50"
@@ -3021,8 +3293,8 @@ const MyAccount = () => {
                             <div key={category._id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center space-x-3 flex-1">
-                                  {category.image && (
-                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                    {category.image ? (
                                       <Image
                                         src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${category.image}`}
                                         alt={category.name}
@@ -3030,13 +3302,20 @@ const MyAccount = () => {
                                         height={48}
                                         className="w-full h-full object-cover"
                                       />
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                        <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
                                   <div className="flex-1">
                                     <h4 className="font-medium text-dark">{category.name}</h4>
                                     <p className="text-sm text-gray-600 line-clamp-2">{category.description}</p>
                                     <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
                                       <span>Ürün: {getCategoryProductCount(category._id)}</span>
+                                      <span>Sıra: {category.sortOrder}</span>
                                       <span className={`px-2 py-1 rounded-full ${
                                         category.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                       }`}>
@@ -3047,6 +3326,23 @@ const MyAccount = () => {
                                 </div>
                                 
                                 <div className="flex space-x-2 ml-4">
+                                  <button
+                                    onClick={() => handleToggleCategoryStatus(category._id, category.isActive)}
+                                    className={`p-2 transition-colors ${
+                                      category.isActive 
+                                        ? 'text-orange hover:text-orange-dark' 
+                                        : 'text-green hover:text-green-dark'
+                                    }`}
+                                    title={category.isActive ? 'Pasif Yap' : 'Aktif Yap'}
+                                  >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      {category.isActive ? (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                                      ) : (
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      )}
+                                    </svg>
+                                  </button>
                                   <button
                                     onClick={() => handleEditCategory(category)}
                                     className="p-2 text-blue hover:text-blue-dark transition-colors"
@@ -4196,6 +4492,22 @@ const MyAccount = () => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
+                
+                console.log('=== FRONTEND FORM SUBMIT DEBUG ===');
+                console.log('Selected files count:', selectedFiles.length);
+                console.log('Selected files:', selectedFiles.map(f => f.name));
+                
+                selectedFiles.forEach((file, index) => {
+                  formData.append('images', file);
+                  console.log(`Added file ${index}:`, file.name);
+                });
+                
+                Array.from(formData.entries()).forEach(([key, value]) => {
+                  console.log(`FormData key: ${key}, value:`, value);
+                });
+                
+                console.log('=== END FRONTEND DEBUG ===');
+                
                 await handleEditProduct(editProduct._id, formData);
               }} className="space-y-4">
                 <div>
@@ -4318,39 +4630,150 @@ const MyAccount = () => {
                 {editProduct.images && editProduct.images.length > 0 && (
                   <div>
                     <label className="block mb-2 text-dark font-medium">Mevcut Resimler</label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {editProduct.images.map((image, index) => (
-                        <div key={index} className="relative">
-                          <Image
-                            src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${image.url}`}
-                            alt={image.alt || 'Ürün resmi'}
-                            width={100}
-                            height={100}
-                            className="w-full h-24 object-cover rounded border"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteImage(editProduct._id, image._id || '')}
-                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                          >
-                            ×
-                          </button>
+                        <div key={index} className="relative group">
+                          <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                            <Image
+                              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${image.url}`}
+                              alt={image.alt || 'Ürün resmi'}
+                              width={150}
+                              height={150}
+                              className="w-full h-32 object-cover transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetMainImage(editProduct._id, image._id || '', index)}
+                                  className={`p-2 rounded-full ${
+                                    image.isMain 
+                                      ? 'bg-green-500 text-white' 
+                                      : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white'
+                                  } transition-colors duration-200`}
+                                  title={image.isMain ? 'Ana resim' : 'Ana resim yap'}
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteImage(editProduct._id, image._id || '')}
+                                  className={`p-2 rounded-full transition-colors duration-200 ${
+                                    image.isMain 
+                                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                      : 'bg-white text-red-500 hover:bg-red-500 hover:text-white'
+                                  }`}
+                                  title={image.isMain ? 'Ana resim silinemez' : 'Resmi sil'}
+                                  disabled={image.isMain}
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-center">
+                            <p className="text-xs text-gray-600 truncate">{image.alt || `Resim ${index + 1}`}</p>
+                            {image.isMain && (
+                              <span className="inline-block mt-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                Ana Resim
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Resimlerin üzerine gelerek düzenleme seçeneklerini görebilirsiniz
+                    </p>
                   </div>
                 )}
                 
                 <div>
                   <label className="block mb-2 text-dark font-medium">Yeni Resimler</label>
-                  <input
-                    type="file"
-                    name="images"
-                    multiple
-                    accept="image/*"
-                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Mevcut resimlere ek olarak yeni resimler ekleyebilirsiniz</p>
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      isDragOver 
+                        ? 'border-blue-400 bg-blue-50' 
+                        : 'border-gray-300 hover:border-blue-400'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      id="product-images-input"
+                      onChange={(e) => handleFileSelect(e.target.files)}
+                    />
+                    <label htmlFor="product-images-input" className="cursor-pointer">
+                      <div className="flex flex-col items-center">
+                        <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p className="text-lg font-medium text-gray-700 mb-2">
+                          Resimleri seçin veya sürükleyip bırakın
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          PNG, JPG, JPEG, WebP formatlarında birden fazla resim seçebilirsiniz
+                        </p>
+                        <p className="text-xs text-gray-400 mt-2">
+                          Maksimum 10 resim, her biri 5MB&apos;a kadar
+                        </p>
+                        {selectedFiles.length > 0 && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            {selectedFiles.length}/10 resim seçildi
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                  
+                  {/* Seçilen dosyaların önizlemesi */}
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                        Seçilen Resimler ({selectedFiles.length}):
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {selectedFiles.map((file, index) => (
+                          <div key={index} className="relative group">
+                            <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={file.name}
+                                className="w-full h-24 object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleFileRemove(index)}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                                title="Dosyayı kaldır"
+                              >
+                                ×
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-600 truncate mt-1 text-center">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-400 text-center">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <p className="text-sm text-gray-500 mt-2">
+                    Mevcut resimlere ek olarak yeni resimler ekleyebilirsiniz. Yüklenen resimler otomatik olarak ürün resimlerine eklenecektir.
+                  </p>
                 </div>
                 
                 <div className="flex justify-end space-x-3 pt-4">
@@ -4359,6 +4782,7 @@ const MyAccount = () => {
                     onClick={() => {
                       setEditProduct(null);
                       setEditApplyDiscount(false);
+                      setSelectedFiles([]); 
                     }}
                     disabled={editProductLoading}
                     className="px-4 py-2 text-gray-600 border border-gray-3 rounded-md hover:bg-gray-50 disabled:opacity-50"
@@ -4435,7 +4859,7 @@ const MyAccount = () => {
               </div>
               
               <p className="text-gray-600 mb-6">
-                Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve kategorideki tüm ürünler etkilenebilir.
+                Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz, kategori resmi silinecek ve kategorideki tüm ürünler etkilenebilir.
               </p>
               
               <div className="flex justify-end space-x-3">

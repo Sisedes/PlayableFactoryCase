@@ -45,32 +45,41 @@ export interface UserPreferences {
 
 // Product Catalog Types
 export interface Product {
-  id: string;
+  _id: string;
   name: string;
   description: string;
+  shortDescription?: string;
   price: number;
-  discountedPrice?: number;
-  category: Category;
+  salePrice?: number;
+  currency?: string;
+  category: {
+    _id: string;
+    name: string;
+    slug: string;
+  };
   subcategory?: string;
   stock: number;
   sku: string;
   images: ProductImage[];
-  attributes: ProductAttribute[];
-  tags: string[];
-  featured: boolean;
-  active: boolean;
+  attributes?: ProductAttribute[];
+  tags?: string[];
+  isFeatured?: boolean;
+  status: 'draft' | 'active' | 'inactive';
   variants?: ProductVariant[];
-  seo: SEOData;
-  createdAt: Date;
-  updatedAt: Date;
+  seo?: SEOData;
+  averageRating?: number;
+  reviewCount?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProductImage {
-  id: string;
+  _id?: string;
   url: string;
   alt: string;
-  order: number;
-  type: 'thumbnail' | 'gallery' | 'hero';
+  isMain?: boolean;
+  isPrimary?: boolean;
+  sortOrder?: number;
 }
 
 export interface ProductAttribute {
@@ -90,17 +99,19 @@ export interface ProductVariant {
 
 // Category Management Types
 export interface Category {
-  id: string;
+  _id: string;
   name: string;
   slug: string;
   description: string;
   image?: string;
   parentId?: string;
   children?: Category[];
-  order: number;
-  active: boolean;
+  sortOrder: number;
+  isActive: boolean;
   productCount?: number;
-  seo: SEOData;
+  seo?: SEOData;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Cart and Orders Types

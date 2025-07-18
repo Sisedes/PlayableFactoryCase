@@ -10,9 +10,10 @@ import PriceDropdown from "./PriceDropdown";
 import SingleGridItem from "../Shop/SingleGridItem";
 import SingleListItem from "../Shop/SingleListItem";
 import { useStore } from "@/store/useStore";
-import { Product as ComponentProduct } from "@/types/product";
+import { Product } from "@/types/product";
+import { getImageUrl } from "@/utils/apiUtils";
 
-const transformApiProductToComponent = (apiProduct: any): ComponentProduct => {
+const transformApiProductToComponent = (apiProduct: any): Product => {
   console.log('🔧 Transforming product:', {
     _id: apiProduct._id,
     name: apiProduct.name,
@@ -23,16 +24,34 @@ const transformApiProductToComponent = (apiProduct: any): ComponentProduct => {
     fullProduct: apiProduct
   });
 
-  const transformed = {
-    id: apiProduct._id || apiProduct.id || Math.random(), 
-    title: apiProduct.name || '',
+  const transformed: Product = {
+    _id: apiProduct._id || apiProduct.id || Math.random().toString(),
+    name: apiProduct.name || '',
+    slug: apiProduct.slug || apiProduct.name?.toLowerCase().replace(/\s+/g, '-') || '',
+    description: apiProduct.description || '',
+    shortDescription: apiProduct.shortDescription || '',
+    category: apiProduct.category || { _id: '', name: '', slug: '' },
     price: apiProduct.price || 0,
-    discountedPrice: apiProduct.salePrice || 0,
-    reviews: apiProduct.statistics?.views || apiProduct.reviews || 0,
-    imgs: {
-      thumbnails: apiProduct.images?.map((img: any) => img.url) || ['/images/products/placeholder.jpg'],
-      previews: apiProduct.images?.map((img: any) => img.url) || ['/images/products/placeholder.jpg'],
-    },
+    salePrice: apiProduct.salePrice || 0,
+    currency: apiProduct.currency || 'TRY',
+    sku: apiProduct.sku || '',
+    stock: apiProduct.stock || 0,
+    trackQuantity: apiProduct.trackQuantity || false,
+    lowStockThreshold: apiProduct.lowStockThreshold || 0,
+    images: apiProduct.images?.map((img: any) => ({
+      url: getImageUrl(img.url),
+      alt: img.alt || apiProduct.name || '',
+      isMain: img.isMain || false,
+      isPrimary: img.isPrimary || false,
+      sortOrder: img.sortOrder || 0
+    })) || [],
+    tags: apiProduct.tags || [],
+    status: apiProduct.status || 'active',
+    isFeatured: apiProduct.isFeatured || false,
+    averageRating: apiProduct.averageRating || 0,
+    reviewCount: apiProduct.reviewCount || 0,
+    createdAt: apiProduct.createdAt || new Date().toISOString(),
+    updatedAt: apiProduct.updatedAt || new Date().toISOString()
   };
 
   console.log('✨ Transformed result:', transformed);
@@ -43,7 +62,7 @@ const ShopWithSidebar = () => {
   const [productStyle, setProductStyle] = useState("grid");
   const [productSidebar, setProductSidebar] = useState(false);
   const [stickyMenu, setStickyMenu] = useState(false);
-  const [transformedProducts, setTransformedProducts] = useState<ComponentProduct[]>([]);
+  const [transformedProducts, setTransformedProducts] = useState<Product[]>([]);
 
   // Zustand store'dan veri ve fonksiyonları al
   const { 
@@ -70,13 +89,11 @@ const ShopWithSidebar = () => {
     }
   };
 
-  // Komponent yüklendiğinde veri fetch et
   useEffect(() => {
     fetchProducts();
     fetchCategories();
   }, [fetchProducts, fetchCategories]);
 
-  // API ürünleri geldiğinde dönüştür
   useEffect(() => {
     console.log('🔍 API Products:', products);
     if (products && products.length > 0) {
@@ -88,11 +105,9 @@ const ShopWithSidebar = () => {
     }
   }, [products]);
 
-  // Scroll event listener
   useEffect(() => {
     window.addEventListener("scroll", handleStickyMenu);
 
-    // sidebar dışına tıklandığında kapat
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Element;
       if (!target.closest(".sidebar-content")) {
@@ -117,10 +132,9 @@ const ShopWithSidebar = () => {
     { label: "Fiyat (Yüksek-Düşük)", value: "price-desc" },
   ];
 
-  // Kategorileri gerçek API'den al
   const categoryOptions = categories.map(category => ({
     name: category.name,
-    products: 0, // API'de ürün sayısı yoksa 0
+    products: 0, 
     isRefined: false,
   }));
 
@@ -130,7 +144,6 @@ const ShopWithSidebar = () => {
     { name: "Unisex", products: 0 },
   ];
 
-  // Sıralama değişikliği
   const handleSortChange = (value: string) => {
     const [sortBy, sortOrder] = value.split('-');
     if (sortOrder === "asc" || sortOrder === "desc") {
@@ -140,7 +153,6 @@ const ShopWithSidebar = () => {
     }
   };
 
-  // Loading durumu
   if (productsLoading || categoriesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -152,7 +164,6 @@ const ShopWithSidebar = () => {
     );
   }
 
-  // Error durumu
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -181,7 +192,9 @@ const ShopWithSidebar = () => {
     <>
       <Breadcrumb
         title={"Tüm Ürünleri Keşfet"}
-        pages={["shop", "/", "tüm ürünler"]}
+        pages={[
+          { name: "Ürünler", href: "/products" }
+        ]}
       />
       <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6]">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">

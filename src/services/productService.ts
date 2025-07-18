@@ -1,8 +1,3 @@
-/**
- * Product Service - Ürün ile ilgili tüm API çağırılarını yönetir
- * Bu service frontend ile backend arasında temiz bir arayüz sağlar
- */
-
 import { Product } from '@/types';
 
 // API Base URL
@@ -22,7 +17,7 @@ interface ApiResponse<T> {
   filters?: any;
 }
 
-interface ProductFilters {
+export interface ProductFilters {
   page?: number;
   limit?: number;
   category?: string;
@@ -117,7 +112,7 @@ export const getPopularProducts = async (limit: number = 8): Promise<ApiResponse
   }
 };
 
-export const getLatestProducts = async (limit: number = 8): Promise<ApiResponse<Product[]>> => {
+export const getLatestProducts = async (limit: number = 4): Promise<ApiResponse<Product[]>> => {
   try {
     const response = await fetch(`${API_BASE}/products/latest?limit=${limit}`, {
       method: 'GET',
@@ -217,9 +212,6 @@ export const getProductsByPriceRange = async (
   }
 };
 
-/**
- * Stokta olan ürünleri getirir
- */
 export const getInStockProducts = async (
   filters: Omit<ProductFilters, 'inStock'> = {}
 ): Promise<ApiResponse<Product[]>> => {
@@ -265,9 +257,6 @@ export const getAllProductsForAdmin = async (filters: ProductFilters & { status?
   }
 };
 
-/**
- * Admin: Ürün düzenle
- */
 export const updateProductAdmin = async (productId: string, productData: FormData, accessToken: string): Promise<ApiResponse<Product>> => {
   try {
     const response = await fetch(`${API_BASE}/products/admin/${productId}`, {
@@ -290,9 +279,6 @@ export const updateProductAdmin = async (productId: string, productData: FormDat
   }
 };
 
-/**
- * Admin: Ürün sil
- */
 export const deleteProductAdmin = async (productId: string, accessToken: string): Promise<ApiResponse<null>> => {
   try {
     const response = await fetch(`${API_BASE}/products/admin/${productId}`, {
@@ -315,9 +301,6 @@ export const deleteProductAdmin = async (productId: string, accessToken: string)
   }
 };
 
-/**
- * Admin: Toplu ürün işlemleri
- */
 export const bulkUpdateProducts = async (productIds: string[], action: 'activate' | 'deactivate' | 'delete', accessToken: string): Promise<ApiResponse<any>> => {
   try {
     const response = await fetch(`${API_BASE}/products/admin/bulk`, {
@@ -341,9 +324,7 @@ export const bulkUpdateProducts = async (productIds: string[], action: 'activate
   }
 };
 
-/**
- * Admin: Ürün resmi sil
- */
+
 export const deleteProductImage = async (productId: string, imageId: string, accessToken: string): Promise<ApiResponse<Product>> => {
   try {
     const response = await fetch(`${API_BASE}/products/admin/${productId}/images/${imageId}`, {
@@ -359,6 +340,25 @@ export const deleteProductImage = async (productId: string, imageId: string, acc
   } catch (error) {
     console.error('Delete product image error:', error);
     throw new Error('Resim silinirken hata oluştu');
+  }
+};
+
+
+export const setMainImage = async (productId: string, imageId: string, accessToken: string): Promise<ApiResponse<Product>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/admin/${productId}/images/${imageId}/set-main`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Set main image error:', error);
+    throw new Error('Ana resim ayarlanırken hata oluştu');
   }
 };
 
@@ -462,9 +462,6 @@ export const getStockStatistics = async (
   }
 };
 
-/**
- * Yeni ürün oluştur (Admin)
- */
 export const createProduct = async (productData: any, accessToken: string): Promise<ApiResponse<Product>> => {
   try {
     const response = await fetch(`${API_BASE}/products`, {
@@ -489,9 +486,6 @@ export const createProduct = async (productData: any, accessToken: string): Prom
   }
 };
 
-/**
- * Ürün güncelle (Admin)
- */
 export const updateProduct = async (id: string, productData: any, accessToken: string): Promise<ApiResponse<Product>> => {
   try {
     if (!id) {
@@ -520,9 +514,6 @@ export const updateProduct = async (id: string, productData: any, accessToken: s
   }
 };
 
-/**
- * Ürün sil (Admin)
- */
 export const deleteProduct = async (id: string, accessToken: string): Promise<ApiResponse<any>> => {
   try {
     if (!id) {
@@ -549,4 +540,4 @@ export const deleteProduct = async (id: string, accessToken: string): Promise<Ap
   }
 };
 
-export type { ProductFilters, ApiResponse }; 
+export type { ApiResponse }; 

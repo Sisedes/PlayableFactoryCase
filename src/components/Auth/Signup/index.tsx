@@ -22,7 +22,6 @@ const Signup = () => {
   const router = useRouter();
 
   useEffect(() => {
-    // Giriş yapmış kullanıcıyı ana sayfaya yönlendir
     if (isAuthenticated) {
       router.push('/');
     }
@@ -86,7 +85,6 @@ const Signup = () => {
                      formData.password === formData.confirmPassword &&
                      !passwordMatchError;
 
-  // Eğer kullanıcı giriş yapmışsa loading göster
   if (isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -100,7 +98,9 @@ const Signup = () => {
 
   return (
     <>
-      <Breadcrumb title={"Kayıt Ol"} pages={["Kayıt Ol"]} />
+              <Breadcrumb title={"Kayıt Ol"} pages={[
+          { name: "Kayıt Ol" }
+        ]} />
       <section className="overflow-hidden py-20 bg-gray-2">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
           <div className="max-w-[570px] w-full mx-auto rounded-xl bg-white shadow-1 p-4 sm:p-7.5 xl:p-11">

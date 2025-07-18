@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import Category from './categoriesModel';
 import Product from '../Product/productModel';
+import { deleteFile } from '../../config/multer';
+import path from 'path';
 
 const createSlug = (name: string): string => {
   return name
@@ -15,7 +17,7 @@ export const getAllCategories = async (req: Request, res: Response) => {
   try {
     const categories = await Category.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
-      .select('name slug description icon parentCategory isActive sortOrder createdAt');
+      .select('name slug description image isActive sortOrder createdAt');
 
     const categoriesWithCount = await Promise.all(
       categories.map(async (category) => {
@@ -167,6 +169,14 @@ export const updateCategory = async (req: Request, res: Response) => {
     if (isActive !== undefined) updateData.isActive = isActive;
 
     if (req.file) {
+      if (category.image) {
+        try {
+          const oldImagePath = path.join(process.cwd(), category.image);
+          await deleteFile(oldImagePath);
+        } catch (error) {
+          console.error('Eski kategori resmi silinirken hata:', error);
+        }
+      }
       updateData.image = `/uploads/categories/${req.file.filename}`;
     }
 
@@ -209,6 +219,15 @@ export const deleteCategory = async (req: Request, res: Response) => {
         success: false,
         message: `Bu kategoride ${productCount} ürün bulunmaktadır. Önce ürünleri başka bir kategoriye taşıyın.`
       });
+    }
+
+    if (category.image) {
+      try {
+        const imagePath = path.join(process.cwd(), category.image);
+        await deleteFile(imagePath);
+      } catch (error) {
+        console.error('Kategori resmi silinirken hata:', error);
+      }
     }
 
     await Category.findByIdAndDelete(id);

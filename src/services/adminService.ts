@@ -240,7 +240,6 @@ export const getOrderDetails = async (orderId: string, accessToken: string): Pro
   }
 };
 
-// Gelişmiş Raporlar
 export const getAdvancedReports = async (
   params: {
     type: 'sales' | 'customers' | 'products';
@@ -277,7 +276,6 @@ export const getAdvancedReports = async (
   }
 };
 
-// Toplu İşlemler
 export const bulkCategoryAssignment = async (
   productIds: string[],
   categoryIds: string[],
@@ -338,7 +336,6 @@ export const bulkPriceUpdate = async (
   }
 };
 
-// Bildirimler
 export const getNotifications = async (accessToken: string): Promise<ApiResponse<Notification[]>> => {
   try {
     const response = await axios.get(`${API_URL}/api/admin/notifications`, {

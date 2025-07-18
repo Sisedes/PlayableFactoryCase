@@ -62,7 +62,7 @@ export const getAllProducts = async (req: Request, res: Response) => {
 
     const products = await Product.find(filter)
       .populate('category', 'name slug')
-      .select('name slug shortDescription price salePrice images stock isActive createdAt statistics tags')
+      .select('name slug shortDescription price salePrice images stock isActive createdAt statistics tags averageRating reviewCount')
       .sort(sort)
       .skip(skip)
       .limit(limitNum);
@@ -178,7 +178,7 @@ export const getProductsByCategory = async (req: Request, res: Response):Promise
       status: 'active'
     })
     .populate('category', 'name slug')
-    .select('name slug shortDescription price salePrice images stock isActive createdAt statistics')
+    .select('name slug shortDescription price salePrice images stock isActive createdAt statistics averageRating reviewCount')
     .sort(sort)
     .skip(skip)
     .limit(limitNum);
@@ -220,11 +220,76 @@ export const getPopularProducts = async (req: Request, res: Response) => {
   try {
     const { limit = 8 } = req.query;
 
-    const products = await Product.find({ status: 'active' })
-      .populate('category', 'name slug')
-      .select('name slug shortDescription price salePrice images stock statistics')
-      .sort({ 'statistics.views': -1, 'statistics.sales': -1 })
-      .limit(Number(limit));
+    const products = await Product.aggregate([
+      { $match: { status: 'active' } },
+      {
+        $lookup: {
+          from: 'orders',
+          localField: '_id',
+          foreignField: 'items.product',
+          as: 'orderItems'
+        }
+      },
+      {
+        $addFields: {
+          totalSales: {
+            $sum: {
+              $map: {
+                input: '$orderItems',
+                as: 'order',
+                in: {
+                  $sum: {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: '$$order.items',
+                          as: 'item',
+                          cond: { $eq: ['$$item.product', '$$CURRENT._id'] }
+                        }
+                      },
+                      as: 'item',
+                      in: '$$item.quantity'
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      { $sort: { totalSales: -1, 'statistics.views': -1 } },
+      { $limit: Number(limit) },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'category'
+        }
+      },
+      {
+        $addFields: {
+          category: { $arrayElemAt: ['$category', 0] }
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          slug: 1,
+          shortDescription: 1,
+          price: 1,
+          salePrice: 1,
+          images: 1,
+          stock: 1,
+          statistics: 1,
+          totalSales: 1,
+          averageRating: 1,
+          reviewCount: 1,
+          'category.name': 1,
+          'category.slug': 1
+        }
+      }
+    ]);
 
     res.status(200).json({
       success: true,
@@ -248,11 +313,11 @@ export const getPopularProducts = async (req: Request, res: Response) => {
  */
 export const getLatestProducts = async (req: Request, res: Response) => {
   try {
-    const { limit = 8 } = req.query;
+    const { limit = 4 } = req.query;
 
     const products = await Product.find({ status: 'active' })
       .populate('category', 'name slug')
-      .select('name slug shortDescription price salePrice images stock')
+      .select('name slug shortDescription price salePrice images stock averageRating reviewCount')
       .sort({ createdAt: -1 })
       .limit(Number(limit));
 
@@ -613,6 +678,16 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
     const updateData = req.body;
     const files = req.files as Express.Multer.File[];
 
+    console.log('=== UPDATE PRODUCT ADMIN DEBUG ===');
+    console.log('Product ID:', id);
+    console.log('Files count:', files ? files.length : 0);
+    console.log('UpdateData keys:', Object.keys(updateData));
+    console.log('UpdateData.images exists:', !!updateData.images);
+    console.log('UpdateData.images type:', typeof updateData.images);
+    if (updateData.images) {
+      console.log('UpdateData.images length:', Array.isArray(updateData.images) ? updateData.images.length : 'Not array');
+    }
+
     const existingProduct = await Product.findById(id);
     if (!existingProduct) {
       return res.status(404).json({
@@ -621,6 +696,8 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       });
     }
 
+    console.log('Existing product images count:', existingProduct.images ? existingProduct.images.length : 0);
+
     if (files && files.length > 0) {
       const newImages = files.map(file => ({
         url: `/uploads/products/${file.filename}`,
@@ -628,8 +705,25 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
         isMain: false
       }));
 
-      updateData.images = [...(existingProduct.images || []), ...newImages];
+      console.log('New images to add:', newImages.length);
+      console.log('New images:', newImages);
+
+      if (updateData.images && Array.isArray(updateData.images)) {
+        console.log('Using frontend images + new files');
+        updateData.images = [...updateData.images, ...newImages];
+      } else {
+        console.log('Using existing images + new files');
+        updateData.images = [...(existingProduct.images || []), ...newImages];
+      }
+    } else {
+      console.log('No new files uploaded');
+      if (!updateData.images) {
+        updateData.images = existingProduct.images || [];
+      }
     }
+
+    console.log('Final images count:', updateData.images ? updateData.images.length : 0);
+    console.log('=== END DEBUG ===');
 
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
@@ -817,6 +911,21 @@ export const deleteProductImage = async (req: Request, res: Response) => {
       });
     }
 
+    const imageToDelete = product.images.find(img => img._id?.toString() === imageId);
+    if (!imageToDelete) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resim bulunamadı'
+      });
+    }
+
+    if (imageToDelete.isMain) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ana resim silinemez. Önce başka bir resmi ana resim yapın.'
+      });
+    }
+
     product.images = product.images.filter(img => img._id?.toString() !== imageId);
     await product.save();
 
@@ -831,6 +940,54 @@ export const deleteProductImage = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Resim silinirken hata oluştu'
+    });
+    return;
+  }
+};
+
+/**
+ * @desc    
+ * @route   put /api/products/admin/:id/images/:imageId/set-main
+ * @access  
+ */
+export const setMainImage = async (req: Request, res: Response) => {
+  try {
+    const { id, imageId } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+    }
+
+    product.images.forEach(img => {
+      img.isMain = false;
+    });
+
+    const imageIndex = product.images.findIndex(img => img._id?.toString() === imageId);
+    if (imageIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Resim bulunamadı'
+      });
+    }
+
+    product.images[imageIndex].isMain = true;
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Ana resim başarıyla ayarlandı',
+      data: product
+    });
+    return;
+  } catch (error) {
+    console.error('Set main image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ana resim ayarlanırken hata oluştu'
     });
     return;
   }

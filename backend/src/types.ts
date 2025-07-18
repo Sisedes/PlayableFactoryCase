@@ -110,6 +110,7 @@ export interface IProductImage {
   url: string;
   alt: string;
   isPrimary: boolean;
+  isMain?: boolean;
   sortOrder: number;
 }
 

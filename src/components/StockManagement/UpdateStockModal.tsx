@@ -53,7 +53,6 @@ const UpdateStockModal: React.FC<UpdateStockModalProps> = ({
         alert('Stok başarıyla güncellendi!');
         onStockUpdated();
         onClose();
-        // Formu sıfırla
         setFormData({
           newStock: currentStock,
           reason: '',

@@ -7,6 +7,7 @@ const testimonialsData: Testimonial[] = [
     authorName: "Davis Dorwart",
     authorImg: "/images/users/user-01.jpg",
     authorRole: "Serial Entrepreneur",
+    rating: 5,
   },
   {
     review: `Lorem ipsum dolor sit amet, adipiscing elit. Donec
@@ -14,6 +15,7 @@ const testimonialsData: Testimonial[] = [
     authorName: "Wilson Dias",
     authorImg: "/images/users/user-02.jpg",
     authorRole: "Backend Developer",
+    rating: 4,
   },
   {
     review: `Lorem ipsum dolor sit amet, adipiscing elit. Donec
@@ -21,6 +23,7 @@ const testimonialsData: Testimonial[] = [
     authorName: "Miracle Exterm",
     authorImg: "/images/users/user-03.jpg",
     authorRole: "Serial Entrepreneur",
+    rating: 5,
   },
   {
     review: `Lorem ipsum dolor sit amet, adipiscing elit. Donec
@@ -28,6 +31,7 @@ const testimonialsData: Testimonial[] = [
     authorName: "Thomas Frank",
     authorImg: "/images/users/user-01.jpg",
     authorRole: "Entrepreneur",
+    rating: 4,
   },
   {
     review: `Lorem ipsum dolor sit amet, adipiscing elit. Donec
@@ -35,6 +39,7 @@ const testimonialsData: Testimonial[] = [
     authorName: "Dave Smith",
     authorImg: "/images/users/user-02.jpg",
     authorRole: "Serial Entrepreneur",
+    rating: 5,
   },
   {
     review: `Lorem ipsum dolor sit amet, adipiscing elit. Donec
@@ -42,6 +47,7 @@ const testimonialsData: Testimonial[] = [
     authorName: "Davis Dorwart",
     authorImg: "/images/users/user-03.jpg",
     authorRole: "Serial Entrepreneur",
+    rating: 4,
   },
 ];
 
