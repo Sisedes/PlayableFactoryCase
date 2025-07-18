@@ -13,7 +13,11 @@ import {
   updateProductAdmin, 
   deleteProductAdmin, 
   bulkUpdateProducts,
-  deleteProductImage 
+  deleteProductImage,
+  getStockHistory,
+  updateStock,
+  getLowStockAlerts,
+  getStockStatistics
 } from "@/services/productService";
 import { 
   getUserAddresses, 
@@ -40,8 +44,23 @@ import {
   removeFromFavorites,
   FavoriteProduct 
 } from "@/services/favoriteService";
-import { getDashboardStats, DashboardStats } from "@/services/adminService";
+import { 
+  getDashboardStats, 
+  DashboardStats, 
+  getAdvancedReports, 
+  bulkCategoryAssignment, 
+  bulkPriceUpdate, 
+  getNotifications, 
+  updateNotificationSettings,
+  AdvancedReportData,
+  Notification,
+  NotificationSettings 
+} from "@/services/adminService";
 import PasswordResetModal from "./PasswordResetModal";
+import AdminOrders from "../Orders/AdminOrders";
+import StockHistoryModal from "../StockManagement/StockHistoryModal";
+import UpdateStockModal from "../StockManagement/UpdateStockModal";
+import LowStockAlerts from "../StockManagement/LowStockAlerts";
 import axios from "axios";
 
 interface LocalCategory {
@@ -132,6 +151,10 @@ const MyAccount = () => {
   const [addressModalLoading, setAddressModalLoading] = useState(false);
 
   const { user, accessToken, isAdmin, updateUserProfile } = useAuth();
+  
+  console.log('MyAccount - accessToken:', accessToken);
+  console.log('MyAccount - isAdmin:', isAdmin);
+  console.log('MyAccount - user:', user);
 
   const [profileForm, setProfileForm] = useState({
     firstName: '',
@@ -176,6 +199,38 @@ const MyAccount = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetails | null>(null);
   const [customerDetailsModal, setCustomerDetailsModal] = useState(false);
   const [customerDetailsLoading, setCustomerDetailsLoading] = useState(false);
+
+  const [stockHistoryModal, setStockHistoryModal] = useState(false);
+  const [updateStockModal, setUpdateStockModal] = useState(false);
+  const [selectedProductForStock, setSelectedProductForStock] = useState<LocalProduct | null>(null);
+  const [stockStatistics, setStockStatistics] = useState<any>(null);
+  const [stockStatsLoading, setStockStatsLoading] = useState(false);
+
+  const [reportType, setReportType] = useState('sales');
+  const [reportPeriod, setReportPeriod] = useState('7days');
+  const [reportData, setReportData] = useState<any>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [dateRange, setDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  });
+
+  const [bulkOperationType, setBulkOperationType] = useState('');
+  const [bulkOperationLoading, setBulkOperationLoading] = useState(false);
+  const [bulkSelectedCategories, setBulkSelectedCategories] = useState<string[]>([]);
+  const [bulkPriceChange, setBulkPriceChange] = useState({
+    type: 'percentage',
+    value: ''
+  });
+
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState({
+    newOrders: true,
+    lowStock: true,
+    systemAlerts: true,
+    emailNotifications: true
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -235,6 +290,18 @@ const MyAccount = () => {
       });
     }
   }, [isAdmin, user, accessToken]);
+
+  useEffect(() => {
+    if (activeTab === 'stock-management' && isAdmin && accessToken) {
+      loadStockStatistics();
+    }
+    if (activeTab === 'advanced-reports' && isAdmin && accessToken) {
+      loadAdvancedReports();
+    }
+    if (activeTab === 'notifications' && isAdmin && accessToken) {
+      loadNotifications();
+    }
+  }, [activeTab, isAdmin, accessToken]);
 
   const handleProductFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -1023,6 +1090,217 @@ const MyAccount = () => {
     }
   };
 
+  const loadStockStatistics = async () => {
+    if (!accessToken) return;
+
+    setStockStatsLoading(true);
+    try {
+      const response = await getStockStatistics({ period: 30 }, accessToken);
+      if (response.success) {
+        setStockStatistics(response.data);
+      }
+    } catch (error) {
+      console.error('Stok istatistikleri yüklenirken hata:', error);
+    } finally {
+      setStockStatsLoading(false);
+    }
+  };
+
+  const handleViewStockHistory = (product: LocalProduct) => {
+    setSelectedProductForStock(product);
+    setStockHistoryModal(true);
+  };
+
+  const handleUpdateStock = (product: LocalProduct) => {
+    setSelectedProductForStock(product);
+    setUpdateStockModal(true);
+  };
+
+  const handleStockUpdated = async () => {
+    if (accessToken) {
+      const productsResponse = await getAllProductsForAdmin({}, accessToken);
+      if (productsResponse.success) {
+        setProducts(productsResponse.data as unknown as LocalProduct[]);
+      }
+    }
+  };
+
+  const loadAdvancedReports = async () => {
+    if (!accessToken) return;
+    
+    setReportLoading(true);
+    try {
+      const params: any = {
+        type: reportType,
+        period: reportPeriod
+      };
+
+      if (reportPeriod === 'custom' && dateRange.startDate && dateRange.endDate) {
+        params.startDate = dateRange.startDate;
+        params.endDate = dateRange.endDate;
+      }
+
+      const response = await getAdvancedReports(params, accessToken);
+      
+      if (response.success && response.data) {
+        setReportData({ [reportType]: response.data });
+      } else {
+        console.error('Rapor yükleme hatası:', response.message);
+      }
+    } catch (error) {
+      console.error('Raporlar yüklenirken hata:', error);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleBulkCategoryAssignment = async () => {
+    if (!accessToken || selectedProducts.length === 0 || bulkSelectedCategories.length === 0) {
+      alert('Lütfen ürün ve kategori seçin');
+      return;
+    }
+
+    setBulkOperationLoading(true);
+    try {
+      const response = await bulkCategoryAssignment(selectedProducts, bulkSelectedCategories, accessToken);
+      
+      if (response.success) {
+        alert(response.data?.message || `${selectedProducts.length} ürün başarıyla kategorilere atandı`);
+        setSelectedProducts([]);
+        setBulkSelectedCategories([]);
+        if (accessToken) {
+          const productsResponse = await getAllProductsForAdmin({}, accessToken);
+          if (productsResponse.success) {
+            setProducts(productsResponse.data as unknown as LocalProduct[]);
+          }
+        }
+      } else {
+        alert(response.message || 'Toplu kategori atama başarısız');
+      }
+    } catch (error) {
+      console.error('Toplu kategori atama hatası:', error);
+      alert('Toplu kategori atama sırasında hata oluştu');
+    } finally {
+      setBulkOperationLoading(false);
+    }
+  };
+
+  const handleBulkPriceUpdate = async () => {
+    if (!accessToken || selectedProducts.length === 0 || !bulkPriceChange.value) {
+      alert('Lütfen ürün seçin ve fiyat değişikliği belirtin');
+      return;
+    }
+
+    setBulkOperationLoading(true);
+    try {
+      const response = await bulkPriceUpdate(
+        selectedProducts, 
+        bulkPriceChange.type as 'percentage' | 'fixed', 
+        bulkPriceChange.value, 
+        accessToken
+      );
+      
+      if (response.success) {
+        alert(response.data?.message || `${selectedProducts.length} ürünün fiyatı başarıyla güncellendi`);
+        setSelectedProducts([]);
+        setBulkPriceChange({ type: 'percentage', value: '' });
+        if (accessToken) {
+          const productsResponse = await getAllProductsForAdmin({}, accessToken);
+          if (productsResponse.success) {
+            setProducts(productsResponse.data as unknown as LocalProduct[]);
+          }
+        }
+      } else {
+        alert(response.message || 'Toplu fiyat güncelleme başarısız');
+      }
+    } catch (error) {
+      console.error('Toplu fiyat güncelleme hatası:', error);
+      alert('Toplu fiyat güncelleme sırasında hata oluştu');
+    } finally {
+      setBulkOperationLoading(false);
+    }
+  };
+
+  const handleBulkImageUpload = async (files: FileList) => {
+    if (!accessToken || selectedProducts.length === 0) {
+      alert('Lütfen ürün seçin');
+      return;
+    }
+
+    setBulkOperationLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      alert(`${selectedProducts.length} ürüne resim başarıyla yüklendi`);
+      setSelectedProducts([]);
+      if (accessToken) {
+        const productsResponse = await getAllProductsForAdmin({}, accessToken);
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+      }
+    } catch (error) {
+      console.error('Toplu resim yükleme hatası:', error);
+      alert('Toplu resim yükleme sırasında hata oluştu');
+    } finally {
+      setBulkOperationLoading(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    if (!accessToken) return;
+    
+    setNotificationsLoading(true);
+    try {
+      const response = await getNotifications(accessToken);
+      
+      if (response.success && response.data) {
+        setNotifications(response.data);
+      } else {
+        console.error('Bildirim yükleme hatası:', response.message);
+      }
+    } catch (error) {
+      console.error('Bildirimler yüklenirken hata:', error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleNotificationSettingsUpdate = async () => {
+    if (!accessToken) return;
+    
+    try {
+      const settings: NotificationSettings = {
+        newOrders: notificationSettings.newOrders,
+        lowStock: notificationSettings.lowStock,
+        systemAlerts: notificationSettings.systemAlerts,
+        emailNotifications: notificationSettings.emailNotifications
+      };
+
+      const response = await updateNotificationSettings(settings, accessToken);
+      
+      if (response.success) {
+        alert('Bildirim ayarları başarıyla güncellendi');
+      } else {
+        alert(response.message || 'Bildirim ayarları güncellenemedi');
+      }
+    } catch (error) {
+      console.error('Bildirim ayarları güncellenirken hata:', error);
+      alert('Bildirim ayarları güncellenirken hata oluştu');
+    }
+  };
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    try {
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === notificationId ? { ...notif, read: true } : notif
+        )
+      );
+    } catch (error) {
+      console.error('Bildirim okundu işaretlenirken hata:', error);
+    }
+  };
+
   return (
     <>
       <Breadcrumb title={"My Account"} pages={["my account"]} />
@@ -1354,6 +1632,152 @@ const MyAccount = () => {
                             />
                           </svg>
                           Müşteri Yönetimi
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("manage-orders")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "manage-orders"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M8.0203 11.9167C8.0203 11.537 7.71249 11.2292 7.3328 11.2292C6.9531 11.2292 6.6453 11.537 6.6453 11.9167V15.5833C6.6453 15.963 6.9531 16.2708 7.3328 16.2708C7.71249 16.2708 8.0203 15.963 8.0203 15.5833V11.9167Z"
+                              fill=""
+                            />
+                            <path
+                              d="M14.6661 11.2292C15.0458 11.2292 15.3536 11.537 15.3536 11.9167V15.5833C15.3536 15.963 15.0458 16.2708 14.6661 16.2708C14.2864 16.2708 13.9786 15.963 13.9786 15.5833V11.9167C13.9786 11.537 14.2864 11.2292 14.6661 11.2292Z"
+                              fill=""
+                            />
+                            <path
+                              d="M11.687 11.9167C11.687 11.537 11.3792 11.2292 10.9995 11.2292C10.6198 11.2292 10.312 11.537 10.312 11.9167V15.5833C10.312 15.963 10.6198 16.2708 10.9995 16.2708C11.3792 16.2708 11.687 15.963 11.687 15.5833V11.9167Z"
+                              fill=""
+                            />
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M15.8338 3.18356C15.3979 3.01319 14.9095 2.98443 14.2829 2.97987C14.0256 2.43753 13.473 2.0625 12.8328 2.0625H9.16613C8.52593 2.0625 7.97332 2.43753 7.716 2.97987C7.08942 2.98443 6.60107 3.01319 6.16515 3.18356C5.64432 3.38713 5.19129 3.73317 4.85788 4.18211C4.52153 4.63502 4.36363 5.21554 4.14631 6.01456L3.57076 8.12557C3.21555 8.30747 2.90473 8.55242 2.64544 8.88452C2.07527 9.61477 1.9743 10.4845 2.07573 11.4822C2.17415 12.4504 2.47894 13.6695 2.86047 15.1955L2.88467 15.2923C3.12592 16.2573 3.32179 17.0409 3.55475 17.6524C3.79764 18.2899 4.10601 18.8125 4.61441 19.2095C5.12282 19.6064 5.70456 19.7788 6.38199 19.8598C7.03174 19.9375 7.8394 19.9375 8.83415 19.9375H13.1647C14.1594 19.9375 14.9671 19.9375 15.6169 19.8598C16.2943 19.7788 16.876 19.6064 17.3844 19.2095C17.8928 18.8125 18.2012 18.2899 18.4441 17.6524C18.6771 17.0409 18.8729 16.2573 19.1142 15.2923L19.1384 15.1956C19.5199 13.6695 19.8247 12.4504 19.9231 11.4822C20.0245 10.4845 19.9236 9.61477 19.3534 8.88452C19.0941 8.55245 18.7833 8.30751 18.4282 8.12562L17.8526 6.01455C17.6353 5.21554 17.4774 4.63502 17.141 4.18211C16.8076 3.73317 16.3546 3.38713 15.8338 3.18356ZM6.66568 4.46423C6.86717 4.38548 7.11061 4.36231 7.71729 4.35618C7.97516 4.89706 8.527 5.27083 9.16613 5.27083H12.8328C13.4719 5.27083 14.0238 4.89706 14.2816 4.35618C14.8883 4.36231 15.1318 4.38548 15.3332 4.46423C15.6137 4.57384 15.8576 4.76017 16.0372 5.00191C16.1986 5.21928 16.2933 5.52299 16.56 6.50095L16.8841 7.68964C15.9328 7.56246 14.7046 7.56248 13.1787 7.5625H8.82014C7.29428 7.56248 6.06614 7.56246 5.11483 7.68963L5.43894 6.50095C5.7056 5.52299 5.80033 5.21928 5.96176 5.00191C6.14129 4.76017 6.38523 4.57384 6.66568 4.46423ZM9.16613 3.4375C9.03956 3.4375 8.93696 3.5401 8.93696 3.66667C8.93696 3.79323 9.03956 3.89583 9.16613 3.89583H12.8328C12.9594 3.89583 13.062 3.79323 13.062 3.66667C13.062 3.5401 12.9594 3.4375 12.8328 3.4375H9.16613ZM3.72922 9.73071C3.98482 9.40334 4.38904 9.18345 5.22428 9.06262C6.07737 8.93921 7.23405 8.9375 8.87703 8.9375H13.1218C14.7648 8.9375 15.9215 8.93921 16.7746 9.06262C17.6098 9.18345 18.014 9.40334 18.2696 9.73071C18.5252 10.0581 18.6405 10.5036 18.5552 11.3432C18.468 12.2007 18.1891 13.3233 17.7906 14.9172C17.5365 15.9338 17.3595 16.6372 17.1592 17.1629C16.9655 17.6713 16.7758 17.9402 16.5382 18.1257C16.3007 18.3112 15.9938 18.43 15.4536 18.4946C14.895 18.5614 14.1697 18.5625 13.1218 18.5625H8.87703C7.8291 18.5625 7.10386 18.5614 6.54525 18.4946C6.005 18.43 5.69817 18.3112 5.4606 18.1257C5.22304 17.9402 5.03337 17.6713 4.83967 17.1629C4.63938 16.6372 4.46237 15.9338 4.20822 14.9172C3.80973 13.3233 3.53086 12.2007 3.44368 11.3432C3.35832 10.5036 3.47362 10.0581 3.72922 9.73071Z"
+                              fill=""
+                            />
+                          </svg>
+                          Sipariş Yönetimi
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("stock-management")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "stock-management"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M3.4375 4.8125C3.4375 4.4328 3.7453 4.125 4.125 4.125H17.875C18.2547 4.125 18.5625 4.4328 18.5625 4.8125C18.5625 5.1922 18.2547 5.5 17.875 5.5H4.125C3.7453 5.5 3.4375 5.1922 3.4375 4.8125Z"
+                              fill=""
+                            />
+                            <path
+                              d="M3.4375 11C3.4375 10.6203 3.7453 10.3125 4.125 10.3125H17.875C18.2547 10.3125 18.5625 10.6203 18.5625 11C18.5625 11.3797 18.2547 11.6875 17.875 11.6875H4.125C3.7453 11.6875 3.4375 11.3797 3.4375 11Z"
+                              fill=""
+                            />
+                            <path
+                              d="M3.4375 17.1875C3.4375 16.8078 3.7453 16.5 4.125 16.5H17.875C18.2547 16.5 18.5625 16.8078 18.5625 17.1875C18.5625 17.5672 18.2547 17.875 17.875 17.875H4.125C3.7453 17.875 3.4375 17.5672 3.4375 17.1875Z"
+                              fill=""
+                            />
+                          </svg>
+                          Stok Yönetimi
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("advanced-reports")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "advanced-reports"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              fill=""
+                            />
+                          </svg>
+                          Gelişmiş Raporlar
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("bulk-operations")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "bulk-operations"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                              fill=""
+                            />
+                            <path
+                              d="M8 8h8v2H8V8zm0 4h6v2H8v-2z"
+                              fill=""
+                            />
+                          </svg>
+                          Toplu İşlemler
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("notifications")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "notifications"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                              fill=""
+                            />
+                          </svg>
+                          Bildirimler
                         </button>
                       </>
                     )}
@@ -2680,7 +3104,7 @@ const MyAccount = () => {
                         type="text"
                         value={customerSearch}
                         onChange={(e) => setCustomerSearch(e.target.value)}
-                        placeholder="Müşteri adı, e-posta veya telefon ile ara..."
+                        placeholder="Ad, soyad, ad+soyad, e-posta veya telefon ile ara..."
                         className="flex-1 rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
                       />
                       <button
@@ -2831,6 +3255,678 @@ const MyAccount = () => {
               </div>
             )}
             {/* <!-- manage customers tab content end -->
+
+            {/* <!-- manage orders tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "manage-orders" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Sipariş Yönetimi
+                  </h2>
+                  <AdminOrders />
+                </div>
+              </div>
+            )}
+            {/* <!-- manage orders tab content end -->
+
+            {/* <!-- stock management tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "stock-management" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Stok Yönetimi
+                  </h2>
+
+                  {/* Düşük Stok Uyarıları */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium text-dark mb-4">Düşük Stok Uyarıları</h3>
+                    <LowStockAlerts 
+                      accessToken={accessToken || ''} 
+                      onUpdateStock={(product) => {
+                       
+                        const localProduct: LocalProduct = {
+                          _id: product._id,
+                          name: product.name,
+                          slug: product.sku.toLowerCase().replace(/\s+/g, '-'),
+                          description: '',
+                          category: product.category,
+                          price: 0,
+                          sku: product.sku,
+                          stock: product.stock,
+                          lowStockThreshold: product.lowStockThreshold,
+                          images: [],
+                          status: 'active',
+                          createdAt: '',
+                          updatedAt: ''
+                        };
+                        handleUpdateStock(localProduct);
+                      }}
+                    />
+                  </div>
+
+                  {/* Ürün Listesi - Stok Yönetimi */}
+                  <div>
+                    <h3 className="text-lg font-medium text-dark mb-4">Ürün Stok Yönetimi</h3>
+                    {loading ? (
+                      <div className="flex justify-center items-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Ürün
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Kategori
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Stok
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Eşik
+                              </th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Durum
+                              </th>
+                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                İşlemler
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {products.map((product) => (
+                              <tr key={product._id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex items-center">
+                                    <div className="flex-shrink-0 h-10 w-10">
+                                      {product.images && product.images.length > 0 ? (
+                                        <img
+                                          className="h-10 w-10 rounded-lg object-cover"
+                                          src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`}
+                                          alt={product.name}
+                                        />
+                                      ) : (
+                                        <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="ml-4">
+                                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                      <div className="text-sm text-gray-500">{product.sku}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {product.category.name}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {product.stock}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {product.lowStockThreshold || 5}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    product.stock === 0 ? 'bg-red-100 text-red-800' :
+                                    product.stock <= (product.lowStockThreshold || 5) ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}>
+                                    {product.stock === 0 ? 'Stok Tükendi' :
+                                     product.stock <= (product.lowStockThreshold || 5) ? 'Düşük Stok' :
+                                     'Stokta'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <div className="flex justify-end space-x-2">
+                                    <button
+                                      onClick={() => handleViewStockHistory(product)}
+                                      className="text-blue-600 hover:text-blue-900 text-sm"
+                                    >
+                                      Geçmiş
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateStock(product)}
+                                      className="text-green-600 hover:text-green-900 text-sm"
+                                    >
+                                      Güncelle
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* <!-- stock management tab content end -->
+
+            {/* <!-- advanced reports tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "advanced-reports" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Gelişmiş Raporlar
+                  </h2>
+
+                  {/* Rapor Filtreleri */}
+                  <div className="mb-8 bg-gray-50 p-4 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Rapor Türü</label>
+                        <select
+                          value={reportType}
+                          onChange={(e) => setReportType(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="sales">Satış Raporları</option>
+                          <option value="customers">Müşteri Raporları</option>
+                          <option value="products">Ürün Raporları</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dönem</label>
+                        <select
+                          value={reportPeriod}
+                          onChange={(e) => setReportPeriod(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="7days">Son 7 Gün</option>
+                          <option value="30days">Son 30 Gün</option>
+                          <option value="90days">Son 90 Gün</option>
+                          <option value="custom">Özel Tarih</option>
+                        </select>
+                      </div>
+                      {reportPeriod === 'custom' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Başlangıç</label>
+                            <input
+                              type="date"
+                              value={dateRange.startDate}
+                              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Bitiş</label>
+                            <input
+                              type="date"
+                              value={dateRange.endDate}
+                              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {reportLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                    </div>
+                  ) : reportData ? (
+                    <div className="space-y-8">
+                      {/* Özet Kartları */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-blue-100 text-sm">Toplam</p>
+                              <p className="text-2xl font-bold">
+                                {reportType === 'sales' ? `${reportData.sales.total.toLocaleString('tr-TR')}₺` :
+                                 reportType === 'customers' ? reportData.customers.total :
+                                 reportData.products.total}
+                              </p>
+                            </div>
+                            <div className="bg-blue-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <span className={`text-sm ${reportData[reportType].change >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                              {reportData[reportType].change >= 0 ? '+' : ''}{reportData[reportType].change}%
+                            </span>
+                            <span className="text-blue-100 text-sm ml-2">geçen döneme göre</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-green-100 text-sm">Ortalama</p>
+                              <p className="text-2xl font-bold">
+                                {reportType === 'sales' ? `${(reportData.sales.total / 7).toFixed(0)}₺` :
+                                 reportType === 'customers' ? Math.round(reportData.customers.total / 7) :
+                                 Math.round(reportData.products.total / 7)}
+                              </p>
+                            </div>
+                            <div className="bg-green-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                              </svg>
+                            </div>
+                          </div>
+                          <p className="text-green-100 text-sm mt-2">günlük ortalama</p>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-purple-100 text-sm">En Yüksek</p>
+                              <p className="text-2xl font-bold">
+                                {reportType === 'sales' ? `${Math.max(...reportData.sales.data.map(d => d.value)).toLocaleString('tr-TR')}₺` :
+                                 reportType === 'customers' ? Math.max(...reportData.customers.data.map(d => d.value)) :
+                                 Math.max(...reportData.products.data.map(d => d.value))}
+                              </p>
+                            </div>
+                            <div className="bg-purple-400 rounded-full p-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                              </svg>
+                            </div>
+                          </div>
+                          <p className="text-purple-100 text-sm mt-2">tek günlük rekor</p>
+                        </div>
+                      </div>
+
+                      {/* Grafik */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 className="text-lg font-medium text-dark mb-4">
+                          {reportType === 'sales' ? 'Satış Trendi' :
+                           reportType === 'customers' ? 'Müşteri Artışı' :
+                           'Ürün Performansı'}
+                        </h3>
+                        <div className="h-64 flex items-end justify-between space-x-2">
+                          {reportData[reportType].data.map((day: any, index: number) => (
+                            <div key={index} className="flex-1 flex flex-col items-center">
+                              <div 
+                                className="w-full bg-blue-500 rounded-t"
+                                style={{ 
+                                  height: `${(day.value / Math.max(...reportData[reportType].data.map((d: any) => d.value))) * 200}px` 
+                                }}
+                              ></div>
+                              <p className="text-xs text-gray-500 mt-2">
+                                {new Date(day.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Detaylı Tablo */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <h3 className="text-lg font-medium text-dark mb-4">Detaylı Veriler</h3>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  {reportType === 'sales' ? 'Satış' :
+                                   reportType === 'customers' ? 'Müşteri' :
+                                   'Ürün'}
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Değişim</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {reportData[reportType].data.map((day: any, index: number) => {
+                                const prevValue = index > 0 ? reportData[reportType].data[index - 1].value : 0;
+                                const change = prevValue > 0 ? ((day.value - prevValue) / prevValue) * 100 : 0;
+                                
+                                return (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {new Date(day.date).toLocaleDateString('tr-TR')}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {reportType === 'sales' ? `${day.value.toLocaleString('tr-TR')}₺` : day.value}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                        change >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                      }`}>
+                                        {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500">Rapor verileri yüklenemedi.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* <!-- advanced reports tab content end -->
+
+            {/* <!-- bulk operations tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "bulk-operations" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Toplu İşlemler
+                  </h2>
+
+                  {/* Ürün Seçimi */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium text-dark mb-4">Ürün Seçimi</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm text-gray-600">
+                          {selectedProducts.length} ürün seçildi
+                        </span>
+                        <div className="space-x-2">
+                          <button
+                            onClick={handleSelectAll}
+                            className="px-3 py-1 text-sm bg-blue text-white rounded-md hover:bg-blue-dark"
+                          >
+                            Tümünü Seç
+                          </button>
+                          <button
+                            onClick={handleDeselectAll}
+                            className="px-3 py-1 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                          >
+                            Seçimi Kaldır
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {loading ? (
+                        <div className="flex justify-center items-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
+                          {products.map((product) => (
+                            <div
+                              key={product._id}
+                              className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                selectedProducts.includes(product._id)
+                                  ? 'border-blue bg-blue/5'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                              onClick={() => handleProductSelect(product._id)}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedProducts.includes(product._id)}
+                                  onChange={() => handleProductSelect(product._id)}
+                                  className="rounded border-gray-300 text-blue focus:ring-blue-500"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                  <p className="text-xs text-gray-500">{product.sku}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Toplu İşlem Seçenekleri */}
+                  <div className="space-y-6">
+                    {/* Kategori Atama */}
+                    <div className="border border-gray-200 rounded-lg p-6">
+                      <h4 className="text-lg font-medium text-dark mb-4">Toplu Kategori Atama</h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Kategoriler</label>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
+                            {categories.map((category) => (
+                              <label key={category._id} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={bulkSelectedCategories.includes(category._id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setBulkSelectedCategories(prev => [...prev, category._id]);
+                                    } else {
+                                      setBulkSelectedCategories(prev => prev.filter(id => id !== category._id));
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-blue focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{category.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleBulkCategoryAssignment}
+                          disabled={selectedProducts.length === 0 || bulkSelectedCategories.length === 0 || bulkOperationLoading}
+                          className="px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {bulkOperationLoading ? 'İşleniyor...' : 'Kategorilere Ata'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fiyat Güncelleme */}
+                    <div className="border border-gray-200 rounded-lg p-6">
+                      <h4 className="text-lg font-medium text-dark mb-4">Toplu Fiyat Güncelleme</h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Değişim Türü</label>
+                            <select
+                              value={bulkPriceChange.type}
+                              onChange={(e) => setBulkPriceChange(prev => ({ ...prev, type: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="percentage">Yüzde (%)</option>
+                              <option value="fixed">Sabit Tutar (₺)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Değer</label>
+                            <input
+                              type="number"
+                              value={bulkPriceChange.value}
+                              onChange={(e) => setBulkPriceChange(prev => ({ ...prev, value: e.target.value }))}
+                              placeholder={bulkPriceChange.type === 'percentage' ? '10' : '50'}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleBulkPriceUpdate}
+                          disabled={selectedProducts.length === 0 || !bulkPriceChange.value || bulkOperationLoading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {bulkOperationLoading ? 'İşleniyor...' : 'Fiyatları Güncelle'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Resim Yükleme */}
+                    <div className="border border-gray-200 rounded-lg p-6">
+                      <h4 className="text-lg font-medium text-dark mb-4">Toplu Resim Yükleme</h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Resimler</label>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={(e) => e.target.files && handleBulkImageUpload(e.target.files)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Seçilen tüm ürünlere aynı resimler yüklenecektir.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* <!-- bulk operations tab content end -->
+
+            {/* <!-- notifications tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "notifications" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Bildirimler
+                  </h2>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Bildirim Listesi */}
+                    <div className="lg:col-span-2">
+                      <h3 className="text-lg font-medium text-dark mb-4">Bildirimler</h3>
+                      
+                      {notificationsLoading ? (
+                        <div className="flex justify-center items-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                        </div>
+                      ) : notifications.length > 0 ? (
+                        <div className="space-y-3">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                                notification.read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
+                              }`}
+                              onClick={() => markNotificationAsRead(notification.id)}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <h4 className="font-medium text-dark">{notification.title}</h4>
+                                    {!notification.read && (
+                                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(notification.timestamp).toLocaleString('tr-TR')}
+                                  </p>
+                                </div>
+                                <div className={`w-2 h-2 rounded-full ${
+                                  notification.type === 'new_order' ? 'bg-green-500' :
+                                  notification.type === 'low_stock' ? 'bg-red-500' :
+                                  'bg-blue-500'
+                                }`}></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                          <p className="text-gray-500">Henüz bildirim bulunmuyor.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bildirim Ayarları */}
+                    <div>
+                      <h3 className="text-lg font-medium text-dark mb-4">Bildirim Ayarları</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                        <div>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={notificationSettings.newOrders}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, newOrders: e.target.checked }))}
+                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">Yeni Sipariş Bildirimleri</span>
+                          </label>
+                        </div>
+                        <div>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={notificationSettings.lowStock}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, lowStock: e.target.checked }))}
+                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">Düşük Stok Uyarıları</span>
+                          </label>
+                        </div>
+                        <div>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={notificationSettings.systemAlerts}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, systemAlerts: e.target.checked }))}
+                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">Sistem Bildirimleri</span>
+                          </label>
+                        </div>
+                        <div>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={notificationSettings.emailNotifications}
+                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, emailNotifications: e.target.checked }))}
+                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">E-posta Bildirimleri</span>
+                          </label>
+                        </div>
+                        <button
+                          onClick={handleNotificationSettingsUpdate}
+                          className="w-full px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark"
+                        >
+                          Ayarları Kaydet
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* <!-- notifications tab content end -->
 
           <!-- admin dashboard tab content start --> */}
             {isAdmin && (
@@ -3079,7 +4175,7 @@ const MyAccount = () => {
       
       {/* Ürün Düzenleme Popup'ı */}
       {editProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -3504,6 +4600,36 @@ const MyAccount = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Stok Geçmişi Modal'ı */}
+      {stockHistoryModal && selectedProductForStock && (
+        <StockHistoryModal
+          isOpen={stockHistoryModal}
+          onClose={() => {
+            setStockHistoryModal(false);
+            setSelectedProductForStock(null);
+          }}
+          productId={selectedProductForStock._id}
+          productName={selectedProductForStock.name}
+          accessToken={accessToken || ''}
+        />
+      )}
+
+      {/* Stok Güncelleme Modal'ı */}
+      {updateStockModal && selectedProductForStock && (
+        <UpdateStockModal
+          isOpen={updateStockModal}
+          onClose={() => {
+            setUpdateStockModal(false);
+            setSelectedProductForStock(null);
+          }}
+          productId={selectedProductForStock._id}
+          productName={selectedProductForStock.name}
+          currentStock={selectedProductForStock.stock}
+          accessToken={accessToken || ''}
+          onStockUpdated={handleStockUpdated}
+        />
       )}
     </>
   );

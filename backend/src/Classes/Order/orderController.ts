@@ -113,7 +113,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
  */
 export const getAllOrdersAdmin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.min(50, Math.max(1, Number(limit)));
@@ -124,10 +124,22 @@ export const getAllOrdersAdmin = async (req: Request, res: Response): Promise<vo
       filter['fulfillment.status'] = status;
     }
 
+    if (search) {
+      filter.$or = [
+        { orderNumber: { $regex: search, $options: 'i' } },
+        { 'customerInfo.firstName': { $regex: search, $options: 'i' } },
+        { 'customerInfo.lastName': { $regex: search, $options: 'i' } },
+        { 'customerInfo.email': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const sort: any = {};
+    sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+
     const orders = await Order.find(filter)
       .populate('user', 'firstName lastName email')
       .populate('items.product', 'name images price salePrice')
-      .sort({ createdAt: -1 })
+      .sort(sort)
       .skip(skip)
       .limit(limitNum);
 
@@ -140,6 +152,8 @@ export const getAllOrdersAdmin = async (req: Request, res: Response): Promise<vo
       total: totalOrders,
       pages: totalPages,
       currentPage: pageNum,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
       data: orders
     });
   } catch (error) {
@@ -147,6 +161,98 @@ export const getAllOrdersAdmin = async (req: Request, res: Response): Promise<vo
     res.status(500).json({
       success: false,
       message: 'Siparişler getirilirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   get /api/orders/admin/:id
+ * @access  
+ */
+export const getOrderByIdAdmin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id)
+      .populate('user', 'firstName lastName email')
+      .populate('items.product', 'name images price salePrice description');
+
+    if (!order) {
+      res.status(404).json({
+        success: false,
+        message: 'Sipariş bulunamadı'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    console.error('Get order by ID admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sipariş detayı getirilirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   put /api/orders/admin/:id/status
+ * @access  
+ */
+export const updateOrderStatusAdmin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status, trackingNumber, carrier, notes } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      res.status(404).json({
+        success: false,
+        message: 'Sipariş bulunamadı'
+      });
+      return;
+    }
+
+    order.fulfillment.status = status;
+    
+    if (trackingNumber) {
+      order.fulfillment.trackingNumber = trackingNumber;
+    }
+    
+    if (carrier) {
+      order.fulfillment.carrier = carrier;
+    }
+    
+    if (notes) {
+      order.fulfillment.notes = notes;
+    }
+
+    if (status === 'shipped') {
+      order.fulfillment.shippedAt = new Date();
+    } else if (status === 'delivered') {
+      order.fulfillment.deliveredAt = new Date();
+    }
+
+    await order.save();
+
+    await order.populate('user', 'firstName lastName email');
+    await order.populate('items.product', 'name images price salePrice');
+
+    res.status(200).json({
+      success: true,
+      message: 'Sipariş durumu başarıyla güncellendi',
+      data: order
+    });
+  } catch (error) {
+    console.error('Update order status admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Sipariş durumu güncellenirken hata oluştu'
     });
   }
 }; 

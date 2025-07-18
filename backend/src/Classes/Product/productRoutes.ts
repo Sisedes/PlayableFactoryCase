@@ -13,7 +13,11 @@ import {
   deleteProductAdmin,
   bulkUpdateProducts,
   deleteProductImage,
-  testProductImages
+  testProductImages,
+  getStockHistory,
+  updateStock,
+  getLowStockAlerts,
+  getStockStatistics
 } from './productsController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
 import { uploadMultiple } from '../../middleware/upload';
@@ -117,5 +121,33 @@ router.delete('/admin/:id', authenticateToken, requireAdmin, deleteProductAdmin)
  * @access  
  */
 router.delete('/admin/:id/images/:imageId', authenticateToken, requireAdmin, deleteProductImage);
+
+/**
+ * @route   get /api/products/admin/:id/stock-history
+ * @desc    
+ * @access  
+ */
+router.get('/admin/:id/stock-history', authenticateToken, requireAdmin, getStockHistory);
+
+/**
+ * @route   put /api/products/admin/:id/stock
+ * @desc    
+ * @access  
+ */
+router.put('/admin/:id/stock', authenticateToken, requireAdmin, updateStock);
+
+/**
+ * @route   get /api/products/admin/low-stock-alerts
+ * @desc    
+ * @access  
+ */
+router.get('/admin/low-stock-alerts', authenticateToken, requireAdmin, getLowStockAlerts);
+
+/**
+ * @route   get /api/products/admin/stock-statistics
+ * @desc    
+ * @access  
+ */
+router.get('/admin/stock-statistics', authenticateToken, requireAdmin, getStockStatistics);
 
 export default router; 

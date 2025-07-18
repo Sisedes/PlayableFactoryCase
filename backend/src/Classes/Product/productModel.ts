@@ -237,6 +237,7 @@ productSchema.virtual('isLowStock').get(function(this: IProduct) {
 });
 
 productSchema.virtual('primaryImage').get(function(this: IProduct) {
+  if (!this.images || this.images.length === 0) return null;
   return this.images.find(img => img.isPrimary) || this.images[0];
 });
 

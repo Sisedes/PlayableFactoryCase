@@ -835,3 +835,332 @@ export const deleteProductImage = async (req: Request, res: Response) => {
     return;
   }
 }; 
+
+/**
+ * @desc    
+ * @route   get /api/products/admin/:id/stock-history
+ * @access  
+ */
+export const getStockHistory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const StockHistory = require('./stockHistoryModel').default;
+    
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const history = await StockHistory.find({ product: id })
+      .populate('performedBy', 'firstName lastName email')
+      .sort({ performedAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    const totalHistory = await StockHistory.countDocuments({ product: id });
+
+    res.status(200).json({
+      success: true,
+      data: history,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalHistory / limitNum),
+        totalHistory,
+        hasNextPage: pageNum < Math.ceil(totalHistory / limitNum),
+        hasPrevPage: pageNum > 1
+      }
+    });
+  } catch (error) {
+    console.error('Get stock history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Stok geçmişi getirilirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   put /api/products/admin/:id/stock
+ * @access  
+ */
+export const updateStock = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { newStock, reason, notes } = req.body;
+    const userId = (req as any).user.id;
+
+    if (typeof newStock !== 'number' || newStock < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçerli bir stok miktarı girin'
+      });
+    }
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+    }
+
+    const previousStock = product.stock;
+    const changeAmount = newStock - previousStock;
+
+    const StockHistory = require('./stockHistoryModel').default;
+    await StockHistory.create({
+      product: id,
+      previousStock,
+      newStock,
+      changeAmount,
+      changeType: 'manual',
+      reason,
+      performedBy: userId,
+      notes
+    });
+
+    product.stock = newStock;
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Stok başarıyla güncellendi',
+      data: {
+        product,
+        stockChange: {
+          previousStock,
+          newStock,
+          changeAmount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update stock error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Stok güncellenirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   get /api/products/admin/low-stock-alerts
+ * @access  
+ */
+export const getLowStockAlerts = async (req: Request, res: Response) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(100, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+
+
+    const lowStockQuery = {
+      $expr: {
+        $and: [
+          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
+          { $gt: ['$stock', 0] }
+        ]
+      },
+      status: 'active'
+    };
+
+    console.log('getLowStockAlerts - Low stock query:', JSON.stringify(lowStockQuery, null, 2));
+
+    const lowStockProducts = await Product.find(lowStockQuery)
+      .populate('category', 'name slug')
+      .select('name sku stock lowStockThreshold category status')
+      .sort({ stock: 1 })
+      .skip(skip)
+      .limit(limitNum);
+
+    console.log('getLowStockAlerts - Low stock products found:', lowStockProducts.map(p => ({
+      name: p.name,
+      stock: p.stock,
+      lowStockThreshold: p.lowStockThreshold
+    })));
+
+    const totalLowStock = await Product.countDocuments(lowStockQuery);
+
+    const allProducts = await Product.find({ status: 'active' }).select('name sku stock lowStockThreshold');
+    console.log('getLowStockAlerts - All products:', allProducts.map(p => ({
+      name: p.name,
+      stock: p.stock,
+      lowStockThreshold: p.lowStockThreshold,
+      isLowStock: p.stock <= (p.lowStockThreshold || 10) && p.stock > 0
+    })));
+
+    const outOfStockQuery = {
+      stock: 0,
+      status: 'active'
+    };
+
+    const outOfStockProducts = await Product.find(outOfStockQuery)
+      .populate('category', 'name slug')
+      .select('name sku stock lowStockThreshold category status')
+      .sort({ updatedAt: -1 })
+      .limit(10);
+
+    const totalOutOfStock = await Product.countDocuments(outOfStockQuery);
+
+    const paginationData = {
+      currentPage: pageNum,
+      totalPages: Math.ceil(totalLowStock / limitNum),
+      totalLowStock,
+      totalOutOfStock,
+      hasNextPage: pageNum < Math.ceil(totalLowStock / limitNum),
+      hasPrevPage: pageNum > 1
+    };
+
+
+
+
+
+    res.status(200).json({
+      success: true,
+      data: {
+        lowStockProducts,
+        outOfStockProducts,
+        summary: {
+          lowStockCount: totalLowStock,
+          outOfStockCount: totalOutOfStock
+        },
+        pagination: paginationData
+      }
+    });
+  } catch (error) {
+    console.error('Get low stock alerts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Düşük stok uyarıları getirilirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   get /api/products/admin/stock-statistics
+ * @access  
+ */
+export const getStockStatistics = async (req: Request, res: Response) => {
+  try {
+    const { period = '30' } = req.query; 
+    const days = parseInt(period as string);
+
+    const StockHistory = require('./stockHistoryModel').default;
+    
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const stockChanges = await StockHistory.aggregate([
+      {
+        $match: {
+          performedAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$performedAt" }
+          },
+          totalChanges: { $sum: 1 },
+          totalIncrease: {
+            $sum: {
+              $cond: [{ $gt: ["$changeAmount", 0] }, "$changeAmount", 0]
+            }
+          },
+          totalDecrease: {
+            $sum: {
+              $cond: [{ $lt: ["$changeAmount", 0] }, { $abs: "$changeAmount" }, 0]
+            }
+          }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    const totalProducts = await Product.countDocuments({ status: 'active' });
+    const lowStockProducts = await Product.countDocuments({
+      $expr: {
+        $and: [
+          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
+          { $gt: ['$stock', 0] }
+        ]
+      },
+      status: 'active'
+    });
+    const outOfStockProducts = await Product.countDocuments({
+      stock: 0,
+      status: 'active'
+    });
+
+
+
+    const topStockChanges = await StockHistory.aggregate([
+      {
+        $match: {
+          performedAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: "$product",
+          totalChanges: { $sum: 1 },
+          totalChangeAmount: { $sum: "$changeAmount" }
+        }
+      },
+      {
+        $sort: { totalChanges: -1 }
+      },
+      {
+        $limit: 10
+      },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'product'
+        }
+      },
+      {
+        $unwind: '$product'
+      },
+      {
+        $project: {
+          productName: '$product.name',
+          productSku: '$product.sku',
+          totalChanges: 1,
+          totalChangeAmount: 1
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        stockChanges,
+        summary: {
+          totalProducts,
+          lowStockProducts,
+          outOfStockProducts,
+          period: days
+        },
+        topStockChanges
+      }
+    });
+  } catch (error) {
+    console.error('Get stock statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Stok istatistikleri getirilirken hata oluştu'
+    });
+  }
+}; 

@@ -628,7 +628,6 @@ export const checkFavoriteStatus = async (req: Request, res: Response): Promise<
   }
 }; 
 
-// Admin: Tüm müşterileri getir (sayfalama ile)
 export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
   try {
     console.log('getAllCustomersForAdmin çağrıldı');
@@ -642,11 +641,28 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
 
     console.log('Hesaplanan değerler:', { pageNum, limitNum, skip });
 
-    // Arama filtresi
     const searchFilter = search ? {
       $or: [
         { 'profile.firstName': { $regex: search, $options: 'i' } },
         { 'profile.lastName': { $regex: search, $options: 'i' } },
+        { 
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ['$profile.firstName', ' ', '$profile.lastName'] },
+              regex: search,
+              options: 'i'
+            }
+          }
+        },
+        { 
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ['$profile.lastName', ' ', '$profile.firstName'] },
+              regex: search,
+              options: 'i'
+            }
+          }
+        },
         { email: { $regex: search, $options: 'i' } },
         { 'profile.phone': { $regex: search, $options: 'i' } }
       ]
@@ -654,7 +670,6 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
 
     console.log('Arama filtresi:', searchFilter);
 
-    // Sıralama
     const sort: any = {};
     sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
 
@@ -678,7 +693,6 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
 
     console.log('Toplam müşteri sayısı:', totalCustomers);
 
-    // Her müşteri için sipariş sayısını hesapla
     const customersWithOrderCount = await Promise.all(
       customers.map(async (customer) => {
         const orderCount = await Order.countDocuments({ 
@@ -722,7 +736,6 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
   }
 };
 
-// Admin: Müşteri detaylarını getir
 export const getCustomerDetails = async (req: Request, res: Response) => {
   try {
     const { customerId } = req.params;
@@ -738,7 +751,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
       });
     }
 
-    // Müşteri verilerini düzenle
     const customerData = {
       _id: customer._id,
       firstName: customer.profile.firstName,
@@ -752,7 +764,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
       updatedAt: customer.updatedAt
     };
 
-    // Müşterinin siparişlerini getir
     const orders = await Order.find({ 
       'customerInfo.customerId': customerId 
     })
@@ -760,7 +771,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
     .sort({ createdAt: -1 })
     .limit(10);
 
-    // İstatistikler
     const totalOrders = await Order.countDocuments({ 
       'customerInfo.customerId': customer._id 
     });
@@ -797,7 +807,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
   }
 };
 
-// Admin: Müşteri durumunu değiştir (aktif/pasif)
 export const updateCustomerStatus = async (req: Request, res: Response) => {
   try {
     const { customerId } = req.params;

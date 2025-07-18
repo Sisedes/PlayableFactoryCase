@@ -350,19 +350,115 @@ export const deleteProductImage = async (productId: string, imageId: string, acc
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
+        'Authorization': `Bearer ${accessToken}`
+      }
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('deleteProductImage error:', error);
+    console.error('Delete product image error:', error);
     throw new Error('Resim silinirken hata oluştu');
+  }
+};
+
+// Stok Yönetimi Fonksiyonları
+
+export const getStockHistory = async (
+  productId: string,
+  params: { page?: number; limit?: number },
+  accessToken: string
+): Promise<ApiResponse<any>> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await fetch(`${API_BASE}/products/admin/${productId}/stock-history?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Get stock history error:', error);
+    throw new Error('Stok geçmişi getirilirken hata oluştu');
+  }
+};
+
+export const updateStock = async (
+  productId: string,
+  data: { newStock: number; reason?: string; notes?: string },
+  accessToken: string
+): Promise<ApiResponse<any>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/admin/${productId}/stock`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Update stock error:', error);
+    throw new Error('Stok güncellenirken hata oluştu');
+  }
+};
+
+export const getLowStockAlerts = async (
+  params: { page?: number; limit?: number },
+  accessToken: string
+): Promise<ApiResponse<any>> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+
+    const response = await fetch(`${API_BASE}/products/admin/low-stock-alerts?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Get low stock alerts error:', error);
+    throw new Error('Düşük stok uyarıları getirilirken hata oluştu');
+  }
+};
+
+export const getStockStatistics = async (
+  params: { period?: number },
+  accessToken: string
+): Promise<ApiResponse<any>> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.period) queryParams.append('period', params.period.toString());
+
+    const response = await fetch(`${API_BASE}/products/admin/stock-statistics?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Get stock statistics error:', error);
+    throw new Error('Stok istatistikleri getirilirken hata oluştu');
   }
 };
 

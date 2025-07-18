@@ -3,7 +3,9 @@ import {
   getMyOrders,
   getOrderById,
   createOrder,
-  getAllOrdersAdmin
+  getAllOrdersAdmin,
+  getOrderByIdAdmin,
+  updateOrderStatusAdmin
 } from '../Classes/Order/orderController';
 import { authenticateToken, requireAdmin } from '../middleware/authMiddleware';
 
@@ -36,5 +38,19 @@ router.post('/', authenticateToken, createOrder);
  * @access  
  */
 router.get('/admin/all', authenticateToken, requireAdmin, getAllOrdersAdmin);
+
+/**
+ * @route   get /api/orders/admin/:id
+ * @desc    
+ * @access  
+ */
+router.get('/admin/:id', authenticateToken, requireAdmin, getOrderByIdAdmin);
+
+/**
+ * @route   put /api/orders/admin/:id/status
+ * @desc    
+ * @access  
+ */
+router.put('/admin/:id/status', authenticateToken, requireAdmin, updateOrderStatusAdmin);
 
 export default router; 
