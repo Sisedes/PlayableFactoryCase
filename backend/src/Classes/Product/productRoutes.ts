@@ -164,36 +164,36 @@ router.get('/admin/stock-statistics', authenticateToken, requireAdmin, getStockS
 
 /**
  * @route   get /api/products/:id/variants
- * @desc    Ürün varyasyonlarını getir
- * @access  Private (Admin)
+ * @desc    
+ * @access  
  */
 router.get('/:id/variants', authenticateToken, requireAdmin, getProductVariants);
 
 /**
  * @route   put /api/products/:id/variants
- * @desc    Ürün varyasyonlarını güncelle
- * @access  Private (Admin)
+ * @desc    
+ * @access  
  */
 router.put('/:id/variants', authenticateToken, requireAdmin, uploadMultiple, updateProductVariants);
 
 /**
  * @route   put /api/products/:id/variants/:variantId/stock
- * @desc    Varyasyon stok güncelle
- * @access  Private (Admin)
+ * @desc    
+ * @access  
  */
 router.put('/:id/variants/:variantId/stock', authenticateToken, requireAdmin, updateVariantStock);
 
 /**
  * @route   get /api/products/:id/variants/:variantId/stock-history
- * @desc    Varyasyon stok geçmişi
- * @access  Private (Admin)
+ * @desc    
+ * @access  
  */
 router.get('/:id/variants/:variantId/stock-history', authenticateToken, requireAdmin, getStockHistory);
 
 /**
  * @route   post /api/products/test/variant-product
- * @desc    Test için varyasyonlu ürün oluştur
- * @access  Private (Admin)
+ * @desc    
+ * @access  
  */
 router.post('/test/variant-product', authenticateToken, requireAdmin, createTestVariantProduct);
 
