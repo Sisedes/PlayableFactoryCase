@@ -12,6 +12,12 @@ interface ApiResponse<T> {
   total?: number;
 }
 
+interface CategoryFormData {
+  name: string;
+  description: string;
+  sortOrder?: number;
+  image?: File;
+}
 
 export const getAllCategories = async (): Promise<ApiResponse<Category[]>> => {
   try {
@@ -34,6 +40,96 @@ export const getAllCategories = async (): Promise<ApiResponse<Category[]>> => {
   }
 };
 
+export const getAllCategoriesForAdmin = async (accessToken: string): Promise<ApiResponse<Category[]>> => {
+  try {
+    const response = await fetch(`${API_BASE}/categories/admin`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getAllCategoriesForAdmin error:', error);
+    throw new Error('Kategoriler getirilirken hata oluştu');
+  }
+};
+
+export const createCategory = async (formData: FormData, accessToken: string): Promise<ApiResponse<Category>> => {
+  try {
+    const response = await fetch(`${API_BASE}/categories`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Kategori oluşturulurken hata oluştu');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('createCategory error:', error);
+    throw error;
+  }
+};
+
+export const updateCategory = async (categoryId: string, formData: FormData, accessToken: string): Promise<ApiResponse<Category>> => {
+  try {
+    const response = await fetch(`${API_BASE}/categories/${categoryId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Kategori güncellenirken hata oluştu');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('updateCategory error:', error);
+    throw error;
+  }
+};
+
+export const deleteCategory = async (categoryId: string, accessToken: string): Promise<ApiResponse<void>> => {
+  try {
+    const response = await fetch(`${API_BASE}/categories/${categoryId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Kategori silinirken hata oluştu');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('deleteCategory error:', error);
+    throw error;
+  }
+};
 
 export const getCategoryBySlug = async (slug: string): Promise<ApiResponse<Category>> => {
   try {
@@ -63,7 +159,6 @@ export const getCategoryBySlug = async (slug: string): Promise<ApiResponse<Categ
   }
 };
 
-
 export const getCategoryStats = async (): Promise<ApiResponse<any>> => {
   try {
     const response = await fetch(`${API_BASE}/categories/stats`, {
@@ -85,7 +180,6 @@ export const getCategoryStats = async (): Promise<ApiResponse<any>> => {
   }
 };
 
-
 export const getActiveCategories = async (): Promise<ApiResponse<Category[]>> => {
   try {
     const allCategories = await getAllCategories();
@@ -103,4 +197,4 @@ export const getActiveCategories = async (): Promise<ApiResponse<Category[]>> =>
   }
 };
 
-export type { ApiResponse }; 
+export type { ApiResponse, CategoryFormData }; 

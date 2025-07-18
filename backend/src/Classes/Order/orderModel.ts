@@ -71,6 +71,11 @@ const orderSchema = new Schema<IOrder>({
     sparse: true
   },
   customerInfo: {
+    customerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      sparse: true
+    },
     email: {
       type: String,
       required: true,

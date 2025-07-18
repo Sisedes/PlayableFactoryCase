@@ -11,9 +11,12 @@ import {
   getFavoriteProducts,
   addToFavorites,
   removeFromFavorites,
-  checkFavoriteStatus
+  checkFavoriteStatus,
+  getAllCustomersForAdmin,
+  getCustomerDetails,
+  updateCustomerStatus
 } from './userController';
-import { authenticateToken } from '../../middleware/authMiddleware';
+import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
 import { validateAddress, handleValidationErrors } from '../../middleware/validationMiddleware';
 
 const router = express.Router();
@@ -111,5 +114,27 @@ router.delete('/favorites/:productId', authenticateToken, removeFromFavorites);
  * @access  
  */
 router.get('/favorites/:productId/check', authenticateToken, checkFavoriteStatus);
+
+// Admin Routes
+/**
+ * @route   get /api/users/admin/customers
+ * @desc    
+ * @access  
+ */
+router.get('/admin/customers', authenticateToken, requireAdmin, getAllCustomersForAdmin);
+
+/**
+ * @route   get /api/users/admin/customers/:customerId
+ * @desc    
+ * @access  
+ */
+router.get('/admin/customers/:customerId', authenticateToken, requireAdmin, getCustomerDetails);
+
+/**
+ * @route   put /api/users/admin/customers/:customerId/status
+ * @desc    
+ * @access  
+ */
+router.put('/admin/customers/:customerId/status', authenticateToken, requireAdmin, updateCustomerStatus);
 
 export default router; 

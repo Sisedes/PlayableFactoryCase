@@ -1,100 +1,194 @@
-import axios from 'axios';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
-export interface ProfileUpdateData {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-}
-
-export interface SendResetCodeData {
-  email: string;
-}
-
-export interface ResetPasswordData {
-  code: string;
-  newPassword: string;
-}
+const API_BASE = process.env.NODE_ENV === 'production' 
+  ? '/api' 
+  : 'http://localhost:5000/api';
 
 interface ApiResponse<T> {
   success: boolean;
+  data: T;
   message?: string;
-  data?: T;
 }
 
-/**
- * Kullanıcı profilini güncelle
- */
-export const updateProfile = async (profileData: ProfileUpdateData, token: string): Promise<ApiResponse<any>> => {
+interface Customer {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  isActive: boolean;
+  authentication: {
+    isEmailVerified: boolean;
+  };
+  createdAt: string;
+  orderCount: number;
+}
+
+interface CustomerDetails {
+  customer: any;
+  orders: any[];
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+    orderStatusStats: any[];
+  };
+}
+
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalCustomers: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+interface CustomersResponse {
+  data: Customer[];
+  pagination: PaginationInfo;
+}
+
+export const updateProfile = async (data: ProfileUpdateData, accessToken: string): Promise<ApiResponse<any>> => {
   try {
-    const response = await axios.put(`${API_URL}/api/users/profile`, profileData, {
+    const response = await fetch(`${API_BASE}/users/profile`, {
+      method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(data)
     });
 
-    return {
-      success: true,
-      message: response.data.message,
-      data: response.data.data
-    };
-  } catch (error: any) {
+    const result = await response.json();
+    return result;
+  } catch (error) {
     console.error('Update profile error:', error);
-    return {
-      success: false,
-      message: error.response?.data?.message || 'Profil güncellenirken hata oluştu'
-    };
+    throw new Error('Profil güncellenirken hata oluştu');
   }
 };
 
-/**
- * Parola sıfırlama kodu gönder
- */
-export const sendPasswordResetCode = async (emailData: SendResetCodeData, token: string): Promise<ApiResponse<null>> => {
+export const sendPasswordResetCode = async (data: { email: string }, accessToken: string): Promise<ApiResponse<any>> => {
   try {
-    const response = await axios.post(`${API_URL}/api/users/send-password-reset-code`, emailData, {
+    const response = await fetch(`${API_BASE}/users/send-password-reset-code`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(data)
     });
 
-    return {
-      success: true,
-      message: response.data.message
-    };
-  } catch (error: any) {
+    const result = await response.json();
+    return result;
+  } catch (error) {
     console.error('Send password reset code error:', error);
-    return {
-      success: false,
-      message: error.response?.data?.message || 'Kod gönderilirken hata oluştu'
-    };
+    throw new Error('Kod gönderilirken hata oluştu');
   }
 };
 
-/**
- * Parola sıfırlama kodunu doğrula ve parolayı güncelle
- */
-export const resetPasswordWithCode = async (resetData: ResetPasswordData, token: string): Promise<ApiResponse<null>> => {
+export const resetPasswordWithCode = async (data: { code: string; newPassword: string }, accessToken: string): Promise<ApiResponse<any>> => {
   try {
-    const response = await axios.post(`${API_URL}/api/users/reset-password-with-code`, resetData, {
+    const response = await fetch(`${API_BASE}/users/reset-password-with-code`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Reset password error:', error);
+    throw new Error('Parola güncellenirken hata oluştu');
+  }
+};
+
+export const getAllCustomersForAdmin = async (
+  params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  },
+  accessToken: string
+): Promise<ApiResponse<CustomersResponse>> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+
+    const response = await fetch(`${API_BASE}/users/admin/customers?${queryParams}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
       }
     });
 
-    return {
-      success: true,
-      message: response.data.message
-    };
-  } catch (error: any) {
-    console.error('Reset password with code error:', error);
-    return {
-      success: false,
-      message: error.response?.data?.message || 'Parola güncellenirken hata oluştu'
-    };
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getAllCustomersForAdmin error:', error);
+    throw new Error('Müşteriler getirilirken hata oluştu');
   }
-}; 
+};
+
+export const getCustomerDetails = async (customerId: string, accessToken: string): Promise<ApiResponse<CustomerDetails>> => {
+  try {
+    const response = await fetch(`${API_BASE}/users/admin/customers/${customerId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getCustomerDetails error:', error);
+    throw new Error('Müşteri detayları getirilirken hata oluştu');
+  }
+};
+
+export const updateCustomerStatus = async (customerId: string, isActive: boolean, accessToken: string): Promise<ApiResponse<any>> => {
+  try {
+    const response = await fetch(`${API_BASE}/users/admin/customers/${customerId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ isActive })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('updateCustomerStatus error:', error);
+    throw new Error('Müşteri durumu güncellenirken hata oluştu');
+  }
+};
+
+export interface ProfileUpdateData {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}
+
+export type { Customer, CustomerDetails, PaginationInfo, CustomersResponse }; 

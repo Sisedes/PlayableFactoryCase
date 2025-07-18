@@ -1,9 +1,15 @@
 import express from 'express';
 import { 
   getAllCategories, 
+  getAllCategoriesForAdmin,
   getCategoryBySlug, 
-  getCategoryStats 
+  getCategoryStats,
+  createCategory,
+  updateCategory,
+  deleteCategory
 } from './categoriesController';
+import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
+import { uploadCategoryImage } from '../../config/multer';
 
 const router = express.Router();
 
@@ -13,6 +19,13 @@ const router = express.Router();
  * @access  
  */
 router.get('/', getAllCategories);
+
+/**
+ * @route   get /api/categories/admin
+ * @desc    
+ * @access  
+ */
+router.get('/admin', authenticateToken, requireAdmin, getAllCategoriesForAdmin);
 
 /**
  * @route   get /api/categories/stats
@@ -27,5 +40,26 @@ router.get('/stats', getCategoryStats);
  * @access  
  */
 router.get('/:slug', getCategoryBySlug);
+
+/**
+ * @route   post /api/categories
+ * @desc    
+ * @access  
+ */
+router.post('/', authenticateToken, requireAdmin, uploadCategoryImage, createCategory);
+
+/**
+ * @route   put /api/categories/:id
+ * @desc    
+ * @access  
+ */
+router.put('/:id', authenticateToken, requireAdmin, uploadCategoryImage, updateCategory);
+
+/**
+ * @route   delete /api/categories/:id
+ * @desc    
+ * @access  
+ */
+router.delete('/:id', authenticateToken, requireAdmin, deleteCategory);
 
 export default router; 

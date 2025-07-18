@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendNotificationEmail } from '../../utils/emailService';
+import Order from '../Order/orderModel';
 
 /**
  * @desc    
@@ -623,6 +624,209 @@ export const checkFavoriteStatus = async (req: Request, res: Response): Promise<
     res.status(500).json({
       success: false,
       message: 'Favori durumu kontrol edilemedi'
+    });
+  }
+}; 
+
+// Admin: Tüm müşterileri getir (sayfalama ile)
+export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
+  try {
+    console.log('getAllCustomersForAdmin çağrıldı');
+    console.log('Query parametreleri:', req.query);
+    
+    const { page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.min(50, Math.max(1, Number(limit)));
+    const skip = (pageNum - 1) * limitNum;
+
+    console.log('Hesaplanan değerler:', { pageNum, limitNum, skip });
+
+    // Arama filtresi
+    const searchFilter = search ? {
+      $or: [
+        { 'profile.firstName': { $regex: search, $options: 'i' } },
+        { 'profile.lastName': { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { 'profile.phone': { $regex: search, $options: 'i' } }
+      ]
+    } : {};
+
+    console.log('Arama filtresi:', searchFilter);
+
+    // Sıralama
+    const sort: any = {};
+    sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+
+    console.log('Sıralama:', sort);
+
+    const customers = await User.find({ 
+      role: 'customer',
+      ...searchFilter 
+    })
+    .select('profile.firstName profile.lastName email profile.phone isActive authentication.isEmailVerified createdAt')
+    .sort(sort)
+    .skip(skip)
+    .limit(limitNum);
+
+    console.log('Bulunan müşteri sayısı:', customers.length);
+
+    const totalCustomers = await User.countDocuments({ 
+      role: 'customer',
+      ...searchFilter 
+    });
+
+    console.log('Toplam müşteri sayısı:', totalCustomers);
+
+    // Her müşteri için sipariş sayısını hesapla
+    const customersWithOrderCount = await Promise.all(
+      customers.map(async (customer) => {
+        const orderCount = await Order.countDocuments({ 
+          'customerInfo.customerId': customer._id 
+        });
+        
+        return {
+          _id: customer._id,
+          firstName: customer.profile.firstName,
+          lastName: customer.profile.lastName,
+          email: customer.email,
+          phone: customer.profile.phone,
+          isActive: customer.isActive,
+          authentication: customer.authentication,
+          createdAt: customer.createdAt,
+          orderCount
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        data: customersWithOrderCount,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalCustomers / limitNum),
+          totalCustomers,
+          hasNextPage: pageNum < Math.ceil(totalCustomers / limitNum),
+          hasPrevPage: pageNum > 1
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get customers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Müşteriler getirilirken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+};
+
+// Admin: Müşteri detaylarını getir
+export const getCustomerDetails = async (req: Request, res: Response) => {
+  try {
+    const { customerId } = req.params;
+
+    const customer = await User.findById(customerId)
+      .select('-password')
+      .populate('addresses');
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Müşteri bulunamadı'
+      });
+    }
+
+    // Müşteri verilerini düzenle
+    const customerData = {
+      _id: customer._id,
+      firstName: customer.profile.firstName,
+      lastName: customer.profile.lastName,
+      email: customer.email,
+      phone: customer.profile.phone,
+      isActive: customer.isActive,
+      authentication: customer.authentication,
+      addresses: customer.addresses,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt
+    };
+
+    // Müşterinin siparişlerini getir
+    const orders = await Order.find({ 
+      'customerInfo.customerId': customerId 
+    })
+    .select('orderNumber createdAt pricing.total fulfillment.status')
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+    // İstatistikler
+    const totalOrders = await Order.countDocuments({ 
+      'customerInfo.customerId': customer._id 
+    });
+    
+    const totalSpent = await Order.aggregate([
+      { $match: { 'customerInfo.customerId': customer._id } },
+      { $group: { _id: null, total: { $sum: '$pricing.total' } } }
+    ]);
+
+    const orderStatusStats = await Order.aggregate([
+      { $match: { 'customerInfo.customerId': customer._id } },
+      { $group: { _id: '$fulfillment.status', count: { $sum: 1 } } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        customer: customerData,
+        orders,
+        stats: {
+          totalOrders,
+          totalSpent: totalSpent[0]?.total || 0,
+          orderStatusStats
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get customer details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Müşteri detayları getirilirken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+};
+
+// Admin: Müşteri durumunu değiştir (aktif/pasif)
+export const updateCustomerStatus = async (req: Request, res: Response) => {
+  try {
+    const { customerId } = req.params;
+    const { isActive } = req.body;
+
+    const customer = await User.findByIdAndUpdate(
+      customerId,
+      { isActive },
+      { new: true }
+    ).select('-password');
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Müşteri bulunamadı'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Müşteri ${isActive ? 'aktif' : 'pasif'} yapıldı`,
+      data: customer
+    });
+  } catch (error) {
+    console.error('Update customer status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Müşteri durumu güncellenirken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
     });
   }
 }; 

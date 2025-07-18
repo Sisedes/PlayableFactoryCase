@@ -6,7 +6,7 @@ import AddressModal from "./AddressModal";
 import Orders from "../Orders";
 import { useAuth } from "@/store/authStore";
 import { resendVerification } from "@/services";
-import { getAllCategories } from "@/services/categoryService";
+import { getAllCategories, getAllCategoriesForAdmin, createCategory, updateCategory, deleteCategory } from "@/services/categoryService";
 import { 
   getAllProducts, 
   getAllProductsForAdmin, 
@@ -28,7 +28,11 @@ import {
   updateProfile, 
   sendPasswordResetCode, 
   resetPasswordWithCode,
-  ProfileUpdateData 
+  getAllCustomersForAdmin,
+  getCustomerDetails,
+  updateCustomerStatus,
+  Customer,
+  CustomerDetails
 } from "@/services/userService";
 import { 
   getFavoriteProducts, 
@@ -145,11 +149,33 @@ const MyAccount = () => {
 
   const [pendingReviews, setPendingReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewActionLoading, setReviewActionLoading] = useState<string | null>(null); // işlem yapılan yorum id'si
+  const [reviewActionLoading, setReviewActionLoading] = useState<string | null>(null); 
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    description: ''
+  });
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [editCategory, setEditCategory] = useState<LocalCategory | null>(null);
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
+
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customerPagination, setCustomerPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCustomers: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetails | null>(null);
+  const [customerDetailsModal, setCustomerDetailsModal] = useState(false);
+  const [customerDetailsLoading, setCustomerDetailsLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,7 +185,7 @@ const MyAccount = () => {
           console.log('Admin verileri yükleniyor...');
           
           const [categoriesResponse, productsResponse] = await Promise.all([
-            getAllCategories().catch(error => {
+            getAllCategoriesForAdmin(accessToken || '').catch(error => {
               console.error('Kategoriler yüklenirken hata:', error);
               return { success: false, data: [], message: 'Kategoriler yüklenemedi' };
             }),
@@ -632,11 +658,32 @@ const MyAccount = () => {
     if (isAdmin && activeTab === 'manage-reviews') {
       loadPendingReviews();
     }
+    if (isAdmin && activeTab === 'manage-customers') {
+      loadCustomers();
+    }
   }, [isAdmin, activeTab, accessToken]);
 
   useEffect(() => {
     setSelectedProducts([]);
   }, [selectedCategory]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && customerDetailsModal) {
+        setCustomerDetailsModal(false);
+        setSelectedCustomer(null);
+      }
+    };
+
+    if (customerDetailsModal) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [customerDetailsModal]);
+
+  const getCategoryProductCount = (categoryId: string) => {
+    return products.filter(product => product.category._id === categoryId).length;
+  };
 
   const handleProductSelect = (productId: string) => {
     console.log('Ürün seçimi:', productId);
@@ -783,6 +830,199 @@ const MyAccount = () => {
     }
   };
 
+  const handleCategoryFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCategoryForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!accessToken) {
+      alert('Giriş yapmanız gerekiyor');
+      return;
+    }
+
+    if (!categoryForm.name || !categoryForm.description) {
+      alert('Lütfen gerekli alanları doldurun');
+      return;
+    }
+
+    setCategoryLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('name', categoryForm.name);
+      formData.append('description', categoryForm.description);
+      
+      let result;
+      
+      if (editCategory) {
+        result = await updateCategory(editCategory._id, formData, accessToken);
+      } else {
+        result = await createCategory(formData, accessToken);
+      }
+      
+      if (result.success) {
+        alert(editCategory ? 'Kategori başarıyla güncellendi!' : 'Kategori başarıyla eklendi!');
+        setCategoryForm({
+          name: '',
+          description: ''
+        });
+        setEditCategory(null);
+        
+        const categoriesResponse = await getAllCategoriesForAdmin(accessToken || '');
+        if (categoriesResponse.success) {
+          setCategories(categoriesResponse.data as unknown as LocalCategory[]);
+        }
+      } else {
+        alert('Hata: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Kategori işlemi hatası:', error);
+      alert('Kategori işlemi sırasında bir hata oluştu');
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const handleEditCategory = (category: LocalCategory) => {
+    setEditCategory(category);
+    setCategoryForm({
+      name: category.name,
+      description: category.description
+    });
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!accessToken || !confirm('Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+
+    try {
+      const result = await deleteCategory(categoryId, accessToken);
+      
+      if (result.success) {
+        alert('Kategori başarıyla silindi');
+        setDeleteCategoryId(null);
+        
+        const categoriesResponse = await getAllCategoriesForAdmin(accessToken || '');
+        if (categoriesResponse.success) {
+          setCategories(categoriesResponse.data as unknown as LocalCategory[]);
+        }
+      } else {
+        alert(result.message || 'Kategori silinirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Kategori silme hatası:', error);
+      alert('Kategori silinirken hata oluştu');
+    }
+  };
+
+  const loadCustomers = async (page = 1, search = '') => {
+    console.log('loadCustomers çağrıldı:', { page, search, accessToken: !!accessToken });
+    
+    if (!accessToken) {
+      console.log('Access token yok, fonksiyon sonlandırılıyor');
+      return;
+    }
+
+    setCustomersLoading(true);
+    try {
+      console.log('API çağrısı yapılıyor...');
+      const response = await getAllCustomersForAdmin({
+        page: Math.max(1, page),
+        limit: 10,
+        search: search || '',
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      }, accessToken);
+
+      console.log('API yanıtı:', response);
+
+      if (response.success && response.data) {
+        console.log('Müşteri verileri:', response.data);
+        setCustomers(response.data.data || []);
+        setCustomerPagination(response.data.pagination || {
+          currentPage: 1,
+          totalPages: 1,
+          totalCustomers: 0,
+          hasNextPage: false,
+          hasPrevPage: false
+        });
+      } else {
+        console.log('API başarısız veya veri yok');
+        setCustomers([]);
+        setCustomerPagination({
+          currentPage: 1,
+          totalPages: 1,
+          totalCustomers: 0,
+          hasNextPage: false,
+          hasPrevPage: false
+        });
+      }
+    } catch (error) {
+      console.error('Müşteriler yüklenirken hata:', error);
+      setCustomers([]);
+      setCustomerPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalCustomers: 0,
+        hasNextPage: false,
+        hasPrevPage: false
+      });
+    } finally {
+      setCustomersLoading(false);
+    }
+  };
+
+  const handleCustomerSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadCustomers(1, customerSearch);
+  };
+
+  const handleCustomerPageChange = (page: number) => {
+    if (page > 0) {
+      loadCustomers(page, customerSearch);
+    }
+  };
+
+  const handleViewCustomerDetails = async (customerId: string) => {
+    if (!accessToken) return;
+
+    setCustomerDetailsLoading(true);
+    try {
+      const response = await getCustomerDetails(customerId, accessToken);
+      if (response.success) {
+        setSelectedCustomer(response.data);
+        setCustomerDetailsModal(true);
+      }
+    } catch (error) {
+      console.error('Müşteri detayları yüklenirken hata:', error);
+      alert('Müşteri detayları yüklenirken hata oluştu');
+    } finally {
+      setCustomerDetailsLoading(false);
+    }
+  };
+
+  const handleUpdateCustomerStatus = async (customerId: string, isActive: boolean) => {
+    if (!accessToken) return;
+
+    try {
+      const response = await updateCustomerStatus(customerId, isActive, accessToken);
+      if (response.success) {
+        alert(`Müşteri ${isActive ? 'aktif' : 'pasif'} yapıldı`);
+        loadCustomers(customerPagination.currentPage, customerSearch);
+      }
+    } catch (error) {
+      console.error('Müşteri durumu güncellenirken hata:', error);
+      alert('Müşteri durumu güncellenirken hata oluştu');
+    }
+  };
+
   return (
     <>
       <Breadcrumb title={"My Account"} pages={["my account"]} />
@@ -793,23 +1033,6 @@ const MyAccount = () => {
             {/* <!--== user dashboard menu start ==--> */}
             <div className="xl:max-w-[370px] w-full bg-white rounded-xl shadow-1">
               <div className="flex xl:flex-col">
-                <div className="hidden lg:flex flex-wrap items-center gap-5 py-6 px-4 sm:px-7.5 xl:px-9 border-r xl:border-r-0 xl:border-b border-gray-3">
-                  <div className="max-w-[64px] w-full h-16 rounded-full overflow-hidden">
-                    <Image
-                      src="/images/users/user-04.jpg"
-                      alt="user"
-                      width={64}
-                      height={64}
-                    />
-                  </div>
-
-                  <div>
-                    <p className="font-medium text-dark mb-0.5">
-                      James Septimus
-                    </p>
-                    <p className="text-custom-xs">Member Since Sep 2020</p>
-                  </div>
-                </div>
 
                 <div className="p-4 sm:p-7.5 xl:p-9">
                   <div className="flex flex-wrap xl:flex-nowrap xl:flex-col gap-4">
@@ -1071,6 +1294,66 @@ const MyAccount = () => {
                             />
                           </svg>
                           Yorum Onaylama
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("manage-categories")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "manage-categories"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M3.4375 3.4375C3.4375 3.0578 3.7453 2.75 4.125 2.75H8.25C8.6297 2.75 8.9375 3.0578 8.9375 3.4375V8.25C8.9375 8.6297 8.6297 8.9375 8.25 8.9375H4.125C3.7453 8.9375 3.4375 8.6297 3.4375 8.25V3.4375Z"
+                              fill=""
+                            />
+                            <path
+                              d="M13.0625 3.4375C13.0625 3.0578 13.3703 2.75 13.75 2.75H17.875C18.2547 2.75 18.5625 3.0578 18.5625 3.4375V8.25C18.5625 8.6297 18.2547 8.9375 17.875 8.9375H13.75C13.3703 8.9375 13.0625 8.6297 13.0625 8.25V3.4375Z"
+                              fill=""
+                            />
+                            <path
+                              d="M3.4375 13.0625C3.4375 12.6828 3.7453 12.375 4.125 12.375H8.25C8.6297 12.375 8.9375 12.6828 8.9375 13.0625V17.875C8.9375 18.2547 8.6297 18.5625 8.25 18.5625H4.125C3.7453 18.5625 3.4375 18.2547 3.4375 17.875V13.0625Z"
+                              fill=""
+                            />
+                            <path
+                              d="M13.0625 13.0625C13.0625 12.6828 13.3703 12.375 13.75 12.375H17.875C18.2547 12.375 18.5625 12.6828 18.5625 13.0625V17.875C18.5625 18.2547 18.2547 18.5625 17.875 18.5625H13.75C13.3703 18.5625 13.0625 18.2547 13.0625 17.875V13.0625Z"
+                              fill=""
+                            />
+                          </svg>
+                          Kategori Yönetimi
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab("manage-customers")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "manage-customers"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                              fill=""
+                            />
+                          </svg>
+                          Müşteri Yönetimi
                         </button>
                       </>
                     )}
@@ -1928,9 +2211,7 @@ const MyAccount = () => {
                             Tüm Ürünler ({products.length})
                           </button>
                           {categories.map((category) => {
-                            const categoryProductCount = products.filter(
-                              (product) => product.category._id === category._id
-                            ).length;
+                            const categoryProductCount = getCategoryProductCount(category._id);
                             
                             return (
                               <button
@@ -2199,6 +2480,357 @@ const MyAccount = () => {
               </div>
             )}
             {/* <!-- manage reviews tab content end -->
+
+          <!-- manage categories tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "manage-categories" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Kategori Yönetimi
+                  </h2>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Kategori Ekleme/Düzenleme Formu */}
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-medium text-dark mb-4">
+                        {editCategory ? 'Kategori Düzenle' : 'Yeni Kategori Ekle'}
+                      </h3>
+                      
+                      <form onSubmit={handleCategorySubmit} className="space-y-4">
+                        <div>
+                          <label className="block mb-2 text-dark font-medium">
+                            Kategori Adı <span className="text-red">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={categoryForm.name}
+                            onChange={handleCategoryFormChange}
+                            placeholder="Kategori adını girin"
+                            className="w-full rounded-lg border border-gray-3 bg-white py-3 px-4 text-dark outline-none transition-all focus:border-blue"
+                            required
+                            disabled={categoryLoading}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block mb-2 text-dark font-medium">
+                            Açıklama <span className="text-red">*</span>
+                          </label>
+                          <textarea
+                            name="description"
+                            value={categoryForm.description}
+                            onChange={handleCategoryFormChange}
+                            rows={3}
+                            placeholder="Kategori açıklamasını girin"
+                            className="w-full rounded-lg border border-gray-3 bg-white py-3 px-4 text-dark outline-none transition-all focus:border-blue resize-none"
+                            required
+                            disabled={categoryLoading}
+                          />
+                        </div>
+
+
+
+
+
+                        <div className="flex space-x-3">
+                          <button
+                            type="submit"
+                            disabled={categoryLoading}
+                            className="flex-1 px-6 py-3 text-sm font-bold rounded-lg border-2 transition-all duration-200 bg-blue text-white border-blue hover:bg-blue-dark hover:shadow-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:border-gray-400 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center justify-center space-x-2"
+                          >
+                            {categoryLoading ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>İşleniyor...</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                <span>{editCategory ? 'Güncelle' : 'Ekle'}</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          {editCategory && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditCategory(null);
+                                setCategoryForm({
+                                  name: '',
+                                  description: ''
+                                });
+                              }}
+                              disabled={categoryLoading}
+                              className="px-6 py-3 text-sm font-bold rounded-lg border-2 transition-all duration-200 bg-gray-500 text-white border-gray-600 hover:bg-gray-600 disabled:opacity-50"
+                            >
+                              İptal
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Kategori Listesi */}
+                    <div>
+                      <h3 className="text-lg font-medium text-dark mb-4">
+                        Mevcut Kategoriler ({categories.length})
+                      </h3>
+                      
+                      {loading ? (
+                        <div className="flex justify-center items-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                        </div>
+                      ) : categories.length > 0 ? (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {categories.map((category) => (
+                            <div key={category._id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center space-x-3 flex-1">
+                                  {category.image && (
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                                      <Image
+                                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${category.image}`}
+                                        alt={category.name}
+                                        width={48}
+                                        height={48}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="flex-1">
+                                    <h4 className="font-medium text-dark">{category.name}</h4>
+                                    <p className="text-sm text-gray-600 line-clamp-2">{category.description}</p>
+                                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                                      <span>Ürün: {getCategoryProductCount(category._id)}</span>
+                                      <span className={`px-2 py-1 rounded-full ${
+                                        category.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                      }`}>
+                                        {category.isActive ? 'Aktif' : 'Pasif'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex space-x-2 ml-4">
+                                  <button
+                                    onClick={() => handleEditCategory(category)}
+                                    className="p-2 text-blue hover:text-blue-dark transition-colors"
+                                    title="Düzenle"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteCategoryId(category._id)}
+                                    className="p-2 text-red hover:text-red-dark transition-colors"
+                                    title="Sil"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 border border-gray-3 rounded-lg bg-gray-50">
+                          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          <p className="text-gray-500">Henüz kategori bulunmuyor.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* <!-- manage categories tab content end -->
+
+          <!-- manage customers tab content start --> */}
+            {isAdmin && (
+              <div
+                className={`xl:max-w-[770px] w-full ${
+                  activeTab === "manage-customers" ? "block" : "hidden"
+                }`}
+              >
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                    Müşteri Yönetimi
+                  </h2>
+                  
+                  {/* Arama Formu */}
+                  <div className="mb-6">
+                    <form onSubmit={handleCustomerSearch} className="flex gap-4">
+                      <input
+                        type="text"
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        placeholder="Müşteri adı, e-posta veya telefon ile ara..."
+                        className="flex-1 rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                      />
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-blue text-white rounded-lg hover:bg-blue-dark transition-colors"
+                      >
+                        Ara
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Müşteri Tablosu */}
+                  {customersLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                    </div>
+                  ) : customers && customers.length > 0 ? (
+                    <div className="border border-gray-3 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Müşteri
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                İletişim
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Sipariş Sayısı
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Durum
+                              </th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Kayıt Tarihi
+                              </th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                İşlemler
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {customers && customers.map((customer) => (
+                              <tr key={customer._id} className="hover:bg-gray-50">
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div className="flex items-center">
+                                    <div className="flex-shrink-0 h-10 w-10">
+                                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                        <span className="text-blue-600 font-medium text-sm">
+                                          {customer.firstName[0]}{customer.lastName[0]}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="ml-4">
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {customer.firstName} {customer.lastName}
+                                      </div>
+                                      <div className="text-sm text-gray-500">
+                                        {customer.authentication.isEmailVerified ? 'E-posta doğrulandı' : 'E-posta doğrulanmadı'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{customer.email}</div>
+                                  {customer.phone && (
+                                    <div className="text-sm text-gray-500">{customer.phone}</div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{customer.orderCount} sipariş</div>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    customer.isActive 
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {customer.isActive ? 'Aktif' : 'Pasif'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {new Date(customer.createdAt).toLocaleDateString('tr-TR')}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <div className="flex justify-end space-x-2">
+                                    <button
+                                      onClick={() => handleViewCustomerDetails(customer._id)}
+                                      className="text-blue hover:text-blue-dark transition-colors duration-200 px-3 py-1 rounded border border-blue hover:bg-blue hover:text-white"
+                                    >
+                                      Detaylar
+                                    </button>
+                                    <button
+                                      onClick={() => handleUpdateCustomerStatus(customer._id, !customer.isActive)}
+                                      className={`px-3 py-1 rounded border transition-colors duration-200 ${
+                                        customer.isActive
+                                          ? 'text-red border-red hover:bg-red hover:text-white'
+                                          : 'text-green border-green hover:bg-green hover:text-white'
+                                      }`}
+                                    >
+                                      {customer.isActive ? 'Pasif Yap' : 'Aktif Yap'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 border border-gray-3 rounded-lg bg-gray-50">
+                      <p className="text-gray-500">
+                        {customerSearch ? 'Arama kriterlerine uygun müşteri bulunamadı.' : 'Henüz müşteri bulunmuyor.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Sayfalama */}
+                  {customerPagination && customerPagination.totalPages > 1 && (
+                    <div className="mt-6 flex items-center justify-between">
+                      <div className="text-sm text-gray-700">
+                        Toplam {customerPagination.totalCustomers || 0} müşteri
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleCustomerPageChange((customerPagination.currentPage || 1) - 1)}
+                          disabled={!customerPagination.hasPrevPage}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Önceki
+                        </button>
+                        <span className="px-3 py-2 text-sm text-gray-700">
+                          Sayfa {customerPagination.currentPage || 1} / {customerPagination.totalPages || 1}
+                        </span>
+                        <button
+                          onClick={() => handleCustomerPageChange((customerPagination.currentPage || 1) + 1)}
+                          disabled={!customerPagination.hasNextPage}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Sonraki
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* <!-- manage customers tab content end -->
 
           <!-- admin dashboard tab content start --> */}
             {isAdmin && (
@@ -2680,11 +3312,195 @@ const MyAccount = () => {
                 </button>
                 <button
                   onClick={() => handleDeleteProduct(deleteProductId)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 rounded-md hover:bg-red-700"
                 >
                   Sil
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kategori Silme Onay Popup'ı */}
+      {deleteCategoryId && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-dark">Kategoriyi Sil</h3>
+                </div>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Bu kategoriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve kategorideki tüm ürünler etkilenebilir.
+              </p>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setDeleteCategoryId(null)}
+                  className="px-4 py-2 text-gray-600 border border-gray-3 rounded-md hover:bg-gray-50"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(deleteCategoryId)}
+                  className="px-4 py-2 bg-red-600 rounded-md hover:bg-red-700"
+                >
+                  Sil
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Müşteri Detayları Modal'ı */}
+      {customerDetailsModal && selectedCustomer && (
+        <div 
+          className="fixed inset-0 z-[9999] overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCustomerDetailsModal(false);
+              setSelectedCustomer(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto relative">
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-dark">Müşteri Detayları</h3>
+                <button
+                  onClick={() => {
+                    setCustomerDetailsModal(false);
+                    setSelectedCustomer(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 z-[10000] relative"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {customerDetailsLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Müşteri Bilgileri */}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <h4 className="font-medium text-dark mb-3">Müşteri Bilgileri</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Ad Soyad</p>
+                        <p className="font-medium">{selectedCustomer.customer.firstName} {selectedCustomer.customer.lastName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">E-posta</p>
+                        <p className="font-medium">{selectedCustomer.customer.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Telefon</p>
+                        <p className="font-medium">{selectedCustomer.customer.phone || 'Belirtilmemiş'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Durum</p>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          selectedCustomer.customer.isActive 
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {selectedCustomer.customer.isActive ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">E-posta Doğrulama</p>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          selectedCustomer.customer.authentication.isEmailVerified
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {selectedCustomer.customer.authentication.isEmailVerified ? 'Doğrulandı' : 'Doğrulanmadı'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Kayıt Tarihi</p>
+                        <p className="font-medium">{new Date(selectedCustomer.customer.createdAt).toLocaleDateString('tr-TR')}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* İstatistikler */}
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h4 className="font-medium text-dark mb-3">Sipariş İstatistikleri</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-blue-600">{selectedCustomer.stats.totalOrders}</p>
+                        <p className="text-sm text-gray-600">Toplam Sipariş</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-green-600">{selectedCustomer.stats.totalSpent.toLocaleString('tr-TR')}₺</p>
+                        <p className="text-sm text-gray-600">Toplam Harcama</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-purple-600">
+                          {selectedCustomer.stats.totalOrders > 0 
+                            ? (selectedCustomer.stats.totalSpent / selectedCustomer.stats.totalOrders).toFixed(2)
+                            : 0}₺
+                        </p>
+                        <p className="text-sm text-gray-600">Ortalama Sipariş</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Son Siparişler */}
+                  <div>
+                    <h4 className="font-medium text-dark mb-3">Son Siparişler</h4>
+                    {selectedCustomer.orders.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedCustomer.orders.map((order) => (
+                          <div key={order._id} className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium text-dark">#{order.orderNumber}</p>
+                                <p className="text-sm text-gray-600">
+                                  {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium text-dark">{order.pricing.total}₺</p>
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  order.fulfillment.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                                  order.fulfillment.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                                  order.fulfillment.status === 'processing' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {order.fulfillment.status === 'pending' ? 'Bekliyor' :
+                                   order.fulfillment.status === 'confirmed' ? 'Onaylandı' :
+                                   order.fulfillment.status === 'processing' ? 'İşleniyor' :
+                                   order.fulfillment.status === 'shipped' ? 'Kargoda' :
+                                   order.fulfillment.status === 'delivered' ? 'Teslim Edildi' :
+                                   order.fulfillment.status === 'cancelled' ? 'İptal Edildi' : order.fulfillment.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-center py-4">Henüz sipariş bulunmuyor.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
