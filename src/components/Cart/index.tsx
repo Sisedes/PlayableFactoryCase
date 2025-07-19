@@ -138,7 +138,6 @@ const Cart = () => {
               <OrderSummary />
             </div>
 
-            {/* Alışverişe devam et butonu */}
             <div className="mt-8 text-center">
               <Link
                 href="/products"
@@ -162,7 +161,6 @@ const Cart = () => {
               </Link>
             </div>
 
-            {/* Benzer Ürünler Bölümü */}
             {serverCart?.items.length > 0 && (
               <div className="mt-16">
                 <div className="text-center mb-8">
@@ -171,7 +169,6 @@ const Cart = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* Burada benzer ürünler gösterilecek */}
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
                     <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
                       <span className="text-gray-400 text-sm">Ürün Resmi</span>
@@ -324,7 +321,6 @@ const ServerCartItem = ({ item, onUpdate }: {
       setUpdating(true);
       await cartService.updateCartItem(itemId, newQuantity);
       setQuantity(newQuantity);
-      // Kısa bir gecikme ile sepeti yenile
       setTimeout(() => onUpdate(), 100);
     } catch (err) {
       console.error('Miktar güncellenirken hata:', err);
@@ -341,7 +337,6 @@ const ServerCartItem = ({ item, onUpdate }: {
 
     try {
       await cartService.removeFromCart(item._id);
-      // Kısa bir gecikme ile sepeti yenile
       setTimeout(() => onUpdate(), 100);
     } catch (err) {
       console.error('Ürün kaldırılırken hata:', err);
@@ -354,7 +349,7 @@ const ServerCartItem = ({ item, onUpdate }: {
       <div className="min-w-[400px]">
         <div className="flex items-center justify-between gap-5">
           <div className="w-full flex items-center gap-5.5">
-            <div className="flex items-center justify-center rounded-[5px] bg-gray-2 max-w-[80px] w-full h-17.5">
+            <div className="flex items-center justify-center rounded-[5px] bg-gray-2 max-w-[80px] w-full h-[70px]">
               <img 
                 src={getImageUrl((() => {
                   let imageUrl = item.product?.images?.[0]?.url;
@@ -376,7 +371,7 @@ const ServerCartItem = ({ item, onUpdate }: {
                 <a href={`/product/${item.product?._id}`}> {item.product?.name || 'Ürün Adı'} </a>
               </h3>
               {item.variant && (
-                <div className="mt-1 text-sm text-gray-600">
+                <div className="mt-1 text-sm text-gray">
                   <div className="font-medium">
                     {(() => {
                       if (item.product?.variants) {
@@ -386,7 +381,7 @@ const ServerCartItem = ({ item, onUpdate }: {
                       return 'Varyasyon';
                     })()}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray">
                     {(() => {
                       if (item.product?.variants) {
                         const variant = item.product.variants.find((v: any) => v._id === item.variant);
@@ -410,7 +405,7 @@ const ServerCartItem = ({ item, onUpdate }: {
                         const variant = item.product.variants.find((v: any) => v._id === item.variant);
                         stock = variant?.stock || 0;
                       }
-                      return stock <= 5 ? 'text-red-500' : 'text-green-600';
+                      return stock <= 5 ? 'text-red' : 'text-green';
                     })()
                   }`}>
                     Stok: {(() => {
@@ -436,7 +431,7 @@ const ServerCartItem = ({ item, onUpdate }: {
               )}
               {!item.variant && (
                 <div className={`text-xs mt-1 ${
-                  (item.product?.stock || 0) <= 5 ? 'text-red-500' : 'text-green-600'
+                  (item.product?.stock || 0) <= 5 ? 'text-red' : 'text-green'
                 }`}>
                   Stok: {item.product?.stock || 0} adet
                   {(item.product?.stock || 0) <= 5 && (item.product?.stock || 0) > 0 && ' (Az kaldı!)'}

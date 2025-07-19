@@ -8,6 +8,7 @@ import { useCartModalContext } from "@/app/context/CartSidebarModalContext";
 import { useAuth } from "@/store/authStore";
 import { useCart } from "@/hooks/useCart";
 import Image from "next/image";
+import { getFavoriteProducts } from "@/services/favoriteService";
 
 const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -17,11 +18,42 @@ const Header = () => {
 
   const { cart: serverCart, refreshCart } = useCart();
   
-  const { user, isAuthenticated, logout, fullName } = useAuth();
+  const { user, isAuthenticated, logout, fullName, accessToken } = useAuth();
+  const [favoriteCount, setFavoriteCount] = useState(0);
 
   const cartItems = serverCart?.items || [];
   const cartTotal = serverCart?.totals?.total || 0;
   const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  const loadFavoriteCount = async () => {
+    if (accessToken) {
+      try {
+        const response = await getFavoriteProducts(accessToken);
+        if (response.success) {
+          setFavoriteCount(response.data?.length || 0);
+        }
+      } catch (error) {
+        console.error('Favori sayısı yüklenirken hata:', error);
+      }
+    } else {
+      setFavoriteCount(0);
+    }
+  };
+
+  useEffect(() => {
+    loadFavoriteCount();
+  }, [accessToken]);
+
+  useEffect(() => {
+    const handleFavoriteUpdate = () => {
+      loadFavoriteCount();
+    };
+
+    window.addEventListener('favoriteUpdated', handleFavoriteUpdate);
+    return () => {
+      window.removeEventListener('favoriteUpdated', handleFavoriteUpdate);
+    };
+  }, [accessToken]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
@@ -31,7 +63,7 @@ const Header = () => {
   };
 
   const handleOpenCartModal = () => {
-    refreshCart(); // Sepet verilerini güncelle
+    refreshCart(); 
     openCartModal();
   };
 
@@ -65,18 +97,19 @@ const Header = () => {
       <div className="max-w-[1170px] mx-auto px-4 sm:px-7.5 xl:px-0">
         {/* <!-- header top start --> */}
         <div
-          className={`flex flex-col lg:flex-row gap-5 items-end lg:items-center xl:justify-between ease-out duration-200 ${
-            stickyMenu ? "py-4" : "py-6"
+          className={`flex flex-col lg:flex-row gap-2 sm:gap-3 items-end lg:items-center xl:justify-between ease-out duration-200 ${
+            stickyMenu ? "py-1 sm:py-2" : "py-2 sm:py-3"
           }`}
         >
           {/* <!-- header top left --> */}
-          <div className="xl:w-auto flex-col sm:flex-row w-full flex sm:justify-between sm:items-center gap-5 sm:gap-10">
+          <div className="xl:w-auto flex-col sm:flex-row w-full flex sm:justify-between sm:items-center gap-3 sm:gap-6">
             <Link className="flex-shrink-0" href="/">
               <Image
                 src="/images/logo/logo.png"
                 alt="Logo"
-                width={219}
-                height={36}
+                width={180}
+                height={30}
+                className="w-auto h-8 sm:h-9 lg:h-10"
               />
             </Link>
 
@@ -84,7 +117,7 @@ const Header = () => {
               <form>
                 <div className="flex items-center">
 
-                  <div className="relative max-w-[333px] sm:min-w-[333px] w-full">
+                  <div className="relative max-w-[280px] sm:min-w-[280px] w-full">
                     {/* <!-- divider --> */}
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 inline-block w-px h-5.5 bg-gray-4"></span>
                     <input
@@ -95,7 +128,7 @@ const Header = () => {
                       id="search"
                       placeholder="Ne arıyorsunuz?"
                       autoComplete="off"
-                      className="custom-search w-full rounded-r-[5px] bg-gray-1 !border-l-0 border border-gray-3 py-2.5 pl-4 pr-10 outline-none ease-in duration-200"
+                      className="custom-search w-full rounded-r-[5px] bg-gray-1 !border-l-0 border border-gray-3 py-2 pl-4 pr-10 outline-none ease-in duration-200"
                     />
 
                     <button
@@ -124,7 +157,7 @@ const Header = () => {
           </div>
 
           {/* <!-- header top right --> */}
-          <div className="flex w-full lg:w-auto items-center gap-7.5">
+          <div className="flex w-full lg:w-auto items-center gap-4">
             <div className="hidden xl:flex items-center gap-3.5">
               <svg
                 width="24"
@@ -164,11 +197,11 @@ const Header = () => {
             {/* <!-- divider --> */}
             <span className="hidden xl:block w-px h-7.5 bg-gray-4"></span>
 
-            <div className="flex w-full lg:w-auto justify-between items-center gap-5">
-              <div className="flex items-center gap-5">
+            <div className="flex w-full lg:w-auto justify-between items-center gap-3">
+              <div className="flex items-center gap-3">
                 {isAuthenticated ? (
                   <div className="relative group">
-                    <button className="flex items-center gap-2.5">
+                    <button className="flex items-center gap-2">
                       <svg
                         width="24"
                         height="24"
@@ -235,7 +268,7 @@ const Header = () => {
                     </div>
                   </div>
                 ) : (
-                  <Link href="/signin" className="flex items-center gap-2.5">
+                  <Link href="/signin" className="flex items-center gap-2">
                     <svg
                       width="24"
                       height="24"
@@ -270,7 +303,7 @@ const Header = () => {
 
                 <button
                   onClick={handleOpenCartModal}
-                  className="flex items-center gap-2.5"
+                  className="flex items-center gap-2"
                 >
                   <span className="inline-block relative">
                     <svg
@@ -299,7 +332,7 @@ const Header = () => {
                       <path
                         fillRule="evenodd"
                         clipRule="evenodd"
-                        d="M14.25 19.5001C14.25 20.7427 15.2574 21.7501 16.5 21.7501C17.7426 21.7501 18.75 20.7427 18.75 19.5001C18.75 18.2574 17.7426 17.2501 16.5 17.2501C15.2574 17.2501 14.25 18.2574 14.25 19.5001ZM16.5 20.2501C16.0858 20.2501 15.75 19.9143 15.75 19.5001C15.75 19.0859 16.0858 18.7501 16.5 18.7501C16.9142 18.7501 17.25 19.0859 17.25 19.5001C17.25 19.9143 16.9142 20.2501 16.5 20.2501Z"
+                        d="M14.25 19.5001C14.25 20.7427 15.2574 21.7501 16.5 21.7501C17.7426 21.7501 18.75 20.7427 18.75 19.5001C18.75 18.2574 17.7426 17.2501 16.5 17.25C15.2574 17.25 14.25 18.2574 14.25 19.5001ZM16.5 20.2501C16.0858 20.2501 15.75 19.9143 15.75 19.5001C15.75 19.0859 16.0858 18.7501 16.5 18.7501C16.9142 18.7501 17.25 19.0859 17.25 19.5001C17.25 19.9143 16.9142 20.2501 16.5 20.2501Z"
                         fill="#3C50E0"
                       />
                     </svg>
@@ -369,17 +402,17 @@ const Header = () => {
 
       <div className="border-t border-gray-3">
         <div className="max-w-[1170px] mx-auto px-4 sm:px-7.5 xl:px-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between py-2">
             {/* <!--=== Main Nav Start ===--> */}
             <div
               className={`w-[288px] absolute right-4 top-full xl:static xl:w-auto h-0 xl:h-auto invisible xl:visible xl:flex items-center justify-between ${
                 navigationOpen &&
-                `!visible bg-white shadow-lg border border-gray-3 !h-auto max-h-[400px] overflow-y-scroll rounded-md p-5`
+                `!visible bg-white shadow-lg border border-gray-3 !h-auto max-h-[320px] overflow-y-scroll rounded-md p-3`
               }`}
             >
               {/* <!-- Main Nav Start --> */}
               <nav>
-                <ul className="flex xl:items-center flex-col xl:flex-row gap-5 xl:gap-6">
+                <ul className="flex xl:items-center flex-col xl:flex-row gap-4 xl:gap-4">
                   {menuData.map((menuItem, i) =>
                     menuItem.submenu ? (
                       <Dropdown
@@ -395,7 +428,7 @@ const Header = () => {
                         <Link
                           href={menuItem.path}
                           className={`hover:text-blue text-custom-sm font-medium text-dark flex ${
-                            stickyMenu ? "xl:py-4" : "xl:py-6"
+                            stickyMenu ? "xl:py-3" : "xl:py-4"
                           }`}
                         >
                           {menuItem.title}
@@ -411,10 +444,10 @@ const Header = () => {
 
             {/* // <!--=== Nav Right Start ===--> */}
             <div className="hidden xl:block">
-              <ul className="flex items-center gap-5.5">
-                <li className="py-4">
-                  <a
-                    href="#"
+              <ul className="flex items-center gap-3">
+                <li className="py-2">
+                  <Link
+                    href="/recently-viewed"
                     className="flex items-center gap-1.5 font-medium text-custom-sm text-dark hover:text-blue"
                   >
                     <svg
@@ -434,31 +467,50 @@ const Header = () => {
                         fill=""
                       />
                     </svg>
-                    Recently Viewed
-                  </a>
-                </li>
-
-                <li className="py-4">
-                  <Link
-                    href="/wishlist"
-                    className="flex items-center gap-1.5 font-medium text-custom-sm text-dark hover:text-blue"
-                  >
-                    <svg
-                      className="fill-current"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M5.97441 12.6073L6.43872 12.0183L5.97441 12.6073ZM7.99992 3.66709L7.45955 4.18719C7.60094 4.33408 7.79604 4.41709 7.99992 4.41709C8.2038 4.41709 8.3989 4.33408 8.54028 4.18719L7.99992 3.66709ZM10.0254 12.6073L10.4897 13.1962L10.0254 12.6073ZM6.43872 12.0183C5.41345 11.21 4.33627 10.4524 3.47904 9.48717C2.64752 8.55085 2.08325 7.47831 2.08325 6.0914H0.583252C0.583252 7.94644 1.3588 9.35867 2.35747 10.4832C3.33043 11.5788 4.57383 12.4582 5.51009 13.1962L6.43872 12.0183ZM2.08325 6.0914C2.08325 4.75102 2.84027 3.63995 3.85342 3.17683C4.81929 2.73533 6.15155 2.82823 7.45955 4.18719L8.54028 3.14699C6.84839 1.38917 4.84732 1.07324 3.22983 1.8126C1.65962 2.53035 0.583252 4.18982 0.583252 6.0914H2.08325ZM5.51009 13.1962C5.84928 13.4636 6.22932 13.7618 6.61834 13.9891C7.00711 14.2163 7.47619 14.4167 7.99992 14.4167V12.9167C7.85698 12.9167 7.65939 12.8601 7.37512 12.694C7.0911 12.5281 6.79171 12.2965 6.43872 12.0183L5.51009 13.1962ZM10.4897 13.1962C11.426 12.4582 12.6694 11.5788 13.6424 10.4832C14.641 9.35867 15.4166 7.94644 15.4166 6.0914H13.9166C13.9166 7.47831 13.3523 8.55085 12.5208 9.48717C11.6636 10.4524 10.5864 11.21 9.56112 12.0183L10.4897 13.1962ZM15.4166 6.0914C15.4166 4.18982 14.3402 2.53035 12.77 1.8126C11.1525 1.07324 9.15145 1.38917 7.45955 3.14699L8.54028 4.18719C9.84828 2.82823 11.1805 2.73533 12.1464 3.17683C13.1596 3.63995 13.9166 4.75102 13.9166 6.0914H15.4166ZM9.56112 12.0183C9.20813 12.2965 8.90874 12.5281 8.62471 12.694C8.34044 12.8601 8.14285 12.9167 7.99992 12.9167V14.4167C8.52365 14.4167 8.99273 14.2163 9.3815 13.9891C9.77052 13.7618 10.1506 13.4636 10.4897 13.1962L9.56112 12.0183Z"
-                        fill=""
-                      />
-                    </svg>
-                    Wishlist
+                    Son Görüntülenen
                   </Link>
                 </li>
+
+                {isAuthenticated && (
+                  <li className="py-2">
+                                            <Link
+                          href="/wishlist"
+                          className="flex items-center gap-2 font-medium text-custom-sm text-dark hover:text-blue"
+                        >
+                      <span className="inline-block relative">
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M3.74949 2.94946C2.6435 3.45502 1.83325 4.65749 1.83325 6.0914C1.83325 7.55633 2.43273 8.68549 3.29211 9.65318C4.0004 10.4507 4.85781 11.1118 5.694 11.7564C5.89261 11.9095 6.09002 12.0617 6.28395 12.2146C6.63464 12.491 6.94747 12.7337 7.24899 12.9099C7.55068 13.0862 7.79352 13.1667 7.99992 13.1667C8.20632 13.1667 8.44916 13.0862 8.75085 12.9099C9.05237 12.7337 9.3652 12.491 9.71589 12.2146C9.90982 12.0617 10.1072 11.9095 10.3058 11.7564C11.142 11.1118 11.9994 10.4507 12.7077 9.65318C13.5671 8.68549 14.1666 7.55633 14.1666 6.0914C14.1666 4.65749 13.3563 3.45502 12.2503 2.94946C11.1759 2.45832 9.73214 2.58839 8.36016 4.01382C8.2659 4.11175 8.13584 4.16709 7.99992 4.16709C7.864 4.16709 7.73393 4.11175 7.63967 4.01382C6.26769 2.58839 4.82396 2.45832 3.74949 2.94946ZM7.99992 2.97255C6.45855 1.5935 4.73256 1.40058 3.33376 2.03998C1.85639 2.71528 0.833252 4.28336 0.833252 6.0914C0.833252 7.86842 1.57358 9.22404 2.5444 10.3172C3.32183 11.1926 4.2734 11.9253 5.1138 12.5724C5.30431 12.7191 5.48911 12.8614 5.66486 12.9999C6.00636 13.2691 6.37295 13.5562 6.74447 13.7733C7.11582 13.9903 7.53965 14.1667 7.99992 14.1667C8.46018 14.1667 8.88401 13.9903 9.25537 13.7733C9.62689 13.5562 9.99348 13.2691 10.335 12.9999C10.5107 12.8614 10.6955 12.7191 10.886 12.5724C11.7264 11.9253 12.678 11.1926 13.4554 10.3172C14.4263 9.22404 15.1666 7.86842 15.1666 6.0914C15.1666 4.28336 14.1434 2.71528 12.6661 2.03998C11.2673 1.40058 9.54129 1.5935 7.99992 2.97255Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+
+                        {favoriteCount > 0 && (
+                          <span className="flex items-center justify-center font-medium text-2xs absolute -right-2 -top-2.5 bg-red-500 w-4.5 h-4.5 rounded-full text-white">
+                            {favoriteCount}
+                          </span>
+                        )}
+                      </span>
+
+                      <div>
+                        <span className="block text-2xs text-dark-4 uppercase">
+                          Favoriler
+                        </span>
+                        <p className="font-medium text-custom-sm text-dark">
+                          {favoriteCount} ürün
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                )}
               </ul>
             </div>
             {/* <!--=== Nav Right End ===--> */}

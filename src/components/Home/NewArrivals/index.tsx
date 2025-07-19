@@ -99,7 +99,7 @@ const NewArrivals = () => {
       <section className="overflow-hidden pt-17.5">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0 pb-15">
           <div className="text-center py-10">
-            <p className="text-red-500">{error}</p>
+            <p className="text-red">{error}</p>
             <button 
               onClick={() => window.location.reload()} 
               className="mt-4 px-4 py-2 bg-blue text-white rounded hover:bg-blue-dark"

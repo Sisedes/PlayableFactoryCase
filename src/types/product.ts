@@ -48,6 +48,7 @@ export type Product = {
   isNew?: boolean;
   averageRating?: number;
   reviewCount?: number;
+  viewCount?: number;
   createdAt: string;
   updatedAt: string;
 };

@@ -22,9 +22,11 @@ import {
   updateProductVariants,
   getProductVariants,
   updateVariantStock,
+  incrementProductView,
+  createTestVariantProduct,
 } from './productsController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
-import { uploadMultiple, uploadVariantImages } from '../../middleware/upload';
+import { uploadMultipleWithErrorHandling, uploadVariantImages } from '../../middleware/upload';
 
 const router = express.Router();
 
@@ -71,6 +73,13 @@ router.get('/category/:categoryId', getProductsByCategory);
 router.get('/:id', getProductById);
 
 /**
+ * @route   post /api/products/:id/increment-view
+ * @desc    
+ * @access  
+ */
+router.post('/:id/increment-view', incrementProductView);
+
+/**
  * @route   get /api/products/admin/all
  * @desc    
  * @access  
@@ -82,14 +91,14 @@ router.get('/admin/all', authenticateToken, requireAdmin, getAllProductsForAdmin
  * @desc    
  * @access  
  */
-router.post('/', authenticateToken, requireAdmin, uploadMultiple, createProduct);
+router.post('/', authenticateToken, requireAdmin, ...uploadMultipleWithErrorHandling, createProduct);
 
 /**
  * @route   put /api/products/:id
  * @desc    
  * @access  
  */
-router.put('/:id', authenticateToken, requireAdmin, uploadMultiple, updateProduct);
+router.put('/:id', authenticateToken, requireAdmin, ...uploadMultipleWithErrorHandling, updateProduct);
 
 /**
  * @route   delete /api/products/:id
@@ -110,7 +119,7 @@ router.put('/admin/bulk', authenticateToken, requireAdmin, bulkUpdateProducts);
  * @desc    
  * @access  
  */
-router.put('/admin/:id', authenticateToken, requireAdmin, uploadMultiple, updateProductAdmin);
+router.put('/admin/:id', authenticateToken, requireAdmin, ...uploadMultipleWithErrorHandling, updateProductAdmin);
 
 /**
  * @route   delete /api/products/admin/:id
@@ -194,5 +203,6 @@ router.get('/:id/variants/:variantId/stock-history', authenticateToken, requireA
  * @desc    
  * @access  
  */
+router.post('/test/variant-product', authenticateToken, requireAdmin, createTestVariantProduct);
 
 export default router; 

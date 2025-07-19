@@ -9,6 +9,7 @@ import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
 import { getImageUrl } from "@/utils/apiUtils";
 import { cartService } from "@/services/cartService";
+import StarRating from './StarRating';
 
 const QuickViewModal = () => {
   const { isOpen, closeModal, product } = useModalContext();
@@ -100,6 +101,7 @@ const QuickViewModal = () => {
 
       if (response.success) {
         setIsFavorite(!isFavorite);
+        window.dispatchEvent(new Event('favoriteUpdated'));
       } else {
         alert(response.message || 'İşlem başarısız');
       }
@@ -218,17 +220,12 @@ const QuickViewModal = () => {
 
             {/* Yıldızlar ve stok */}
             <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, index) => (
-                  <svg
-                    key={index}
-                    className={`w-4 h-4 ${index < 4 ? 'fill-yellow-400' : 'fill-gray-300'}`}
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-                <span className="text-gray-600">4.7 (5 değerlendirme)</span>
+              <div className="flex items-center gap-1">
+                <StarRating 
+                  rating={product.averageRating || 0} 
+                  reviewCount={product.reviewCount || 0}
+                  size="sm"
+                />
               </div>
 
               <div className="flex items-center gap-1 text-gray-600">
@@ -236,6 +233,14 @@ const QuickViewModal = () => {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <span>Stokta: {product.stock} adet</span>
+              </div>
+
+              <div className="flex items-center gap-1 text-gray-600">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                </svg>
+                <span>{product.viewCount || 0} görüntüleme</span>
               </div>
                 </div>
 
@@ -260,9 +265,14 @@ const QuickViewModal = () => {
             <div className="flex flex-wrap gap-3 pt-4">
                 <button
                 onClick={handleAddToCart}
-                className="flex-1 bg-blue text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-dark transition-colors"
+                disabled={product.stock === 0}
+                className={`flex-1 py-3 px-6 rounded-lg font-medium transition-colors ${
+                  product.stock > 0 
+                    ? 'bg-blue text-white hover:bg-blue-dark' 
+                    : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                }`}
               >
-                Sepete Ekle
+                {product.stock > 0 ? 'Sepete Ekle' : 'Stokta Yok'}
                 </button>
 
                 <button

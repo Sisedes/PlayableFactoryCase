@@ -5,11 +5,59 @@ import {
   approveReview,
   rejectReview,
   deleteReview,
-  getReviewById
+  getReviewById,
+  createReview,
+  getMyReviews,
+  updateMyReview,
+  deleteMyReview,
+  checkReviewExists,
+  getProductReviews
 } from './reviewController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
 
 const router = express.Router();
+
+/**
+ * @route   post /api/reviews
+ * @desc    
+ * @access  
+ */
+router.post('/', authenticateToken, createReview);
+
+/**
+ * @route   get /api/reviews/my-reviews
+ * @desc    
+ * @access  
+ */
+router.get('/my-reviews', authenticateToken, getMyReviews);
+
+/**
+ * @route   get /api/reviews/check/:productId
+ * @desc    
+ * @access  
+ */
+router.get('/check/:productId', authenticateToken, checkReviewExists);
+
+/**
+ * @route   get /api/reviews/product/:productId
+ * @desc    
+ * @access  
+ */
+router.get('/product/:productId', getProductReviews);
+
+/**
+ * @route   put /api/reviews/:id
+ * @desc    
+ * @access  
+ */
+router.put('/:id', authenticateToken, updateMyReview);
+
+/**
+ * @route   delete /api/reviews/:id
+ * @desc    
+ * @access  
+ */
+router.delete('/:id', authenticateToken, deleteMyReview);
 
 // Admin Routes
 /**

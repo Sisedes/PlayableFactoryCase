@@ -9,7 +9,7 @@ import {
   deleteCategory
 } from './categoriesController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
-import { uploadCategoryImage } from '../../config/multer';
+import { uploadCategoryImageWithErrorHandling } from '../../middleware/upload';
 
 const router = express.Router();
 
@@ -46,14 +46,14 @@ router.get('/:slug', getCategoryBySlug);
  * @desc    
  * @access  
  */
-router.post('/', authenticateToken, requireAdmin, uploadCategoryImage, createCategory);
+router.post('/', authenticateToken, requireAdmin, ...uploadCategoryImageWithErrorHandling, createCategory);
 
 /**
  * @route   put /api/categories/:id
  * @desc    
  * @access  
  */
-router.put('/:id', authenticateToken, requireAdmin, uploadCategoryImage, updateCategory);
+router.put('/:id', authenticateToken, requireAdmin, ...uploadCategoryImageWithErrorHandling, updateCategory);
 
 /**
  * @route   delete /api/categories/:id

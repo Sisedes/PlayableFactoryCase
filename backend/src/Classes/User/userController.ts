@@ -446,7 +446,7 @@ export const getFavoriteProducts = async (req: Request, res: Response): Promise<
     const user = await User.findById(userId)
       .populate({
         path: 'preferences.favoriteProducts',
-        select: 'name slug description price salePrice images category averageRating reviewCount',
+        select: 'name slug description price salePrice images category averageRating reviewCount viewCount stock sku status',
         populate: {
           path: 'category',
           select: 'name slug'

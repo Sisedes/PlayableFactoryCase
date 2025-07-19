@@ -186,14 +186,9 @@ export const sendOrderConfirmationEmail = async (
   const itemsHtml = orderDetails.items.map((item: any) => `
     <tr style="border-bottom: 1px solid #dee2e6;">
       <td style="padding: 15px 10px; vertical-align: top;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-          <img src="${item.image || '/images/placeholder.jpg'}" 
-               alt="${item.name}" 
-               style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;">
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #333; font-size: 14px;">${item.name}</p>
-            <p style="margin: 5px 0 0 0; color: #666; font-size: 12px;">SKU: ${item.sku}</p>
-          </div>
+        <div>
+          <p style="margin: 0; font-weight: bold; color: #333; font-size: 14px;">${item.name}</p>
+          <p style="margin: 5px 0 0 0; color: #666; font-size: 12px;">SKU: ${item.sku}</p>
         </div>
       </td>
       <td style="padding: 15px 10px; text-align: center; vertical-align: top;">
@@ -334,15 +329,6 @@ export const sendOrderConfirmationEmail = async (
                        orderDetails.payment.status === 'paid' ? 'Ödendi' : 
                        orderDetails.payment.status === 'failed' ? 'Başarısız' : 'İade Edildi'}
               </p>
-            </div>
-
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-              <h4 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">Sonraki Adımlar</h4>
-              <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 14px;">
-                <li>Siparişiniz hazırlandığında size bilgilendirme e-postası gönderilecektir</li>
-                <li>Kargo takip numarası e-posta adresinize iletilecektir</li>
-                <li>Sorularınız için müşteri hizmetlerimizle iletişime geçebilirsiniz</li>
-              </ul>
             </div>
 
             <p style="font-size: 14px; color: #666666; line-height: 1.6; margin: 30px 0 0 0;">

@@ -9,6 +9,9 @@ export interface FavoriteProduct {
   description: string;
   price: number;
   salePrice?: number;
+  stock: number;
+  sku: string;
+  status: 'draft' | 'active' | 'inactive';
   images: Array<{
     _id?: string;
     url: string;
@@ -22,6 +25,7 @@ export interface FavoriteProduct {
   };
   averageRating?: number;
   reviewCount?: number;
+  viewCount?: number;
 }
 
 interface ApiResponse<T> {

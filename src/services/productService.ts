@@ -634,3 +634,28 @@ export const deleteProduct = async (id: string, accessToken: string): Promise<Ap
 };
 
 export type { ApiResponse }; 
+
+export const incrementProductView = async (productId: string): Promise<ApiResponse<{ viewCount: number }>> => {
+  try {
+    const response = await fetch(`${API_BASE}/products/${productId}/increment-view`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // cache temzileme
+    clearProductCacheByKey(`product_${productId}`);
+    
+    return data;
+  } catch (error) {
+    console.error('incrementProductView error:', error);
+    throw new Error('Görüntüleme sayısı artırılırken hata oluştu');
+  }
+}; 

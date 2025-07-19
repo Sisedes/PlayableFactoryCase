@@ -166,14 +166,14 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
 
           <div className="bg-white p-4 rounded-lg shadow border">
             <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-2 bg-red rounded-lg">
+                <svg className="w-6 h-6 text-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Stok Tükendi</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-sm font-medium text-gray">Stok Tükendi</p>
+                <p className="text-2xl font-bold text-red">
                   {pagination?.totalOutOfStock || 0}
                 </p>
               </div>
@@ -185,183 +185,156 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
 
       {/* Düşük Stok ve Stok Tükenen Ürünler */}
       <div className="bg-white rounded-lg shadow border">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Stok Uyarıları</h3>
-          <p className="text-sm text-gray-500 mt-1">Ürünlere tıklayarak stok güncelleyebilirsiniz</p>
+        <div className="px-6 py-4 border-b border-gray">
+          <h3 className="text-lg font-medium text-gray">Stok Uyarıları</h3>
+          <p className="text-sm text-gray mt-1">Ürünlere tıklayarak stok güncelleyebilirsiniz</p>
         </div>
         
         {(lowStockProducts.length > 0 || outOfStockProducts.length > 0 || productsWithLowStockVariants.length > 0 || productsWithOutOfStockVariants.length > 0) ? (
-          <div className="space-y-6">
-            {/* Normal Ürünler */}
-            {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && (
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Normal Ürünler</h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ürün
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stok
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Durum
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {/* Stok tükenen ürünler */}
-                      {outOfStockProducts.map((product) => (
-                        <tr 
-                          key={`out-${product._id}`} 
-                          className="hover:bg-red-50 bg-red-50 cursor-pointer transition-colors duration-200"
-                          onClick={() => handleRowClick(product)}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                              <div className="text-sm text-gray-500">{product.sku}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.stock}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-red-600 bg-red-50">
-                              Stok Tükendi
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      
-                      {/* Düşük stok ürünleri */}
-                      {lowStockProducts.map((product) => (
-                        <tr 
-                          key={`low-${product._id}`} 
-                          className="hover:bg-yellow-50 bg-yellow-50 cursor-pointer transition-colors duration-200"
-                          onClick={() => handleRowClick(product)}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                              <div className="text-sm text-gray-500">{product.sku}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.stock}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-yellow-600 bg-yellow-50">
-                              Düşük Stok
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ürün
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Varyasyon
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stok
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Durum
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {/* Stok tükenen ürünler */}
+                {outOfStockProducts.map((product) => (
+                  <tr 
+                    key={`out-${product._id}`} 
+                    className="hover:bg-red-50 bg-red-50 cursor-pointer transition-colors duration-200"
+                    onClick={() => handleRowClick(product)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        <div className="text-sm text-gray-500">{product.sku}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-400">-</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {product.stock}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-red-600 bg-red-50">
+                        Stok Tükendi
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                
+                {/* Düşük stok ürünleri */}
+                {lowStockProducts.map((product) => (
+                  <tr 
+                    key={`low-${product._id}`} 
+                    className="hover:bg-yellow-50 bg-yellow-50 cursor-pointer transition-colors duration-200"
+                    onClick={() => handleRowClick(product)}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        <div className="text-sm text-gray-500">{product.sku}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-400">-</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {product.stock}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-yellow-600 bg-yellow-50">
+                        Düşük Stok
+                      </span>
+                    </td>
+                  </tr>
+                ))}
 
-            {/* Varyasyonlar */}
-            {(productsWithLowStockVariants.length > 0 || productsWithOutOfStockVariants.length > 0) && (
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-3">Ürün Varyasyonları</h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ürün
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Varyasyon
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stok
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Durum
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {/* Stok tükenen varyasyonlar */}
-                      {productsWithOutOfStockVariants.map((product) => 
-                        product.variants?.filter(variant => variant.stock === 0).map((variant) => (
-                          <tr 
-                            key={`out-variant-${product._id}-${variant._id}`} 
-                            className="hover:bg-red-50 bg-red-50 cursor-pointer transition-colors duration-200"
-                            onClick={() => onUpdateVariantStock(product, variant)}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                <div className="text-sm text-gray-500">{product.sku}</div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{variant.name}</div>
-                                <div className="text-sm text-gray-500">{variant.sku}</div>
-                                <div className="text-xs text-gray-400">
-                                  {variant.options.map(opt => `${opt.name}: ${opt.value}`).join(', ')}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {variant.stock}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-red-600 bg-red-50">
-                                Stok Tükendi
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                      
-                      {/* Düşük stok varyasyonları */}
-                      {productsWithLowStockVariants.map((product) => 
-                        product.variants?.filter(variant => variant.stock > 0 && variant.stock <= 5).map((variant) => (
-                          <tr 
-                            key={`low-variant-${product._id}-${variant._id}`} 
-                            className="hover:bg-yellow-50 bg-yellow-50 cursor-pointer transition-colors duration-200"
-                            onClick={() => onUpdateVariantStock(product, variant)}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                <div className="text-sm text-gray-500">{product.sku}</div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{variant.name}</div>
-                                <div className="text-sm text-gray-500">{variant.sku}</div>
-                                <div className="text-xs text-gray-400">
-                                  {variant.options.map(opt => `${opt.name}: ${opt.value}`).join(', ')}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {variant.stock}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-yellow-600 bg-yellow-50">
-                                Düşük Stok
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+                {/* Stok tükenen varyasyonlar */}
+                {productsWithOutOfStockVariants.map((product) => 
+                  product.variants?.filter(variant => variant.stock === 0).map((variant) => (
+                    <tr 
+                      key={`out-variant-${product._id}-${variant._id}`} 
+                      className="hover:bg-red-50 bg-red-50 cursor-pointer transition-colors duration-200"
+                      onClick={() => onUpdateVariantStock(product, variant)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500">{product.sku}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{variant.name}</div>
+                          <div className="text-sm text-gray-500">{variant.sku}</div>
+                          <div className="text-xs text-gray-400">
+                            {variant.options.map(opt => `${opt.name}: ${opt.value}`).join(', ')}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {variant.stock}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-red-600 bg-red-50">
+                          Stok Tükendi
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+                
+                {/* Düşük stok varyasyonları */}
+                {productsWithLowStockVariants.map((product) => 
+                  product.variants?.filter(variant => variant.stock > 0 && variant.stock <= (product.lowStockThreshold || 5)).map((variant) => (
+                    <tr 
+                      key={`low-variant-${product._id}-${variant._id}`} 
+                      className="hover:bg-yellow-50 bg-yellow-50 cursor-pointer transition-colors duration-200"
+                      onClick={() => onUpdateVariantStock(product, variant)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                          <div className="text-sm text-gray-500">{product.sku}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{variant.name}</div>
+                          <div className="text-sm text-gray-500">{variant.sku}</div>
+                          <div className="text-xs text-gray-400">
+                            {variant.options.map(opt => `${opt.name}: ${opt.value}`).join(', ')}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {variant.stock}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-yellow-600 bg-yellow-50">
+                          Düşük Stok
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="px-6 py-8 text-center text-gray-500">

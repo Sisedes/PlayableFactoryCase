@@ -1,6 +1,6 @@
 import React from "react";
 
-const OrderDetails = ({ orderItem }: any) => {
+const OrderDetails = ({ orderItem, onReviewClick, isDelivered }: any) => {
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
       'pending': 'Bekliyor',
@@ -84,8 +84,6 @@ const OrderDetails = ({ orderItem }: any) => {
     return items;
   };
 
-
-
   return (
     <div className="w-full px-4 py-3">
       {/* Sipariş Başlığı */}
@@ -152,15 +150,39 @@ const OrderDetails = ({ orderItem }: any) => {
                   Adet: {item.quantity || 1}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="text-right flex items-center space-x-2">
                 <p className="font-medium text-gray-900 text-xs">
                   {item.price ? `${item.price}₺` : 'Fiyat bilgisi yok'}
                 </p>
+                {/* Teslim edilen siparişler için yorum yapma butonu */}
+                {isDelivered && onReviewClick && (
+                  <button
+                    onClick={() => onReviewClick(item.product || item)}
+                    className="px-2 py-1 text-xs bg-blue text-white rounded hover:bg-blue-dark transition-colors"
+                    title="Bu ürün için yorum yap"
+                  >
+                    Yorum Yap
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Teslim edilen siparişler için yorum yapma bilgisi */}
+      {isDelivered && (
+        <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-xs text-green-700">
+              Siparişiniz teslim edildi! Ürünlerinizi değerlendirmek için "Yorum Yap" butonuna tıklayabilirsiniz.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Fiyat Özeti */}
       <div className="mb-3 p-2 bg-gray-50 rounded-lg">

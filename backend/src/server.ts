@@ -67,6 +67,7 @@ app.use(cookieParser());
 // Compression middleware
 app.use(compression());
 
+
 // HTTP request logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 

@@ -3,6 +3,7 @@ import Hero from "./Hero";
 import Categories from "./Categories";
 import NewArrivals from "./NewArrivals";
 import BestSeller from "./BestSeller";
+import RecentlyViewed from "@/components/RecentlyViewed";
 import Newsletter from "@/components/Common/Newsletter";
 
 const Home = () => {
@@ -12,6 +13,7 @@ const Home = () => {
       <Categories />
       <NewArrivals />
       <BestSeller />
+      <RecentlyViewed />
       <Newsletter />
     </>
   );

@@ -17,6 +17,10 @@ const productImageSchema = new Schema<IProductImage>({
     type: Boolean,
     default: false
   },
+  isMain: {
+    type: Boolean,
+    default: false
+  },
   sortOrder: {
     type: Number,
     default: 0,
@@ -188,6 +192,11 @@ const productSchema = new Schema<IProduct>({
     max: 5
   },
   reviewCount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  viewCount: {
     type: Number,
     default: 0,
     min: 0

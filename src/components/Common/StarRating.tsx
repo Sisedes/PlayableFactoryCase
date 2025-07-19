@@ -36,7 +36,8 @@ const StarRating: React.FC<StarRatingProps> = ({
       stars.push(
         <svg 
           key={`full-${i}`} 
-          className={`${sizeClasses[size]} fill-current text-yellow-400`} 
+          className={sizeClasses[size]}
+          style={{ fill: '#fbbf24', color: '#fbbf24' }}
           viewBox="0 0 24 24"
         >
           <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
@@ -48,13 +49,14 @@ const StarRating: React.FC<StarRatingProps> = ({
       stars.push(
         <svg 
           key="half" 
-          className={`${sizeClasses[size]} fill-current text-yellow-400`} 
+          className={sizeClasses[size]}
+          style={{ fill: '#fbbf24', color: '#fbbf24' }}
           viewBox="0 0 24 24"
         >
           <defs>
             <linearGradient id="halfStar">
-              <stop offset="50%" stopColor="#FBB040" />
-              <stop offset="50%" stopColor="#E5E7EB" />
+              <stop offset="50%" stopColor="#fbbf24" />
+              <stop offset="50%" stopColor="#d1d5db" />
             </linearGradient>
           </defs>
           <path fill="url(#halfStar)" d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
@@ -67,7 +69,8 @@ const StarRating: React.FC<StarRatingProps> = ({
       stars.push(
         <svg 
           key={`empty-${i}`} 
-          className={`${sizeClasses[size]} fill-current text-gray-300`} 
+          className={sizeClasses[size]}
+          style={{ fill: '#d1d5db', color: '#d1d5db' }}
           viewBox="0 0 24 24"
         >
           <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>

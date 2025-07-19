@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import OrderDetails from "./OrderDetails";
 
-const OrderModal = ({ showDetails, toggleModal, order }: any) => {
+const OrderModal = ({ showDetails, toggleModal, order, onReviewClick, isDelivered }: any) => {
   if (!showDetails) {
     return null;
   }
@@ -30,7 +30,13 @@ const OrderModal = ({ showDetails, toggleModal, order }: any) => {
             </svg>
           </button>
 
-          {showDetails && <OrderDetails orderItem={order} />}
+          {showDetails && (
+            <OrderDetails 
+              orderItem={order} 
+              onReviewClick={onReviewClick}
+              isDelivered={isDelivered}
+            />
+          )}
         </div>
       </div>
     </>

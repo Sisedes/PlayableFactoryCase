@@ -3,10 +3,13 @@ import React, { useState, useEffect } from "react";
 import Breadcrumb from "../Common/Breadcrumb";
 import { useStore } from "@/store/useStore";
 import { Product } from "@/types";
-import { getImageUrl } from "@/utils/apiUtils";
+import { getImageUrl, sortProductImages } from "@/utils/apiUtils";
 import Link from "next/link";
 import Image from "next/image";
 import { ProductFilters } from "@/services";
+import StarRating from "../Common/StarRating";
+import { useAuth } from "@/store/authStore";
+import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
 
 interface ProductListingProps {
   categorySlug?: string;
@@ -24,7 +27,7 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
     inStock: false,
   });
 
-  // Zustand store'dan veri ve fonksiyonları al
+  // Zustand store'dan fonksiyonlar
   const { 
     products, 
     categories,
@@ -40,13 +43,11 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
     clearError
   } = useStore();
 
-  // Komponent yüklendiğinde veri fetch et
   useEffect(() => {
     fetchProducts();
     fetchCategories();
   }, [fetchProducts, fetchCategories]);
 
-  // Filtreler değiştiğinde ürünleri yeniden fetch et
   useEffect(() => {
     const [sortField, sortOrder] = sortBy.split('-');
     const filterData: Partial<ProductFilters> = {
@@ -55,7 +56,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
       page: currentPage,
     } as ProductFilters;
 
-    // Kategori slug'ı varsa kategori ID'sini bul
     if (categorySlug) {
       const category = categories.find(cat => cat.slug === categorySlug);
       if (category) {
@@ -65,7 +65,7 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
       (filterData as any).category = filters.category;
     }
 
-    // Diğer filtreleri ekle
+    // diğer filtreler
     if (filters.search) (filterData as any).search = filters.search;
     if (filters.minPrice) (filterData as any).minPrice = Number(filters.minPrice);
     if (filters.maxPrice) (filterData as any).maxPrice = Number(filters.maxPrice);
@@ -113,7 +113,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
     { label: "İsim (Z-A)", value: "name-desc" },
   ];
 
-  // Loading durumu
   if (productsLoading || categoriesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -125,7 +124,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
     );
   }
 
-  // Error durumu
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -341,8 +339,55 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
   );
 };
 
-// Izgara Görünümü Kartı
 const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
+  const { accessToken } = useAuth();
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  useEffect(() => {
+    if (accessToken && product._id) {
+      checkFavoriteStatus(product._id, accessToken).then(response => {
+        if (response.success) {
+          setIsFavorite(response.data?.isFavorite || false);
+        }
+      });
+    }
+  }, [accessToken, product._id]);
+
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!accessToken) {
+      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      return;
+    }
+
+    if (!product._id) return;
+
+    setFavoriteLoading(true);
+    try {
+      let response;
+      if (isFavorite) {
+        response = await removeFromFavorites(product._id, accessToken);
+      } else {
+        response = await addToFavorites(product._id, accessToken);
+      }
+
+      if (response.success) {
+        setIsFavorite(!isFavorite);
+        window.dispatchEvent(new Event('favoriteUpdated'));
+      } else {
+        alert(response.message || 'İşlem başarısız');
+      }
+    } catch (error) {
+      console.error('Favori işlemi hatası:', error);
+      alert('İşlem sırasında hata oluştu');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
@@ -360,8 +405,8 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
         {/* Ürün Görseli */}
         <div className="relative aspect-square overflow-hidden bg-gray-50 flex items-center justify-center">
           <Image
-            src={getImageUrl(product.images[0]?.url || "")}
-            alt={product.images[0]?.alt || product.name}
+            src={getImageUrl(sortProductImages(product.images)[0]?.url || "")}
+            alt={sortProductImages(product.images)[0]?.alt || product.name}
             fill
             className="object-contain p-2 group-hover:scale-105 transition-transform duration-200"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
@@ -384,20 +429,60 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
             <div className="w-8 h-8 border-2 border-gray-300 border-t-blue rounded-full animate-spin"></div>
           </div>
           
+          {/* Favori Butonu */}
+          <button
+            onClick={handleToggleFavorite}
+            disabled={favoriteLoading}
+            className={`absolute top-2 right-2 w-8 h-8 rounded-full shadow-md flex items-center justify-center transition-all duration-200 ${
+              isFavorite 
+                ? 'bg-red-500 text-white hover:bg-red-600' 
+                : 'bg-white text-gray-600 hover:text-red-500 hover:bg-red-50'
+            } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {favoriteLoading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+            ) : (
+              <svg
+                className="w-4 h-4"
+                fill={isFavorite ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                />
+              </svg>
+            )}
+          </button>
+          
           {discountPercentage > 0 && (
             <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded z-10">
               %{discountPercentage} İndirim
             </div>
           )}
           {product.stock === 0 && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-              <span className="text-white font-medium">Stokta Yok</span>
+            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-10">
+              <div className="text-center">
+                <div className="text-white font-bold text-lg mb-1">Stokta Yok</div>
+                <div className="text-white text-sm opacity-90">Bu ürün şu anda satışta değil</div>
+              </div>
             </div>
           )}
         </div>
 
         {/* Ürün Bilgileri */}
         <div className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <StarRating 
+              rating={product.averageRating || 0} 
+              reviewCount={product.reviewCount || 0}
+              size="sm"
+            />
+          </div>
+          
           <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-blue transition-colors">
             {product.name}
           </h3>
@@ -419,14 +504,69 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
               {product.stock > 0 ? "Stokta" : "Stokta yok"}
             </span>
           </div>
+
+          {/* Görüntüleme Sayısı */}
+          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+            <span>{product.viewCount || 0} görüntüleme</span>
+          </div>
         </div>
       </div>
     </Link>
   );
 };
 
-// Liste Görünümü Kartı
 const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
+  const { accessToken } = useAuth();
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  useEffect(() => {
+    if (accessToken && product._id) {
+      checkFavoriteStatus(product._id, accessToken).then(response => {
+        if (response.success) {
+          setIsFavorite(response.data?.isFavorite || false);
+        }
+      });
+    }
+  }, [accessToken, product._id]);
+
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!accessToken) {
+      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      return;
+    }
+
+    if (!product._id) return;
+
+    setFavoriteLoading(true);
+    try {
+      let response;
+      if (isFavorite) {
+        response = await removeFromFavorites(product._id, accessToken);
+      } else {
+        response = await addToFavorites(product._id, accessToken);
+      }
+
+      if (response.success) {
+        setIsFavorite(!isFavorite);
+      } else {
+        alert(response.message || 'İşlem başarısız');
+      }
+    } catch (error) {
+      console.error('Favori işlemi hatası:', error);
+      alert('İşlem sırasında hata oluştu');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
@@ -445,8 +585,8 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
           {/* Ürün Görseli */}
           <div className="relative w-32 h-32 flex-shrink-0 bg-gray-50 rounded-l-lg overflow-hidden flex items-center justify-center">
             <Image
-              src={getImageUrl(product.images[0]?.url || "")}
-              alt={product.images[0]?.alt || product.name}
+              src={getImageUrl(sortProductImages(product.images)[0]?.url || "")}
+              alt={sortProductImages(product.images)[0]?.alt || product.name}
               fill
               className="object-contain p-1"
               sizes="128px"
@@ -456,6 +596,36 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
                 objectFit: 'contain'
               }}
             />
+            
+            {/* Favori Butonu */}
+            <button
+              onClick={handleToggleFavorite}
+              disabled={favoriteLoading}
+              className={`absolute top-1 right-1 w-6 h-6 rounded-full shadow-sm flex items-center justify-center transition-all duration-200 ${
+                isFavorite 
+                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                  : 'bg-white text-gray-600 hover:text-red-500 hover:bg-red-50'
+              } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {favoriteLoading ? (
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+              ) : (
+                <svg
+                  className="w-3 h-3"
+                  fill={isFavorite ? 'currentColor' : 'none'}
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+              )}
+            </button>
+            
             {discountPercentage > 0 && (
               <div className="absolute top-1 left-1 bg-red-500 text-white text-xs px-1 py-0.5 rounded">
                 %{discountPercentage}
@@ -467,6 +637,14 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
           <div className="flex-1 p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <StarRating 
+                    rating={product.averageRating || 0} 
+                    reviewCount={product.reviewCount || 0}
+                    size="sm"
+                  />
+                </div>
+                
                 <h3 className="font-medium text-gray-900 mb-2 group-hover:text-blue transition-colors">
                   {product.name}
                 </h3>
@@ -478,8 +656,15 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   <span>Kategori: {product.category.name}</span>
                   <span>SKU: {product.sku}</span>
-                  <span className={product.stock > 0 ? "text-green-600" : "text-red-600"}>
-                    {product.stock > 0 ? `Stokta ${product.stock} adet` : "Stokta yok"}
+                  <span className={product.stock > 0 ? "text-green-600 font-medium" : "text-red-600 font-bold"}>
+                    {product.stock > 0 ? `Stokta ${product.stock} adet` : "⚠️ Stokta yok - Satışta değil"}
+                  </span>
+                  <span className="flex items-center gap-1 text-gray-500">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                    </svg>
+                    {product.viewCount || 0} görüntüleme
                   </span>
                 </div>
               </div>

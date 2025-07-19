@@ -24,7 +24,6 @@ import {
 } from '@/services/authService';
 import { cartService } from '@/services/cartService';
 
-// Session ID alma fonksiyonu
 const getSessionId = (): string => {
   if (typeof window === 'undefined') return '';
   
@@ -287,7 +286,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Local sepeti temizle
       cartService.clearLocalStorage();
       
       clearStoredAuth();
@@ -515,7 +513,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   forceLogout: () => {
     get().stopTokenValidation();
-    // Local sepeti temizle
     cartService.clearLocalStorage();
     clearStoredAuth();
     set({

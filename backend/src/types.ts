@@ -101,6 +101,7 @@ export interface IProduct extends Document {
   isFeatured: boolean;
   averageRating: number;
   reviewCount: number;
+  viewCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -110,7 +111,7 @@ export interface IProductImage {
   url: string;
   alt: string;
   isPrimary: boolean;
-  isMain?: boolean;
+  isMain: boolean;
   sortOrder: number;
 }
 

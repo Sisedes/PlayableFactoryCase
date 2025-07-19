@@ -68,3 +68,24 @@ export const retryApiCall = async <T>(
   
   throw new Error('Max retries exceeded');
 }; 
+
+/**
+ * Ürün resimlerini sıralar: ana resim önce, sonra diğerleri
+ * @param images Ürün resimleri dizisi
+ * @returns Sıralanmış resimler dizisi
+ */
+export const sortProductImages = (images: any[]) => {
+  if (!images || !Array.isArray(images)) {
+    return [];
+  }
+  
+  return [...images].sort((a, b) => {
+    const aIsPrimary = a.isPrimary || a.isMain;
+    const bIsPrimary = b.isPrimary || b.isMain;
+    
+    if (aIsPrimary && !bIsPrimary) return -1;
+    if (!aIsPrimary && bIsPrimary) return 1;
+    
+    return (a.sortOrder || 0) - (b.sortOrder || 0);
+  });
+}; 

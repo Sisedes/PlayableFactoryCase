@@ -69,6 +69,7 @@ export interface Product {
   seo?: SEOData;
   averageRating?: number;
   reviewCount?: number;
+  viewCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -312,7 +313,7 @@ export interface SEOData {
   noIndex?: boolean;
 }
 
-// Form Types (for React Hook Form + Zod)
+// Form Types 
 export interface LoginFormData {
   email: string;
   password: string;

@@ -57,26 +57,43 @@ export const getAllProducts = async (req: Request, res: Response) => {
 
 
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.min(50, Math.max(1, Number(limit))); // Max 50 ürün
+    const limitNum = Math.min(50, Math.max(1, Number(limit))); 
     const skip = (pageNum - 1) * limitNum;
 
     const products = await Product.find(filter)
       .populate('category', 'name slug')
-      .select('name slug shortDescription price salePrice images stock isActive createdAt statistics tags averageRating reviewCount')
+      .select('name slug shortDescription price salePrice images stock isActive createdAt statistics tags averageRating reviewCount viewCount')
       .sort(sort)
       .skip(skip)
       .limit(limitNum);
+
+    const productsWithSortedImages = products.map(product => {
+      const sortedImages = [...product.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...product.toObject(),
+        images: sortedImages
+      };
+    });
 
     const totalProducts = await Product.countDocuments(filter);
     const totalPages = Math.ceil(totalProducts / limitNum);
 
     res.status(200).json({
       success: true,
-      count: products.length,
+      count: productsWithSortedImages.length,
       total: totalProducts,
       pages: totalPages,
       currentPage: pageNum,
-      data: products,
+      data: productsWithSortedImages,
       filters: {
         category,
         search,
@@ -115,27 +132,60 @@ export const getProductById = async (req: Request, res: Response):Promise<void> 
         success: false,
         message: 'Ürün bulunamadı'
       });
+      return;
     }
 
     await Product.findByIdAndUpdate(id, {
-      $inc: { 'statistics.views': 1 }
+      $inc: { viewCount: 1 }
     });
+
+    const sortedImages = [...product.images].sort((a, b) => {
+      const aIsPrimary = a.isPrimary || a.isMain;
+      const bIsPrimary = b.isPrimary || b.isMain;
+      
+      if (aIsPrimary && !bIsPrimary) return -1;
+      if (!aIsPrimary && bIsPrimary) return 1;
+      
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    });
+
+    const productWithSortedImages = {
+      ...product.toObject(),
+      images: sortedImages
+    };
 
     // 4 ürün max
     const relatedProducts = await Product.find({
-      category: product?.category,
-      _id: { $ne: product?._id },
+      category: product.category,
+      _id: { $ne: product._id },
       status: 'active'
     })
     .populate('category', 'name slug')
     .select('name slug shortDescription price salePrice images stock')
     .limit(4); //4 burada
 
+    const relatedProductsWithSortedImages = relatedProducts.map(relatedProduct => {
+      const sortedRelatedImages = [...relatedProduct.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...relatedProduct.toObject(),
+        images: sortedRelatedImages
+      };
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        product,
-        relatedProducts
+        product: productWithSortedImages,
+        relatedProducts: relatedProductsWithSortedImages
       }
     });
   } catch (error) {
@@ -178,10 +228,27 @@ export const getProductsByCategory = async (req: Request, res: Response):Promise
       status: 'active'
     })
     .populate('category', 'name slug')
-    .select('name slug shortDescription price salePrice images stock isActive createdAt statistics averageRating reviewCount')
+    .select('name slug shortDescription price salePrice images stock isActive createdAt statistics averageRating reviewCount viewCount')
     .sort(sort)
     .skip(skip)
     .limit(limitNum);
+
+    const productsWithSortedImages = products.map(product => {
+      const sortedImages = [...product.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...product.toObject(),
+        images: sortedImages
+      };
+    });
 
     const totalProducts = await Product.countDocuments({
       category: categoryId,
@@ -190,7 +257,7 @@ export const getProductsByCategory = async (req: Request, res: Response):Promise
 
     res.status(200).json({
       success: true,
-      count: products.length,
+      count: productsWithSortedImages.length,
       total: totalProducts,
       pages: Math.ceil(totalProducts / limitNum),
       currentPage: pageNum,
@@ -199,7 +266,7 @@ export const getProductsByCategory = async (req: Request, res: Response):Promise
         slug: category?.slug,
         description: category?.description
       },
-      data: products
+      data: productsWithSortedImages
     });
   } catch (error) {
     console.error('Products by category error:', error);
@@ -257,7 +324,7 @@ export const getPopularProducts = async (req: Request, res: Response) => {
           }
         }
       },
-      { $sort: { totalSales: -1, 'statistics.views': -1 } },
+      { $sort: { totalSales: -1, viewCount: -1 } },
       { $limit: Number(limit) },
       {
         $lookup: {
@@ -281,7 +348,7 @@ export const getPopularProducts = async (req: Request, res: Response) => {
           salePrice: 1,
           images: 1,
           stock: 1,
-          statistics: 1,
+          viewCount: 1,
           totalSales: 1,
           averageRating: 1,
           reviewCount: 1,
@@ -291,10 +358,31 @@ export const getPopularProducts = async (req: Request, res: Response) => {
       }
     ]);
 
+    const productsWithSortedImages = products.map(product => {
+      if (!product.images || !Array.isArray(product.images)) {
+        return product;
+      }
+      
+      const sortedImages = [...product.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...product,
+        images: sortedImages
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: products.length,
-      data: products
+      count: productsWithSortedImages.length,
+      data: productsWithSortedImages
     });
   } catch (error) {
     console.error('Popular products error:', error);
@@ -317,14 +405,31 @@ export const getLatestProducts = async (req: Request, res: Response) => {
 
     const products = await Product.find({ status: 'active' })
       .populate('category', 'name slug')
-      .select('name slug shortDescription price salePrice images stock averageRating reviewCount')
+      .select('name slug shortDescription price salePrice images stock averageRating reviewCount viewCount')
       .sort({ createdAt: -1 })
       .limit(Number(limit));
 
+    const productsWithSortedImages = products.map(product => {
+      const sortedImages = [...product.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...product.toObject(),
+        images: sortedImages
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: products.length,
-      data: products
+      count: productsWithSortedImages.length,
+      data: productsWithSortedImages
     });
   } catch (error) {
     console.error('Latest products error:', error);
@@ -383,16 +488,33 @@ export const getAllProductsForAdmin = async (req: Request, res: Response) => {
 
     const products = await Product.find(filter)
       .populate('category', 'name slug')
-      .select('name slug shortDescription description price salePrice images stock status sku lowStockThreshold variants createdAt updatedAt')
+      .select('name slug shortDescription description price salePrice images stock status sku lowStockThreshold variants tags createdAt updatedAt')
       .sort(sort)
       .skip(skip)
       .limit(limitNum);
 
-    console.log('Admin ürünleri getirildi:', products.length);
-    console.log('İlk ürün örneği:', products[0] ? {
-      name: products[0].name,
-      variants: products[0].variants,
-      variantsCount: products[0].variants?.length || 0
+    const productsWithSortedImages = products.map(product => {
+      const sortedImages = [...product.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...product.toObject(),
+        images: sortedImages
+      };
+    });
+
+    console.log('Admin ürünleri getirildi:', productsWithSortedImages.length);
+    console.log('İlk ürün örneği:', productsWithSortedImages[0] ? {
+      name: productsWithSortedImages[0].name,
+      variants: productsWithSortedImages[0].variants,
+      variantsCount: productsWithSortedImages[0].variants?.length || 0
     } : 'Ürün yok');
 
     const totalProducts = await Product.countDocuments(filter);
@@ -400,11 +522,11 @@ export const getAllProductsForAdmin = async (req: Request, res: Response) => {
 
     res.status(200).json({
       success: true,
-      count: products.length,
+      count: productsWithSortedImages.length,
       total: totalProducts,
       pages: totalPages,
       currentPage: pageNum,
-      data: products,
+      data: productsWithSortedImages,
       filters: {
         category,
         search,
@@ -448,6 +570,39 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       variants
     } = req.body;
 
+    const validationPromises = [];
+    
+    if (!name || !description || !category || !price || !sku) {
+      res.status(400).json({
+        success: false,
+        message: 'Gerekli alanlar eksik: name, description, category, price, sku'
+      });
+      return;
+    }
+
+    validationPromises.push(
+      Product.findOne({ sku }).select('_id'),
+      Category.findById(category).select('_id name')
+    );
+
+    const [existingSku, categoryExists] = await Promise.all(validationPromises);
+
+    if (existingSku) {
+      res.status(400).json({
+        success: false,
+        message: 'Bu SKU zaten kullanılıyor'
+      });
+      return;
+    }
+
+    if (!categoryExists) {
+      res.status(400).json({
+        success: false,
+        message: 'Geçersiz kategori'
+      });
+      return;
+    }
+
     let parsedTags = [];
     if (tags) {
       try {
@@ -458,34 +613,6 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       }
     }
 
-
-
-    if (!name || !description || !category || !price || !sku) {
-      res.status(400).json({
-        success: false,
-        message: 'Gerekli alanlar eksik: name, description, category, price, sku'
-      });
-      return;
-    }
-
-    const existingSku = await Product.findOne({ sku });
-    if (existingSku) {
-      res.status(400).json({
-        success: false,
-        message: 'Bu SKU zaten kullanılıyor'
-      });
-      return;
-    }
-
-    const categoryExists = await Category.findById(category);
-    if (!categoryExists) {
-      res.status(400).json({
-        success: false,
-        message: 'Geçersiz kategori'
-      });
-      return;
-    }
-
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, '')
@@ -494,11 +621,20 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
     let uniqueSlug = slug;
     let counter = 1;
-    while (await Product.findOne({ slug: uniqueSlug })) {
-      uniqueSlug = `${slug}-${counter}`;
-      counter++;
-    }
+    
+    const slugCheck = async () => {
+      const existingSlug = await Product.findOne({ slug: uniqueSlug }).select('_id');
+      if (existingSlug) {
+        uniqueSlug = `${slug}-${counter}`;
+        counter++;
+        return slugCheck();
+      }
+      return uniqueSlug;
+    };
+    
+    uniqueSlug = await slugCheck();
 
+    
     if (salePrice && parseFloat(salePrice) >= parseFloat(price)) {
       res.status(400).json({
         success: false,
@@ -509,16 +645,19 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
 
     const uploadedImages: any[] = [];
     if (req.files && Array.isArray(req.files)) {
-      req.files.forEach((file: Express.Multer.File, index: number) => {
-        uploadedImages.push({
+      const imagePromises = req.files.map((file: Express.Multer.File, index: number) => {
+        return {
           url: `/uploads/products/${file.filename}`,
           alt: `${name} - Görsel ${index + 1}`,
-          isPrimary: index === 0
-        });
+          isPrimary: index === 0,
+          sortOrder: index
+        };
       });
+      
+      uploadedImages.push(...imagePromises);
     }
 
-    const product = new Product({
+    const productData = {
       name,
       slug: uniqueSlug,
       description,
@@ -535,9 +674,11 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       tags: parsedTags,
       status,
       isFeatured
-    });
+    };
 
+    const product = new Product(productData);
     const savedProduct = await product.save();
+    
     await savedProduct.populate('category', 'name slug');
 
     res.status(201).json({
@@ -560,7 +701,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({
       success: false,
       message: 'Ürün oluşturulurken hata oluştu',
-      error: process.env.NODE_ENV === 'development' ? error : {}
+      error: process.env.NODE_ENV === 'development' ? error.message : {}
     });
   }
 };
@@ -777,7 +918,7 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('category', 'name slug');
+    ).populate('category', 'name slug').select('name slug shortDescription description price salePrice images stock status sku lowStockThreshold variants tags createdAt updatedAt');
 
     res.status(200).json({
       success: true,
@@ -1011,7 +1152,8 @@ export const setMainImage = async (req: Request, res: Response) => {
     }
 
     product.images.forEach(img => {
-      img.isMain = false;
+      img.isPrimary = false;
+      img.isMain = false; 
     });
 
     const imageIndex = product.images.findIndex(img => img._id?.toString() === imageId);
@@ -1022,7 +1164,8 @@ export const setMainImage = async (req: Request, res: Response) => {
       });
     }
 
-    product.images[imageIndex].isMain = true;
+    product.images[imageIndex].isPrimary = true;
+    product.images[imageIndex].isMain = true; 
     await product.save();
 
     res.status(200).json({
@@ -1167,31 +1310,37 @@ export const getLowStockAlerts = async (req: Request, res: Response): Promise<vo
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const lowStockProducts = await Product.find({
-      $expr: {
-        $and: [
-          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
-          { $gt: ['$stock', 0] }
-        ]
-      },
-      status: 'active'
+    const allStockAlertProducts = await Product.find({
+      $or: [
+        {
+          $expr: {
+            $and: [
+              { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 5] }] },
+              { $gt: ['$stock', 0] }
+            ]
+          },
+          status: 'active'
+        },
+        
+        {
+          stock: 0,
+          status: 'active'
+        }
+      ]
     })
     .populate('category', 'name slug')
     .select('name sku stock lowStockThreshold category status')
     .skip(skip)
-    .limit(limitNum);
-
-    const outOfStockProducts = await Product.find({
-      stock: 0,
-      status: 'active'
-    })
-    .populate('category', 'name slug')
-    .select('name sku stock lowStockThreshold category status')
-    .skip(skip)
-    .limit(limitNum);
+    .limit(limitNum)
+    .sort({ stock: 1, name: 1 }); 
 
     const productsWithLowStockVariants = await Product.find({
-      'variants.stock': { $lte: 5, $gt: 0 },
+      $expr: {
+        $and: [
+          { $gt: ['$variants.stock', 0] },
+          { $lte: ['$variants.stock', { $ifNull: ['$lowStockThreshold', 5] }] }
+        ]
+      },
       status: 'active'
     })
     .populate('category', 'name slug')
@@ -1205,35 +1354,37 @@ export const getLowStockAlerts = async (req: Request, res: Response): Promise<vo
     .select('name sku stock lowStockThreshold category status variants');
 
     const totalLowStock = await Product.countDocuments({
-      $or: [
-        {
-          $expr: {
-            $and: [
-              { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
-              { $gt: ['$stock', 0] }
-            ]
-          },
-          status: 'active'
-        },
-        {
-          'variants.stock': { $lte: 5, $gt: 0 },
-          status: 'active'
-        }
-      ]
+      $expr: {
+        $and: [
+          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 5] }] },
+          { $gt: ['$stock', 0] }
+        ]
+      },
+      status: 'active'
     });
 
     const totalOutOfStock = await Product.countDocuments({
-      $or: [
-        {
-          stock: 0,
-          status: 'active'
-        },
-        {
-          'variants.stock': 0,
-          status: 'active'
-        }
-      ]
+      stock: 0,
+      status: 'active'
     });
+
+    const totalLowStockVariants = await Product.countDocuments({
+      $expr: {
+        $and: [
+          { $gt: ['$variants.stock', 0] },
+          { $lte: ['$variants.stock', { $ifNull: ['$lowStockThreshold', 5] }] }
+        ]
+      },
+      status: 'active'
+    });
+
+    const totalOutOfStockVariants = await Product.countDocuments({
+      'variants.stock': 0,
+      status: 'active'
+    });
+
+    const lowStockProducts = allStockAlertProducts.filter(product => product.stock > 0);
+    const outOfStockProducts = allStockAlertProducts.filter(product => product.stock === 0);
 
     res.status(200).json({
       success: true,
@@ -1244,10 +1395,10 @@ export const getLowStockAlerts = async (req: Request, res: Response): Promise<vo
         productsWithOutOfStockVariants,
         pagination: {
           currentPage: pageNum,
-          totalPages: Math.ceil(totalLowStock / limitNum),
-          totalLowStock,
-          totalOutOfStock,
-          hasNextPage: pageNum * limitNum < totalLowStock,
+          totalPages: Math.ceil((totalLowStock + totalOutOfStock) / limitNum),
+          totalLowStock: totalLowStock + totalLowStockVariants,
+          totalOutOfStock: totalOutOfStock + totalOutOfStockVariants,
+          hasNextPage: pageNum * limitNum < (totalLowStock + totalOutOfStock),
           hasPrevPage: pageNum > 1
         }
       }
@@ -1309,7 +1460,7 @@ export const getStockStatistics = async (req: Request, res: Response) => {
     const lowStockProducts = await Product.countDocuments({
       $expr: {
         $and: [
-          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 10] }] },
+          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 5] }] },
           { $gt: ['$stock', 0] }
         ]
       },
@@ -1685,6 +1836,147 @@ export const updateVariantStock = async (req: Request, res: Response): Promise<v
     res.status(500).json({
       success: false,
       message: 'Varyasyon stoku güncellenirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/products/:id/increment-view
+ * @access  
+ */
+export const incrementProductView = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      { $inc: { viewCount: 1 } },
+      { new: true }
+    ).select('viewCount');
+
+    if (!updatedProduct) {
+      res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Görüntüleme sayısı başarıyla artırıldı',
+      data: {
+        viewCount: updatedProduct.viewCount
+      }
+    });
+  } catch (error) {
+    console.error('Increment product view error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Görüntüleme sayısı artırılırken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/products/test/variant-product
+ * @access  
+ */
+export const createTestVariantProduct = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const Category = require('../Categories/categoriesModel').default;
+    const firstCategory = await Category.findOne().sort({ createdAt: 1 });
+    
+    if (!firstCategory) {
+      res.status(400).json({
+        success: false,
+        message: 'Hiç kategori bulunamadı'
+      });
+      return;
+    }
+
+    const testProduct = new Product({
+      name: 'Test Varyasyonlu Ürün',
+      slug: `test-variant-product-${Date.now()}`,
+      description: 'Bu bir test varyasyonlu üründür. Farklı stok seviyelerinde varyasyonlar içerir.',
+      shortDescription: 'Test varyasyonlu ürün',
+      category: firstCategory._id,
+      price: 100,
+      sku: `TEST-VAR-${Date.now()}`,
+      stock: 0, 
+      trackQuantity: true,
+      lowStockThreshold: 5,
+      images: [
+        {
+          url: '/uploads/products/test-product.jpg',
+          alt: 'Test Ürün',
+          isPrimary: true
+        }
+      ],
+      variants: [
+        {
+          name: 'Küçük Boy',
+          options: [
+            { name: 'Boyut', value: 'S' }
+          ],
+          sku: `TEST-VAR-S-${Date.now()}`,
+          price: 100,
+          stock: 0, 
+          isDefault: true
+        },
+        {
+          name: 'Orta Boy',
+          options: [
+            { name: 'Boyut', value: 'M' }
+          ],
+          sku: `TEST-VAR-M-${Date.now()}`,
+          price: 110,
+          stock: 2, 
+          isDefault: false
+        },
+        {
+          name: 'Büyük Boy',
+          options: [
+            { name: 'Boyut', value: 'L' }
+          ],
+          sku: `TEST-VAR-L-${Date.now()}`,
+          price: 120,
+          stock: 15, 
+          isDefault: false
+        }
+      ],
+      tags: ['test', 'varyasyon'],
+      status: 'active',
+      isFeatured: false
+    });
+
+    const savedProduct = await testProduct.save();
+    await savedProduct.populate('category', 'name slug');
+
+    res.status(201).json({
+      success: true,
+      message: 'Test varyasyonlu ürün başarıyla oluşturuldu',
+      data: savedProduct
+    });
+  } catch (error: any) {
+    console.error('Create test variant product error:', error);
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      res.status(400).json({
+        success: false,
+        message: validationErrors.join(', ')
+      });
+      return;
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Test ürünü oluşturulurken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
     });
   }
 };

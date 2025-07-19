@@ -47,6 +47,13 @@ import {
   FavoriteProduct 
 } from "@/services/favoriteService";
 import { 
+  getMyReviews,
+  deleteMyReview,
+  getAllReviewsAdmin,
+  approveReview,
+  rejectReview
+} from "@/services/reviewService";
+import { 
   getDashboardStats, 
   DashboardStats, 
   getAdvancedReports, 
@@ -104,6 +111,7 @@ interface LocalProduct {
     url: string;
     alt: string;
     isMain?: boolean;
+    isPrimary?: boolean;
   }>;
   variants?: Array<{
     _id?: string;
@@ -201,6 +209,28 @@ const MyAccount = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewActionLoading, setReviewActionLoading] = useState<string | null>(null); 
   const [reviewMessage, setReviewMessage] = useState<string | null>(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('all');
+
+  const [adminReviews, setAdminReviews] = useState<any[]>([]);
+  const [adminReviewsLoading, setAdminReviewsLoading] = useState(false);
+  const [adminReviewsPagination, setAdminReviewsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalReviews: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+
+  // Kullanıcı yorumları için state
+  const [myReviews, setMyReviews] = useState<any[]>([]);
+  const [myReviewsLoading, setMyReviewsLoading] = useState(false);
+  const [myReviewsPagination, setMyReviewsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalReviews: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -345,7 +375,28 @@ const MyAccount = () => {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProductImages(e.target.files);
+    const files = e.target.files;
+    if (files) {
+      const validFiles = Array.from(files).filter(file => {
+        const isValidType = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type);
+        const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+        
+        if (!isValidType) {
+          alert(`${file.name} geçersiz dosya türü. Sadece JPEG, PNG ve WebP formatları kabul edilir.`);
+        }
+        if (!isValidSize) {
+          alert(`${file.name} dosya boyutu çok büyük. Maksimum 10MB olmalıdır.`);
+        }
+        
+        return isValidType && isValidSize;
+      });
+      
+      if (validFiles.length !== files.length) {
+        e.target.value = '';
+      }
+      
+      setProductImages(validFiles.length > 0 ? validFiles as any : null);
+    }
   };
 
   const handleAddTag = () => {
@@ -391,37 +442,50 @@ const MyAccount = () => {
         return;
       }
       if (parseFloat(productForm.salePrice) >= parseFloat(productForm.price)) {
-      alert('İndirimli fiyat normal fiyattan düşük olmalıdır');
-      return;
+        alert('İndirimli fiyat normal fiyattan düşük olmalıdır');
+        return;
       }
     }
 
     setSubmitLoading(true);
     
     try {
-      console.log('Gönderilecek status değeri:', productForm.status);
       const formData = new FormData();
       
-      formData.append('name', productForm.name);
-      formData.append('category', productForm.category);
-      formData.append('price', productForm.price);
+      const basicFields = {
+        name: productForm.name,
+        category: productForm.category,
+        price: productForm.price,
+        description: productForm.description,
+        stock: productForm.stock,
+        status: productForm.status
+      };
+      
+      Object.entries(basicFields).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+      
+      // indirimli fiyat
       if (applyDiscount && productForm.salePrice) {
         formData.append('salePrice', productForm.salePrice);
       }
-      formData.append('description', productForm.description);
-      formData.append('stock', productForm.stock);
-      if (productForm.sku) formData.append('sku', productForm.sku);
-      formData.append('status', productForm.status);
+      
+      if (productForm.sku) {
+        formData.append('sku', productForm.sku);
+      }
+      
       if (productForm.tags.length > 0) {
         formData.append('tags', JSON.stringify(productForm.tags));
       }
       
       if (productImages) {
-        for (let i = 0; i < productImages.length; i++) {
-          formData.append('images', productImages[i]);
-        }
+        const imageArray = Array.isArray(productImages) ? productImages : Array.from(productImages);
+        imageArray.forEach((file, index) => {
+          formData.append('images', file);
+        });
       }
       
+      // API çağrısı
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/products`, {
         method: 'POST',
         headers: {
@@ -430,10 +494,16 @@ const MyAccount = () => {
         body: formData
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Sunucu hatası');
+      }
+
       const result = await response.json();
       
       if (result.success) {
         alert('Ürün başarıyla eklendi!');
+        
         setProductForm({
           name: '',
           category: '',
@@ -448,9 +518,11 @@ const MyAccount = () => {
         setApplyDiscount(false);
         setProductImages(null);
         
-        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
-        if (productsResponse.success) {
-          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        if (activeTab === 'manage-products') {
+          const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+          if (productsResponse.success) {
+            setProducts(productsResponse.data as unknown as LocalProduct[]);
+          }
         }
         
         setActiveTab('manage-products');
@@ -459,7 +531,7 @@ const MyAccount = () => {
       }
     } catch (error) {
       console.error('Ürün ekleme hatası:', error);
-      alert('Ürün eklenirken bir hata oluştu');
+      alert(error instanceof Error ? error.message : 'Ürün eklenirken bir hata oluştu');
     } finally {
       setSubmitLoading(false);
     }
@@ -672,6 +744,7 @@ const MyAccount = () => {
       const response = await addToFavorites(productId, accessToken);
       if (response.success) {
         await loadFavoriteProducts();
+        window.dispatchEvent(new Event('favoriteUpdated'));
         alert(response.message || 'Ürün favorilere eklendi');
       } else {
         alert(response.message || 'Ürün favorilere eklenemedi');
@@ -689,6 +762,7 @@ const MyAccount = () => {
       const response = await removeFromFavorites(productId, accessToken);
       if (response.success) {
         await loadFavoriteProducts();
+        window.dispatchEvent(new Event('favoriteUpdated'));
         alert('Ürün favorilerden çıkarıldı');
       } else {
         alert(response.message || 'Ürün favorilerden çıkarılamadı');
@@ -720,21 +794,70 @@ const MyAccount = () => {
     }
   };
 
+  const loadAllReviewsAdmin = async (page = 1, status = 'all') => {
+    if (!accessToken || !isAdmin) return;
+    
+    setAdminReviewsLoading(true);
+    try {
+      const response = await getAllReviewsAdmin(accessToken, page, 10, status);
+      if (response.success) {
+        setAdminReviews(response.data);
+        setAdminReviewsPagination({
+          currentPage: response.currentPage || 1,
+          totalPages: response.pages || 1,
+          totalReviews: response.total || 0,
+          hasNextPage: response.currentPage < (response.pages || 1),
+          hasPrevPage: response.currentPage > 1
+        });
+      } else {
+        console.error('Yorumlar yüklenemedi:', response.message);
+      }
+    } catch (error) {
+      console.error('Yorumlar yüklenirken hata:', error);
+    } finally {
+      setAdminReviewsLoading(false);
+    }
+  };
+
+  const loadMyReviews = async (page = 1) => {
+    if (!accessToken) return;
+    
+    setMyReviewsLoading(true);
+    try {
+      const response = await getMyReviews(accessToken, page);
+      if (response.success) {
+        setMyReviews(response.data);
+        setMyReviewsPagination({
+          currentPage: response.currentPage || 1,
+          totalPages: response.pages || 1,
+          totalReviews: response.total || 0,
+          hasNextPage: response.currentPage < (response.pages || 1),
+          hasPrevPage: response.currentPage > 1
+        });
+      } else {
+        console.error('Yorumlarınız yüklenemedi:', response.message);
+      }
+    } catch (error) {
+      console.error('Yorumlarınız yüklenirken hata:', error);
+    } finally {
+      setMyReviewsLoading(false);
+    }
+  };
+
   const handleApproveReview = async (reviewId: string) => {
     if (!accessToken) return;
     setReviewActionLoading(reviewId);
     setReviewMessage(null);
     try {
-      const res = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews/${reviewId}/approve`,
-        {},
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (res.data.success) {
+      const response = await approveReview(reviewId, accessToken);
+      if (response.success) {
         setPendingReviews(prev => prev.filter(r => r._id !== reviewId));
         setReviewMessage('Yorum başarıyla onaylandı');
+        if (activeTab === 'manage-reviews') {
+          loadAllReviewsAdmin(1, reviewStatusFilter);
+        }
       } else {
-        setReviewMessage(res.data.message || 'Yorum onaylanamadı');
+        setReviewMessage(response.message || 'Yorum onaylanamadı');
       }
     } catch (err: any) {
       setReviewMessage('Yorum onaylanırken hata oluştu');
@@ -748,16 +871,15 @@ const MyAccount = () => {
     setReviewActionLoading(reviewId);
     setReviewMessage(null);
     try {
-      const res = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/reviews/${reviewId}/reject`,
-        {},
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      if (res.data.success) {
+      const response = await rejectReview(reviewId, accessToken);
+      if (response.success) {
         setPendingReviews(prev => prev.filter(r => r._id !== reviewId));
         setReviewMessage('Yorum reddedildi');
+        if (activeTab === 'manage-reviews') {
+          loadAllReviewsAdmin(1, reviewStatusFilter);
+        }
       } else {
-        setReviewMessage(res.data.message || 'Yorum reddedilemedi');
+        setReviewMessage(response.message || 'Yorum reddedilemedi');
       }
     } catch (err: any) {
       setReviewMessage('Yorum reddedilirken hata oluştu');
@@ -784,12 +906,15 @@ const MyAccount = () => {
 
   useEffect(() => {
     if (isAdmin && activeTab === 'manage-reviews') {
-      loadPendingReviews();
+      loadAllReviewsAdmin(1, reviewStatusFilter);
     }
     if (isAdmin && activeTab === 'manage-customers') {
       loadCustomers();
     }
-  }, [isAdmin, activeTab, accessToken]);
+    if (activeTab === 'my-reviews') {
+      loadMyReviews();
+    }
+  }, [isAdmin, activeTab, accessToken, reviewStatusFilter]);
 
   useEffect(() => {
     setSelectedProducts([]);
@@ -1007,7 +1132,7 @@ const MyAccount = () => {
 
     const imageToDelete = editProduct?.images.find(img => img._id === imageId);
     
-    if (imageToDelete?.isMain) {
+    if (imageToDelete?.isMain || imageToDelete?.isPrimary) {
       alert('Ana resim silinemez! Önce başka bir resmi ana resim yapın, sonra bu resmi silebilirsiniz.');
       return;
     }
@@ -1017,17 +1142,16 @@ const MyAccount = () => {
     try {
       const response = await deleteProductImage(productId, imageId, accessToken);
       if (response.success) {
-        if (editProduct && editProduct._id === productId) {
-          const updatedImages = editProduct.images.filter(img => img._id !== imageId);
-          setEditProduct({
-            ...editProduct,
-            images: updatedImages
-          });
-        }
-        
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
+          
+          if (editProduct && editProduct._id === productId) {
+            const updatedProduct = productsResponse.data.find((p: any) => p._id === productId);
+            if (updatedProduct) {
+              setEditProduct(updatedProduct as LocalProduct);
+            }
+          }
         }
         
         alert('Resim başarıyla silindi');
@@ -1046,20 +1170,16 @@ const MyAccount = () => {
     try {
       const response = await setMainImage(productId, imageId, accessToken);
       if (response.success) {
-        if (editProduct && editProduct._id === productId) {
-          const updatedImages = editProduct.images.map(img => ({
-            ...img,
-            isMain: img._id === imageId
-          }));
-          setEditProduct({
-            ...editProduct,
-            images: updatedImages
-          });
-        }
-        
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
+          
+          if (editProduct && editProduct._id === productId) {
+            const updatedProduct = productsResponse.data.find((p: any) => p._id === productId);
+            if (updatedProduct) {
+              setEditProduct(updatedProduct as LocalProduct);
+            }
+          }
         }
         
         alert('Ana resim başarıyla ayarlandı');
@@ -1133,37 +1253,25 @@ const MyAccount = () => {
   };
 
   const processCategoryImage = (file: File) => {
-    if (file.size > 5 * 1024 * 1024) { // 5Mb
-      alert('Resim dosyası 5MB\'dan büyük olamaz');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Resim dosyası 10MB\'dan büyük olamaz');
       return;
     }
     
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      alert('Sadece JPEG, PNG, WebP ve GIF dosyaları yükleyebilirsiniz');
+      alert('Sadece JPEG, PNG ve WebP dosyaları yükleyebilirsiniz');
       return;
     }
 
     setCategoryImage(file);
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setCategoryImagePreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    // Performans için FileReader yerine URL.createObjectURL 
+    const imageUrl = URL.createObjectURL(file);
+    setCategoryImagePreview(imageUrl);
   };
 
-  const handleCategoryImageDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      processCategoryImage(files[0]);
-    }
-  };
 
-  const handleCategoryImageDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
 
 
 
@@ -1712,6 +1820,29 @@ const MyAccount = () => {
                     </button>
 
                     <button
+                      onClick={() => setActiveTab("my-reviews")}
+                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
+                        activeTab === "my-reviews"
+                          ? "text-white bg-blue"
+                          : "text-dark-2 bg-gray-1"
+                      }`}
+                    >
+                      <svg
+                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
+                        viewBox="0 0 22 22"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M11 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L11 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L11 2Z"
+                          fill=""
+                        />
+                      </svg>
+                      <span className="hidden sm:inline">Yorumlarım</span>
+                      <span className="sm:hidden">Yorumlar</span>
+                    </button>
+
+                    <button
                       onClick={() => setActiveTab("addresses")}
                       className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
                         activeTab === "addresses"
@@ -1906,7 +2037,7 @@ const MyAccount = () => {
                               fill=""
                             />
                           </svg>
-                          Yorum Onaylama
+                          Yorum Yönetimi
                         </button>
 
                         <button
@@ -2186,13 +2317,21 @@ const MyAccount = () => {
                           <div className="flex items-center space-x-1">
                             {product.averageRating ? (
                               <>
-                                <div className="flex text-yellow-400">
+                                <div className="flex">
                                   {[...Array(5)].map((_, i) => (
-                                    <svg key={i} className={`w-4 h-4 ${i < Math.floor(product.averageRating!) ? 'fill-current' : 'text-gray-300'}`} viewBox="0 0 24 24">
-                                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L16.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                    <svg 
+                                      key={i} 
+                                      className="w-4 h-4" 
+                                      style={{
+                                        fill: i < Math.floor(product.averageRating!) ? '#fbbf24' : '#d1d5db',
+                                        color: i < Math.floor(product.averageRating!) ? '#fbbf24' : '#d1d5db'
+                                      }}
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
                                     </svg>
                                   ))}
-                    </div>
+                                </div>
                                 <span className="text-sm text-gray-500">({product.reviewCount || 0})</span>
                               </>
                             ) : (
@@ -2258,6 +2397,217 @@ const MyAccount = () => {
               </div>
             </div>
             {/* <!-- orders tab content end -->
+
+          <!-- my-reviews tab content start --> */}
+            <div
+              className={`xl:max-w-[770px] w-full bg-white rounded-xl shadow-1 ${
+                activeTab === "my-reviews" ? "block" : "hidden"
+              }`}
+            >
+              <div className="p-4 sm:p-7.5 xl:p-10">
+                <div className="flex items-center justify-between mb-7">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark">
+                    Yorumlarım
+                  </h2>
+                </div>
+
+                {/* Yönlendirme Bilgi Kutusu */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-blue-800 mb-1">
+                        Yorum Yapmak İçin
+                      </h3>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Teslim edilen siparişlerinizdeki ürünlere yorum yapabilirsiniz. Siparişlerim sekmesine gidip teslim edilen siparişlerin detaylarını açarak "Yorum Yap" butonuna tıklayabilirsiniz.
+                      </p>
+                      <button
+                        onClick={() => setActiveTab("orders")}
+                        className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        Siparişlerim'e Git
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {myReviewsLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+                  </div>
+                ) : myReviews.length > 0 ? (
+                  <div className="space-y-6">
+                    {myReviews.map((review) => (
+                      <div key={review._id} className="border border-gray-200 rounded-lg p-4">
+                                                 <div className="flex items-start space-x-4">
+                           <div className="relative w-16 h-16 flex-shrink-0">
+                             {(() => {
+                               let imageUrl = '';
+                               
+                               if (review.product?.images && review.product.images.length > 0) {
+                                 if (Array.isArray(review.product.images) && review.product.images[0] && typeof review.product.images[0] === 'object' && review.product.images[0].url) {
+                                   imageUrl = review.product.images[0].url;
+                                 } else if (Array.isArray(review.product.images) && review.product.images[0] && typeof review.product.images[0] === 'string') {
+                                   imageUrl = review.product.images[0];
+                                 } else if (typeof review.product.images === 'string') {
+                                   imageUrl = review.product.images;
+                                 }
+                               }
+                               
+                               if (imageUrl && imageUrl.trim() !== '') {
+                                 const fullUrl = imageUrl.startsWith('http') ? imageUrl : `http://localhost:5000${imageUrl}`;
+                                 return (
+                                   <img
+                                     src={fullUrl}
+                                     alt={review.product?.name || 'Ürün'}
+                                     className="w-full h-full object-cover rounded-md"
+                                     onError={(e) => {
+                                       console.log('Review image load error:', imageUrl);
+                                       e.currentTarget.style.display = 'none';
+                                     }}
+                                   />
+                                 );
+                               }
+                               
+                               return (
+                                 <div className="w-full h-full bg-gray-200 rounded-md flex items-center justify-center">
+                                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                   </svg>
+                                 </div>
+                               );
+                             })()}
+                           </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="font-medium text-dark truncate">
+                                {review.product?.name || 'Ürün adı bulunamadı'}
+                              </h3>
+                              <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                review.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                review.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                review.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {review.status === 'approved' ? 'Onaylandı' :
+                                 review.status === 'pending' ? 'Bekliyor' :
+                                 review.status === 'rejected' ? 'Reddedildi' : review.status}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-1 mb-2">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <svg
+                                  key={star}
+                                  className="w-4 h-4"
+                                  style={{
+                                    fill: star <= review.rating ? '#fbbf24' : '#d1d5db',
+                                    color: star <= review.rating ? '#fbbf24' : '#d1d5db'
+                                  }}
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                              <span className="text-sm text-gray-600 ml-1">
+                                {review.rating}/5
+                              </span>
+                            </div>
+
+                            <h4 className="font-medium text-dark mb-2">{review.title}</h4>
+                            <p className="text-gray-600 text-sm mb-3">{review.comment}</p>
+                            
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>
+                                {new Date(review.createdAt).toLocaleDateString('tr-TR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </span>
+                              <div className="flex space-x-2">
+                                {review.status === 'pending' && (
+                                  <button
+                                    onClick={() => {
+                                      // Düzenleme modal'ını aç
+                                      console.log('Yorum düzenleme:', review);
+                                    }}
+                                    className="text-blue hover:text-blue-dark transition-colors"
+                                  >
+                                    Düzenle
+                                  </button>
+                                )}
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Bu yorumu silmek istediğinizden emin misiniz?')) {
+                                      try {
+                                        await deleteMyReview(review._id, accessToken || '');
+                                        loadMyReviews(myReviewsPagination.currentPage);
+                                      } catch (error) {
+                                        console.error('Yorum silme hatası:', error);
+                                      }
+                                    }
+                                  }}
+                                  className="text-red hover:text-red-dark transition-colors"
+                                >
+                                  Sil
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Pagination */}
+                    {myReviewsPagination.totalPages > 1 && (
+                      <div className="flex items-center justify-center space-x-2 mt-6">
+                        <button
+                          onClick={() => loadMyReviews(myReviewsPagination.currentPage - 1)}
+                          disabled={!myReviewsPagination.hasPrevPage}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Önceki
+                        </button>
+                        <span className="text-sm text-gray-600">
+                          Sayfa {myReviewsPagination.currentPage} / {myReviewsPagination.totalPages}
+                        </span>
+                        <button
+                          onClick={() => loadMyReviews(myReviewsPagination.currentPage + 1)}
+                          disabled={!myReviewsPagination.hasNextPage}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Sonraki
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L11 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L11 2Z" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-dark mb-2">Henüz yorumunuz yok</h3>
+                    <p className="text-gray-500 mb-4">Satın aldığınız ürünlere yorum yaparak başlayın.</p>
+                    <button
+                      onClick={() => setActiveTab("orders")}
+                      className="inline-flex items-center font-medium text-white bg-blue py-2 px-4 rounded-md ease-out duration-200 hover:bg-blue-dark"
+                    >
+                      Siparişlerime Git
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* <!-- my-reviews tab content end -->
 
           <!-- downloads tab content start --> */}
             <div
@@ -2774,33 +3124,92 @@ const MyAccount = () => {
                       </div>
                     </div>
 
-                    {/* Resim Yükleme */}
+                    {/* Resim Yükleme - Geliştirilmiş */}
                     <div>
                       <label className="block mb-2.5 text-dark font-medium">
                         Ürün Resimleri <span className="text-red">*</span>
                       </label>
-                      <div className="border-2 border-dashed border-gray-3 rounded-lg p-6 text-center">
+                      <div 
+                        className="border-2 border-dashed border-gray-3 rounded-lg p-6 text-center transition-colors duration-200 hover:border-blue-300"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                          const files = e.dataTransfer.files;
+                          if (files.length > 0) {
+                            const validFiles = Array.from(files).filter(file => {
+                              const isValidType = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type);
+                              const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+                              
+                              if (!isValidType) {
+                                alert(`${file.name} geçersiz dosya türü. Sadece JPEG, PNG ve WebP formatları kabul edilir.`);
+                              }
+                              if (!isValidSize) {
+                                alert(`${file.name} dosya boyutu çok büyük. Maksimum 10MB olmalıdır.`);
+                              }
+                              
+                              return isValidType && isValidSize;
+                            });
+                            
+                            if (validFiles.length > 0) {
+                              setProductImages(validFiles as any);
+                            }
+                          }
+                        }}
+                      >
                         <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                           <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         <div className="text-sm text-gray-600">
-                          <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue hover:text-blue-dark">
+                          <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue hover:text-blue-dark px-4 py-2 border border-blue-300 rounded-md transition-colors duration-200 hover:bg-blue-50">
                             <span>Dosya seçin</span>
                             <input 
                               type="file" 
                               className="sr-only" 
                               multiple 
-                              accept="image/*"
+                              accept="image/jpeg,image/jpg,image/png,image/webp"
                               onChange={handleImageChange}
                               disabled={submitLoading}
                             />
                           </label>
-                          <p className="pl-1">veya sürükleyip bırakın</p>
+                          <p className="mt-2">veya sürükleyip bırakın</p>
                         </div>
-                        <p className="text-xs text-gray-500">PNG, JPG, GIF max 5MB</p>
+                        <p className="text-xs text-gray-500 mt-2">JPEG, PNG, WebP - Maksimum 10MB - En fazla 20 dosya</p>
+                        
+                        {/* Seçilen dosyaları göster */}
                         {productImages && productImages.length > 0 && (
-                          <div className="mt-3 text-sm text-green-600">
-                            {productImages.length} dosya seçildi
+                          <div className="mt-4">
+                            <div className="text-sm text-green-600 font-medium mb-2">
+                              {productImages.length} dosya seçildi
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto">
+                              {Array.from(productImages).map((file, index) => (
+                                <div key={index} className="relative group">
+                                  <img 
+                                    src={URL.createObjectURL(file)} 
+                                    alt={file.name}
+                                    className="w-full h-16 object-cover rounded border"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newFiles = Array.from(productImages).filter((_, i) => i !== index);
+                                      setProductImages(newFiles.length > 0 ? newFiles as any : null);
+                                    }}
+                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -3242,46 +3651,111 @@ const MyAccount = () => {
               >
                 <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
                   <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                    Yorum Onaylama
+                    Yorum Yönetimi
                   </h2>
+
+                  {/* Filtreler */}
+                  <div className="mb-6">
+                    <div className="flex flex-wrap gap-3 mb-4">
+                      <button
+                        onClick={() => {
+                          setReviewStatusFilter('all');
+                          loadAllReviewsAdmin(1, 'all');
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          reviewStatusFilter === 'all'
+                            ? 'bg-blue text-white'
+                            : 'bg-gray hover:bg-gray-200'
+                        }`}
+                      >
+                        Tümü
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReviewStatusFilter('pending');
+                          loadAllReviewsAdmin(1, 'pending');
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          reviewStatusFilter === 'pending'
+                            ? 'bg-yellow text-white'
+                            : 'bg-gray hover:bg-gray-200'
+                        }`}
+                      >
+                        Bekleyen
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReviewStatusFilter('approved');
+                          loadAllReviewsAdmin(1, 'approved');
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          reviewStatusFilter === 'approved'
+                            ? 'bg-green text-white '
+                            : 'bg-gray hover:bg-gray'
+                        }`}
+                      >
+                        Onaylanmış
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReviewStatusFilter('rejected');
+                          loadAllReviewsAdmin(1, 'rejected');
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          reviewStatusFilter === 'rejected'
+                            ? 'bg-red text-white'
+                            : 'bg-gray hover:bg-gray'
+                        }`}
+                      >
+                        Reddedilmiş
+                      </button>
+                    </div>
+                  </div>
                   {reviewMessage && (
                     <div className="mb-4 p-3 rounded bg-blue-50 text-blue-700 border border-blue-200">
                       {reviewMessage}
                     </div>
                   )}
-                  {reviewsLoading ? (
+                  {adminReviewsLoading ? (
                     <div className="flex justify-center items-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
                     </div>
-                  ) : pendingReviews.length > 0 ? (
+                  ) : adminReviews.length > 0 ? (
                   <div className="space-y-4">
-                      {pendingReviews.map((review) => (
+                      {adminReviews.map((review) => (
                         <div key={review._id} className="border border-gray-3 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue rounded-full flex items-center justify-center">
-                                <span className="text-white font-medium">
-                                  {review.user?.firstName?.[0] || '?'}{review.user?.lastName?.[0] || ''}
-                                </span>
+                                                  <div>
+                            <h4 className="font-medium text-dark">
+                              {review.user?.profile?.firstName || 'İsimsiz'} {review.user?.profile?.lastName || 'Kullanıcı'} ({review.user?.email || 'Email yok'})
+                            </h4>
                           </div>
-                          <div>
-                                <h4 className="font-medium text-dark">
-                                  {review.user?.firstName} {review.user?.lastName}
-                                </h4>
-                                <p className="text-sm text-gray-500">{review.user?.email}</p>
-                          </div>
-                        </div>
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                          Bekliyor
+                        <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                          review.status === 'pending' 
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : review.status === 'approved'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {review.status === 'pending' ? 'Bekliyor' : 
+                           review.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
                         </span>
                       </div>
                       <div className="mb-3">
                         <div className="flex items-center mb-2">
-                          <div className="flex text-yellow-400">
+                          <div className="flex">
                                 {[...Array(5)].map((_, i) => (
-                                  <svg key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-gray-300'}`} viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                            </svg>
+                                  <svg 
+                                    key={i} 
+                                    className="w-4 h-4" 
+                                    viewBox="0 0 24 24"
+                                    style={{
+                                      fill: i < review.rating ? '#fbbf24' : '#d1d5db',
+                                      color: i < review.rating ? '#fbbf24' : '#d1d5db'
+                                    }}
+                                  >
+                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                  </svg>
                                 ))}
                               </div>
                               <span className="ml-2 text-sm text-gray-600">({review.rating}/5)</span>
@@ -3299,22 +3773,38 @@ const MyAccount = () => {
                             />
                             <span className="text-sm text-dark font-medium">{review.product?.name}</span>
                           </div>
-                          <div className="flex space-x-3 mt-4">
-                            <button
-                              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50"
-                              onClick={() => handleApproveReview(review._id)}
-                              disabled={reviewActionLoading === review._id}
-                            >
-                              {reviewActionLoading === review._id ? 'Onaylanıyor...' : 'Onayla'}
-                            </button>
-                            <button
-                              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
-                              onClick={() => handleRejectReview(review._id)}
-                              disabled={reviewActionLoading === review._id}
-                            >
-                              {reviewActionLoading === review._id ? 'Reddediliyor...' : 'Reddet'}
-                            </button>
-                          </div>
+                          {review.status === 'pending' && (
+                            <div className="flex space-x-3 mt-4">
+                              <button
+                                className="px-4 py-2 bg-green text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50"
+                                onClick={() => handleApproveReview(review._id)}
+                                disabled={reviewActionLoading === review._id}
+                              >
+                                {reviewActionLoading === review._id ? 'Onaylanıyor...' : 'Onayla'}
+                              </button>
+                              <button
+                                className="px-4 py-2 bg-red text-white rounded-md hover:bg-red-600 transition-colors disabled:opacity-50"
+                                onClick={() => handleRejectReview(review._id)}
+                                disabled={reviewActionLoading === review._id}
+                              >
+                                {reviewActionLoading === review._id ? 'Reddediliyor...' : 'Reddet'}
+                              </button>
+                            </div>
+                          )}
+                          
+                          {/* Onaylanmış veya reddedilmiş yorumlar için durum bilgisi */}
+                          {review.status !== 'pending' && (
+                            <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                              <p className="text-sm text-gray-600">
+                                <strong>Durum:</strong> {review.status === 'approved' ? 'Onaylandı' : 'Reddedildi'}
+                                {review.moderationNote && (
+                                  <span className="block mt-1">
+                                    <strong>Not:</strong> {review.moderationNote}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -3322,9 +3812,46 @@ const MyAccount = () => {
                     <div className="text-center py-12">
                       <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                      <h3 className="text-lg font-medium text-dark mb-2">Bekleyen yorum bulunmuyor</h3>
-                      <p className="text-gray-500">Şu anda onay bekleyen herhangi bir yorum yok.</p>
+                      </svg>
+                      <h3 className="text-lg font-medium text-dark mb-2">
+                        {reviewStatusFilter === 'all' ? 'Henüz yorum yok' :
+                         reviewStatusFilter === 'pending' ? 'Bekleyen yorum bulunmuyor' :
+                         reviewStatusFilter === 'approved' ? 'Onaylanmış yorum bulunmuyor' :
+                         'Reddedilmiş yorum bulunmuyor'}
+                      </h3>
+                      <p className="text-gray-500">
+                        {reviewStatusFilter === 'all' ? 'Henüz hiç yorum yapılmamış.' :
+                         reviewStatusFilter === 'pending' ? 'Şu anda onay bekleyen herhangi bir yorum yok.' :
+                         reviewStatusFilter === 'approved' ? 'Henüz onaylanmış yorum bulunmuyor.' :
+                         'Henüz reddedilmiş yorum bulunmuyor.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Sayfalama */}
+                  {adminReviews.length > 0 && (
+                    <div className="mt-6 flex justify-center">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => loadAllReviewsAdmin(adminReviewsPagination.currentPage - 1, reviewStatusFilter)}
+                          disabled={!adminReviewsPagination.hasPrevPage}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Önceki
+                        </button>
+                        
+                        <span className="px-3 py-2 text-sm text-gray-700">
+                          Sayfa {adminReviewsPagination.currentPage} / {adminReviewsPagination.totalPages}
+                        </span>
+                        
+                        <button
+                          onClick={() => loadAllReviewsAdmin(adminReviewsPagination.currentPage + 1, reviewStatusFilter)}
+                          disabled={!adminReviewsPagination.hasNextPage}
+                          className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Sonraki
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3412,7 +3939,7 @@ const MyAccount = () => {
                             <div className="relative">
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/jpeg,image/jpg,image/png,image/webp"
                                 onChange={handleCategoryImageChange}
                                 className="hidden"
                                 id="categoryImageInput"
@@ -3421,8 +3948,21 @@ const MyAccount = () => {
                               <label
                                 htmlFor="categoryImageInput"
                                 className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue transition-colors bg-gray-50 hover:bg-gray-100"
-                                onDrop={handleCategoryImageDrop}
-                                onDragOver={handleCategoryImageDragOver}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  const files = e.dataTransfer.files;
+                                  if (files.length > 0) {
+                                    processCategoryImage(files[0]);
+                                  }
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+                                }}
+                                onDragLeave={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50');
+                                }}
                               >
                                 <div className="text-center">
                                   <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3431,7 +3971,7 @@ const MyAccount = () => {
                                   <p className="text-sm text-gray-600">
                                     <span className="font-medium text-blue hover:text-blue-dark">Resim seç</span> veya sürükle bırak
                                   </p>
-                                  <p className="text-xs text-gray-500 mt-1">PNG, JPG, WebP, GIF (max. 5MB)</p>
+                                  <p className="text-xs text-gray-500 mt-1">JPEG, PNG, WebP (max. 10MB)</p>
                                 </div>
                               </label>
                             </div>
@@ -3979,15 +4519,15 @@ const MyAccount = () => {
                                       <span className="text-gray-400">-</span>
                                     </td>
                                     <td className="px-6 py-3 whitespace-nowrap">
-                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                        variant.stock === 0 ? 'bg-red-100 text-red-800' :
-                                        variant.stock <= 5 ? 'bg-yellow-100 text-yellow-800' :
-                                        'bg-green-100 text-green-800'
-                                      }`}>
-                                        {variant.stock === 0 ? 'Stok Tükendi' :
-                                         variant.stock <= 5 ? 'Düşük Stok' :
-                                         'Stokta'}
-                                      </span>
+                                                                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                      variant.stock === 0 ? 'bg-red-100 text-red-800' :
+                                      variant.stock <= (product.lowStockThreshold || 5) ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-green-100 text-green-800'
+                                    }`}>
+                                      {variant.stock === 0 ? 'Stok Tükendi' :
+                                       variant.stock <= (product.lowStockThreshold || 5) ? 'Düşük Stok' :
+                                       'Stokta'}
+                                    </span>
                                     </td>
                                                   <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex justify-end space-x-2">
@@ -5065,11 +5605,11 @@ const MyAccount = () => {
                                   type="button"
                                   onClick={() => handleSetMainImage(editProduct._id, image._id || '', index)}
                                   className={`p-2 rounded-full ${
-                                    image.isMain 
+                                    (image.isMain || image.isPrimary)
                                       ? 'bg-green-500 text-white' 
                                       : 'bg-white text-gray-700 hover:bg-green-500 hover:text-white'
                                   } transition-colors duration-200`}
-                                  title={image.isMain ? 'Ana resim' : 'Ana resim yap'}
+                                  title={(image.isMain || image.isPrimary) ? 'Ana resim' : 'Ana resim yap'}
                                 >
                                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -5079,12 +5619,12 @@ const MyAccount = () => {
                                   type="button"
                                   onClick={() => handleDeleteImage(editProduct._id, image._id || '')}
                                   className={`p-2 rounded-full transition-colors duration-200 ${
-                                    image.isMain 
+                                    (image.isMain || image.isPrimary)
                                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                                       : 'bg-white text-red-500 hover:bg-red-500 hover:text-white'
                                   }`}
-                                  title={image.isMain ? 'Ana resim silinemez' : 'Resmi sil'}
-                                  disabled={image.isMain}
+                                  title={(image.isMain || image.isPrimary) ? 'Ana resim silinemez' : 'Resmi sil'}
+                                  disabled={(image.isMain || image.isPrimary)}
                                 >
                                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -5095,7 +5635,7 @@ const MyAccount = () => {
                           </div>
                           <div className="mt-2 text-center">
                             <p className="text-xs text-gray-600 truncate">{image.alt || `Resim ${index + 1}`}</p>
-                            {image.isMain && (
+                            {(image.isMain || image.isPrimary) && (
                               <span className="inline-block mt-1 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
                                 Ana Resim
                               </span>

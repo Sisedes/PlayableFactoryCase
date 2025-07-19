@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import OrderActions from "./OrderActions";
 import OrderModal from "./OrderModal";
+import ReviewModal from "./ReviewModal";
 import Image from "next/image";
 
 const SingleOrder = ({ orderItem, smallView }: any) => {
   const [showDetails, setShowDetails] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
@@ -12,6 +15,16 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
 
   const toggleModal = (status: boolean) => {
     setShowDetails(status);
+  };
+
+  const handleReviewClick = (product: any) => {
+    setSelectedProduct(product);
+    setShowReviewModal(true);
+    setShowDetails(false); 
+  };
+
+  const handleReviewSubmitted = () => {
+    window.location.reload();
   };
 
   const getStatusText = (status: string) => {
@@ -61,6 +74,8 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
       ? `${names.slice(0, 2).join(', ')} ve ${names.length - 2} ürün daha`
       : names.join(', ');
   };
+
+  const isDelivered = (orderItem.fulfillment?.status || orderItem.status) === 'delivered';
 
   return (
     <>
@@ -157,7 +172,23 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
         showDetails={showDetails}
         toggleModal={toggleModal}
         order={orderItem}
+        onReviewClick={handleReviewClick}
+        isDelivered={isDelivered}
       />
+
+      {selectedProduct && (
+        <ReviewModal
+          isOpen={showReviewModal}
+          onClose={() => {
+            setShowReviewModal(false);
+            setSelectedProduct(null);
+            setShowDetails(true); 
+          }}
+          product={selectedProduct}
+          orderId={orderItem.orderNumber}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
     </>
   );
 };
