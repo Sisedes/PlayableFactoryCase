@@ -5,6 +5,7 @@ export { default as Cart } from '../Classes/Cart/cartModel';
 export { default as Order } from '../Classes/Order/orderModel';
 export { default as Review } from '../Classes/Review/reviewModel';
 export { default as UserActivity } from '../Classes/UserActivity/userActivityModel';
+export { default as Recommendation } from '../Classes/Recommendation/recommendationModel';
 export { default as StockHistory } from '../Classes/Product/stockHistoryModel';
 
 export * from '../types'; 

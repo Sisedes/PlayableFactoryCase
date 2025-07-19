@@ -12,7 +12,7 @@ interface BreadcrumbProps {
 const Breadcrumb: React.FC<BreadcrumbProps> = ({ title, pages }) => {
   return (
     <nav 
-      className="overflow-hidden shadow-breadcrumb pt-[209px] sm:pt-[155px] lg:pt-[95px] xl:pt-[165px]"
+      className="overflow-hidden shadow-breadcrumb pt-[209px] sm:pt-[155px] lg:pt-[95px] xl:pt-[165px] relative z-10"
       aria-label="Breadcrumb"
     >
       <div className="border-t border-gray-3">
@@ -29,7 +29,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ title, pages }) => {
               <li className="text-custom-sm">
                 <Link 
                   href="/" 
-                  className="hover:text-blue transition-colors duration-200"
+                  className="hover:text-blue transition-colors duration-200 cursor-pointer"
                   aria-label="Anasayfaya git"
                 >
                   Anasayfa
@@ -50,7 +50,7 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ title, pages }) => {
                     <>
                       <Link 
                         href={page.href}
-                        className="hover:text-blue transition-colors duration-200 capitalize"
+                        className="hover:text-blue transition-colors duration-200 capitalize cursor-pointer"
                         aria-label={`${page.name} sayfasına git`}
                       >
                         {page.name}

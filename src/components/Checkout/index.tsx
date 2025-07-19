@@ -719,30 +719,6 @@ const Checkout = () => {
                   </div>
                 )}
 
-                {/* <!-- form status --> */}
-                <div className="bg-gray-50 border border-gray-200 rounded-md p-4 mt-4">
-                  <p className="text-gray-800 text-sm">
-                    <strong>Form Durumu:</strong> {isValid ? 'Geçerli' : 'Geçersiz'} | 
-                    <strong> Sepet:</strong> {serverCart ? `${serverCart.items.length} ürün` : 'Yok'} | 
-                    <strong> Toplam:</strong> {serverCart ? `${serverCart.totals.total} TL` : '0 TL'}
-                  </p>
-                  
-                  {/* Debug bilgileri */}
-                  <details className="mt-2">
-                    <summary className="text-xs text-gray-600 cursor-pointer">Debug Bilgileri</summary>
-                    <div className="mt-2 text-xs">
-                      <p><strong>Selected Shipping Address:</strong> {selectedShippingAddress ? 'Seçili' : 'Seçili değil'}</p>
-                      <p><strong>Selected Billing Address:</strong> {selectedBillingAddress ? 'Seçili' : 'Seçili değil'}</p>
-                      <p><strong>Use Custom Address:</strong> {useCustomAddress ? 'Evet' : 'Hayır'}</p>
-                      <p><strong>Same As Shipping:</strong> {sameAsShipping ? 'Evet' : 'Hayır'}</p>
-                      <p><strong>Form Values:</strong></p>
-                      <pre className="bg-white p-2 rounded text-xs overflow-auto max-h-32">
-                        {JSON.stringify(watchedValues, null, 2)}
-                      </pre>
-                    </div>
-                  </details>
-                </div>
-
                 {/* <!-- checkout button --> */}
                 <button
                   type="submit"

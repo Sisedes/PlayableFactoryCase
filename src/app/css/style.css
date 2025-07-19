@@ -268,3 +268,72 @@ input[type='search']::-webkit-search-results-decoration {
   opacity: 1;
 }
 
+/* Recommendations Swiper Styles */
+.recommendations-swiper {
+  padding: 0 20px;
+}
+
+.recommendations-swiper .swiper-slide {
+  height: auto;
+  display: flex;
+}
+
+.recommendations-swiper .swiper-button-next,
+.recommendations-swiper .swiper-button-prev {
+  width: 40px;
+  height: 40px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #2563eb;
+  transition: all 0.3s ease;
+}
+
+.recommendations-swiper .swiper-button-next:hover,
+.recommendations-swiper .swiper-button-prev:hover {
+  background: #2563eb;
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.recommendations-swiper .swiper-button-next::after,
+.recommendations-swiper .swiper-button-prev::after {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.recommendations-swiper .swiper-pagination {
+  bottom: -30px;
+}
+
+.recommendations-swiper .swiper-pagination-bullet {
+  width: 8px;
+  height: 8px;
+  background: #d1d5db;
+  opacity: 1;
+  transition: all 0.3s ease;
+}
+
+.recommendations-swiper .swiper-pagination-bullet-active {
+  background: #2563eb;
+  transform: scale(1.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .recommendations-swiper {
+    padding: 0 10px;
+  }
+  
+  .recommendations-swiper .swiper-button-next,
+  .recommendations-swiper .swiper-button-prev {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .recommendations-swiper .swiper-button-next::after,
+  .recommendations-swiper .swiper-button-prev::after {
+    font-size: 14px;
+  }
+}
+

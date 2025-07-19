@@ -5,6 +5,7 @@ import NewArrivals from "./NewArrivals";
 import BestSeller from "./BestSeller";
 import RecentlyViewed from "@/components/RecentlyViewed";
 import Newsletter from "@/components/Common/Newsletter";
+import Recommendations from "./Recommendations";
 
 const Home = () => {
   return (
@@ -13,6 +14,7 @@ const Home = () => {
       <Categories />
       <NewArrivals />
       <BestSeller />
+      <Recommendations />
       <RecentlyViewed />
       <Newsletter />
     </>

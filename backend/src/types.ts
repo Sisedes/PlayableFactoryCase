@@ -258,6 +258,23 @@ export interface IUserActivity extends Document {
   createdAt: Date;
 }
 
+// ===== RECOMMENDATION TYPES =====
+export interface IRecommendation extends Document {
+  _id: Types.ObjectId;
+  type: 'popular' | 'similar' | 'frequently_bought' | 'personalized' | 'viewed_together';
+  productId: Types.ObjectId;
+  recommendedProducts: Types.ObjectId[];
+  metadata?: {
+    score?: number;
+    reason?: string;
+    category?: string;
+    tags?: string[];
+  };
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // ===== API RESPONSE TYPES =====
 export interface ApiResponse<T = any> {
   status: 'success' | 'error';

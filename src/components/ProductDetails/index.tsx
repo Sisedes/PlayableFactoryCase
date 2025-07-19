@@ -15,6 +15,7 @@ import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/serv
 import { incrementProductView } from "@/services/productService";
 import { useAuth } from "@/store/authStore";
 import { sortProductImages } from "@/utils/apiUtils";
+import ProductRecommendations from "./ProductRecommendations";
 // import { toast } from "react-hot-toast";
 
 interface ProductDetailsProps {
@@ -751,6 +752,9 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
           </div>
         </div>
       </section>
+
+      {/* Ürün Önerileri */}
+      <ProductRecommendations productId={product._id} />
     </>
   );
 };

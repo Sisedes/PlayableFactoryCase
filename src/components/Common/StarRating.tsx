@@ -15,6 +15,9 @@ const StarRating: React.FC<StarRatingProps> = ({
   showCount = true,
   className = ''
 }) => {
+  
+  const safeRating = rating !== undefined && rating !== null ? rating : 0;
+  const safeReviewCount = reviewCount !== undefined && reviewCount !== null ? reviewCount : 0;
   const sizeClasses = {
     sm: 'w-3 h-3',
     md: 'w-4 h-4', 
@@ -29,8 +32,8 @@ const StarRating: React.FC<StarRatingProps> = ({
 
   const renderStars = () => {
     const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
+    const fullStars = Math.floor(safeRating);
+    const hasHalfStar = safeRating % 1 !== 0;
 
     for (let i = 0; i < fullStars; i++) {
       stars.push(
@@ -86,7 +89,7 @@ const StarRating: React.FC<StarRatingProps> = ({
       {renderStars()}
       {showCount && (
         <span className={`${textSizeClasses[size]} text-gray-600 ml-1`}>
-          ({reviewCount})
+          ({safeReviewCount})
         </span>
       )}
     </div>

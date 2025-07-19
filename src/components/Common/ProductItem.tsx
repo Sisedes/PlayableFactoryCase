@@ -147,12 +147,12 @@ const ProductItem = ({ item }: { item: Product }) => {
 
         {/* Stok durumu - Sağ üst köşe */}
         <div className="absolute top-3 right-3 z-10">
-          {item.stock && item.stock > 0 ? (
+          {item.stock !== undefined && item.stock !== null && item.stock > 0 ? (
             <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-green rounded-md shadow-sm">
               Stokta
             </span>
           ) : (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold bg-gray rounded-md shadow-sm">
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-gray rounded-md shadow-sm">
               Tükendi
             </span>
           )}
@@ -207,14 +207,14 @@ const ProductItem = ({ item }: { item: Product }) => {
 
           <button
             onClick={handleAddToCart}
-            disabled={item.stock === 0}
+            disabled={item.stock === 0 || item.stock === undefined || item.stock === null}
             className={`inline-flex font-medium text-xs sm:text-custom-sm py-1.5 sm:py-[7px] px-3 sm:px-5 rounded-[5px] ease-out duration-200 ${
-              item.stock > 0 
+              item.stock !== undefined && item.stock !== null && item.stock > 0 
                 ? 'bg-blue text-white hover:bg-blue-dark' 
                 : 'bg-gray-400 text-gray-600 cursor-not-allowed'
             }`}
           >
-            {item.stock > 0 ? 'Sepete Ekle' : 'Stokta Yok'}
+            {item.stock !== undefined && item.stock !== null && item.stock > 0 ? 'Sepete Ekle' : 'Stokta Yok'}
           </button>
 
           <button
@@ -260,8 +260,8 @@ const ProductItem = ({ item }: { item: Product }) => {
 
       <div className="flex items-center gap-2 sm:gap-2.5 mb-2">
         <StarRating 
-          rating={item.averageRating || 0} 
-          reviewCount={item.reviewCount || 0}
+          rating={item.averageRating !== undefined && item.averageRating !== null ? item.averageRating : 0} 
+          reviewCount={item.reviewCount !== undefined && item.reviewCount !== null ? item.reviewCount : 0}
           size="sm"
         />
       </div>
@@ -283,7 +283,7 @@ const ProductItem = ({ item }: { item: Product }) => {
           <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
           <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
         </svg>
-        <span>{item.viewCount || 0} görüntüleme</span>
+        <span>{item.viewCount !== undefined && item.viewCount !== null ? item.viewCount : 0} görüntüleme</span>
       </div>
 
       {item.tags && item.tags.length > 0 && (

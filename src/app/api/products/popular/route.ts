@@ -3,17 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 /**
- * @desc    Get popular products
- * @route   GET /api/products/popular
- * @access  Public
+ * @desc    
+ * @route   get /api/products/popular
+ * @access  
  */
 export async function GET(request: NextRequest) {
   try {
-    // Query params (limit)
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') || '8';
 
-    // Backend'den popüler ürünleri fetch et
     const response = await fetch(`${BACKEND_URL}/api/products/popular?limit=${limit}`, {
       method: 'GET',
       headers: {
@@ -21,7 +19,7 @@ export async function GET(request: NextRequest) {
         'User-Agent': 'NextJS-Frontend/1.0',
       },
       next: {
-        revalidate: 300, // 5 dakika cache (popüler ürünler sık değişmez)
+        revalidate: 300, 
       },
     });
 
@@ -38,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    // Response headers
+    
     const headers = new Headers();
     headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
     headers.set('X-API-Source', 'NextJS-Proxy');
