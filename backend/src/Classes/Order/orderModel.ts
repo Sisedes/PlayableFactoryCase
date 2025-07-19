@@ -3,7 +3,7 @@ import { IOrder, IOrderItem, IAddress } from '../../types';
 
 const addressSchema = new Schema<IAddress>({
   type: { type: String, enum: ['home', 'work', 'other'], default: 'home' },
-  title: { type: String, required: true, trim: true },
+  title: { type: String, required: false, trim: true, default: 'Teslimat Adresi' },
   firstName: { type: String, required: true, trim: true },
   lastName: { type: String, required: true, trim: true },
   company: { type: String, trim: true },

@@ -42,6 +42,14 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         }
       },
       {
+        $lookup: {
+          from: 'reviews',
+          localField: '_id',
+          foreignField: 'productId',
+          as: 'reviews'
+        }
+      },
+      {
         $addFields: {
           totalSold: {
             $sum: {
@@ -65,6 +73,13 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
                 }
               }
             }
+          },
+          averageRating: {
+            $cond: {
+              if: { $gt: [{ $size: '$reviews' }, 0] },
+              then: { $avg: '$reviews.rating' },
+              else: 0
+            }
           }
         }
       },
@@ -86,6 +101,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
           salePrice: 1,
           images: 1,
           totalSold: 1,
+          averageRating: 1,
           category: { $arrayElemAt: ['$category.name', 0] }
         }
       }

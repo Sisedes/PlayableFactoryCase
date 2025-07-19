@@ -21,11 +21,15 @@ const ShopWithoutSidebar = () => {
     <>
       <Breadcrumb
         title={"Explore All Products"}
-        pages={["shop", "/", "shop without sidebar"]}
+        pages={[
+          { name: "shop", href: "/shop" },
+          { name: "/", href: "/" },
+          { name: "shop without sidebar", href: "/shop-without-sidebar" },
+        ]}
       />
-      <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6]">
-        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-          <div className="flex gap-7.5">
+      <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-gray-100">
+        <div className="max-w-screen-xl w-full mx-auto px-4 sm:px-8 xl:px-0">
+          <div className="flex gap-8">
             {/* // <!-- Content Start --> */}
             <div className="w-full">
               <div className="rounded-lg bg-white shadow-1 pl-3 pr-2.5 py-2.5 mb-6">

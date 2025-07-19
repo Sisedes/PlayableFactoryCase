@@ -89,12 +89,18 @@ export interface ProductAttribute {
 }
 
 export interface ProductVariant {
-  id: string;
+  _id?: string;
   name: string;
-  type: 'size' | 'color' | 'material';
+  options: Array<{
+    name: string;
   value: string;
-  priceModifier?: number;
-  stockModifier?: number;
+  }>;
+  sku: string;
+  price?: number;
+  salePrice?: number;
+  stock: number;
+  image?: string;
+  isDefault: boolean;
 }
 
 // Category Management Types
@@ -124,6 +130,15 @@ export interface CartItem {
   price: number;
   discountedPrice?: number;
   subtotal: number;
+  variant?: {
+    id: string;
+    name: string;
+    sku: string;
+    options: Array<{
+      name: string;
+      value: string;
+    }>;
+  };
 }
 
 export interface Cart {
@@ -360,8 +375,36 @@ export interface DashboardStats {
   totalOrders: number;
   totalCustomers: number;
   totalProducts: number;
-  recentOrders: Order[];
-  popularProducts: Product[];
+  newCustomersThisMonth: number;
+  monthlySales: number;
+  recentOrders: Array<{
+    _id: string;
+    orderNumber: string;
+    customerInfo: {
+      firstName: string;
+      lastName: string;
+    };
+    pricing: {
+      total: number;
+    };
+    fulfillment: {
+      status: string;
+    };
+    createdAt: string;
+  }>;
+  popularProducts: Array<{
+    _id: string;
+    name: string;
+    price: number;
+    salePrice?: number;
+    images: Array<{
+      url: string;
+      alt: string;
+    }>;
+    category: string;
+    totalSold: number;
+    averageRating?: number;
+  }>;
   salesChart: ChartData[];
   orderStatusDistribution: StatusDistribution[];
 }

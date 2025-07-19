@@ -10,7 +10,7 @@ const isLocalRequest = (req: Request): boolean => {
 
 export const rateLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), 
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '1000' : '200')), 
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '5000' : '200')), 
   message: {
     status: 'error',
     message: 'Too many requests from this IP, please try again later.',
@@ -24,7 +24,7 @@ export const rateLimiter = rateLimit({
 
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: isDevelopment ? 50 : 10, 
+  max: isDevelopment ? 100 : 10, 
   message: {
     status: 'error',
     message: 'Too many authentication attempts, please try again later.',
@@ -39,7 +39,7 @@ export const authRateLimiter = rateLimit({
 
 export const passwordResetRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, 
-  max: isDevelopment ? 20 : 5, 
+  max: isDevelopment ? 50 : 5, 
   message: {
     status: 'error',
     message: 'Too many password reset attempts, please try again later.',
@@ -53,7 +53,7 @@ export const passwordResetRateLimiter = rateLimit({
 
 export const uploadRateLimiter = rateLimit({
   windowMs: 60 * 1000, 
-  max: isDevelopment ? 50 : 20, 
+  max: isDevelopment ? 100 : 20, 
   message: {
     status: 'error',
     message: 'Too many upload attempts, please try again later.',

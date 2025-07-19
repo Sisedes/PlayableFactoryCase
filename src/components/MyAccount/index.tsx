@@ -65,6 +65,7 @@ import UpdateStockModal from "../StockManagement/UpdateStockModal";
 import UpdateVariantStockModal from "../StockManagement/UpdateVariantStockModal";
 import LowStockAlerts from "../StockManagement/LowStockAlerts";
 import VariationModal from "../ProductVariations/VariationModal";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import axios from "axios";
 
 interface LocalCategory {
@@ -150,7 +151,6 @@ const MyAccount = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   
-  // Varyasyon yönetimi state'leri
   const [variationModal, setVariationModal] = useState(false);
   const [selectedProductForVariation, setSelectedProductForVariation] = useState<LocalProduct | null>(null);
   const [productVariants, setProductVariants] = useState<any[]>([]);
@@ -164,11 +164,13 @@ const MyAccount = () => {
     description: '',
     stock: '',
     sku: '',
-    status: 'active'
+    status: 'active',
+    tags: [] as string[]
   });
   const [applyDiscount, setApplyDiscount] = useState(false);
   const [productImages, setProductImages] = useState<FileList | null>(null);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [tagInput, setTagInput] = useState('');
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressLoading, setAddressLoading] = useState(false);
@@ -346,6 +348,30 @@ const MyAccount = () => {
     setProductImages(e.target.files);
   };
 
+  const handleAddTag = () => {
+    if (tagInput.trim() && !productForm.tags.includes(tagInput.trim())) {
+      setProductForm(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagInput.trim()]
+      }));
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setProductForm(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const handleTagInputKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -386,6 +412,9 @@ const MyAccount = () => {
       formData.append('stock', productForm.stock);
       if (productForm.sku) formData.append('sku', productForm.sku);
       formData.append('status', productForm.status);
+      if (productForm.tags.length > 0) {
+        formData.append('tags', JSON.stringify(productForm.tags));
+      }
       
       if (productImages) {
         for (let i = 0; i < productImages.length; i++) {
@@ -413,7 +442,8 @@ const MyAccount = () => {
           description: '',
           stock: '',
           sku: '',
-          status: 'active'
+          status: 'active',
+          tags: []
         });
         setApplyDiscount(false);
         setProductImages(null);
@@ -910,7 +940,6 @@ const MyAccount = () => {
     }
   };
 
-  // Varyasyon yönetimi fonksiyonları
   const handleOpenVariationModal = async (product: LocalProduct) => {
     if (!accessToken) return;
     
@@ -933,7 +962,7 @@ const MyAccount = () => {
     }
   };
 
-  const handleSaveVariations = async (variants: any[]) => {
+  const handleSaveVariations = async (variants: any[], selectedFiles?: { [key: string]: File }) => {
     if (!accessToken || !selectedProductForVariation) return;
     
     setVariationLoading(true);
@@ -942,7 +971,8 @@ const MyAccount = () => {
       const response = await updateProductVariants(
         selectedProductForVariation._id, 
         variants, 
-        accessToken
+        accessToken,
+        selectedFiles
       );
       
       if (response.success) {
@@ -951,7 +981,6 @@ const MyAccount = () => {
         setSelectedProductForVariation(null);
         setProductVariants([]);
         
-        // Ürün listesini yenile
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
@@ -988,7 +1017,6 @@ const MyAccount = () => {
     try {
       const response = await deleteProductImage(productId, imageId, accessToken);
       if (response.success) {
-        // Popup'ta anında güncelleme
         if (editProduct && editProduct._id === productId) {
           const updatedImages = editProduct.images.filter(img => img._id !== imageId);
           setEditProduct({
@@ -1420,7 +1448,7 @@ const MyAccount = () => {
       const result = await response.json();
       if (result.success) {
         alert('Test varyasyonlu ürün oluşturuldu!');
-        // Ürün listesini yenile
+
         const productsResponse = await getAllProductsForAdmin({}, accessToken);
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
@@ -1616,27 +1644,24 @@ const MyAccount = () => {
           { name: "Hesabım" }
         ]} />
 
-      <section className="overflow-hidden py-20 bg-gray-2">
-        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-          <div className="flex flex-col xl:flex-row gap-7.5">
+      <section className="overflow-hidden py-8 sm:py-12 lg:py-20 bg-gray-2">
+        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
+          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
             {/* <!--== user dashboard menu start ==--> */}
-            <div className="xl:max-w-[370px] w-full bg-white rounded-xl shadow-1">
-              <div className="flex xl:flex-col">
-
-                <div className="p-4 sm:p-7.5 xl:p-9">
-                  <div className="flex flex-wrap xl:flex-nowrap xl:flex-col gap-4">
+            <div className="lg:max-w-[320px] xl:max-w-[370px] w-full bg-white rounded-xl shadow-1">
+              <div className="flex lg:flex-col">
+                <div className="p-4 sm:p-6 lg:p-8 xl:p-9">
+                  <div className="flex flex-wrap lg:flex-nowrap lg:flex-col gap-2 sm:gap-3 lg:gap-4">
                     <button
                       onClick={() => setActiveTab("favorites")}
-                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
                         activeTab === "favorites"
                           ? "text-white bg-blue"
                           : "text-dark-2 bg-gray-1"
                       }`}
                     >
                       <svg
-                        className="fill-current"
-                        width="22"
-                        height="22"
+                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
                         viewBox="0 0 22 22"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -1646,20 +1671,19 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                      Favorilerim
+                      <span className="hidden sm:inline">Favorilerim</span>
+                      <span className="sm:hidden">Favoriler</span>
                     </button>
                     <button
                       onClick={() => setActiveTab("orders")}
-                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
                         activeTab === "orders"
                           ? "text-white bg-blue"
                           : "text-dark-2 bg-gray-1"
                       }`}
                     >
                       <svg
-                        className="fill-current"
-                        width="22"
-                        height="22"
+                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
                         viewBox="0 0 22 22"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -1683,7 +1707,8 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                      Siparişlerim
+                      <span className="hidden sm:inline">Siparişlerim</span>
+                      <span className="sm:hidden">Siparişler</span>
                     </button>
 
                     <button
@@ -1753,16 +1778,14 @@ const MyAccount = () => {
                       <>
                     <button
                           onClick={() => setActiveTab("dashboard")}
-                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
                             activeTab === "dashboard"
                           ? "text-white bg-blue"
                           : "text-dark-2 bg-gray-1"
                       }`}
                     >
                       <svg
-                        className="fill-current"
-                        width="22"
-                        height="22"
+                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
                         viewBox="0 0 22 22"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
@@ -1784,7 +1807,8 @@ const MyAccount = () => {
                           fill=""
                         />
                       </svg>
-                          Yönetici Paneli
+                          <span className="hidden sm:inline">Yönetici Paneli</span>
+                          <span className="sm:hidden">Panel</span>
                     </button>
 
                         <button
@@ -2016,30 +2040,6 @@ const MyAccount = () => {
                         </button>
 
                         <button
-                          onClick={() => setActiveTab("advanced-reports")}
-                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                            activeTab === "advanced-reports"
-                              ? "text-white bg-blue"
-                              : "text-dark-2 bg-gray-1"
-                          }`}
-                        >
-                          <svg
-                            className="fill-current"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 22 22"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                              fill=""
-                            />
-                          </svg>
-                          Gelişmiş Raporlar
-                        </button>
-
-                        <button
                           onClick={() => setActiveTab("bulk-operations")}
                           className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
                             activeTab === "bulk-operations"
@@ -2248,7 +2248,14 @@ const MyAccount = () => {
                 activeTab === "orders" ? "block" : "hidden"
               }`}
             >
-              <Orders />
+              <div className="p-4 sm:p-7.5 xl:p-10">
+                <div className="flex items-center justify-between mb-7">
+                  <h2 className="font-medium text-xl sm:text-2xl text-dark">
+                    Siparişlerim
+                  </h2>
+                </div>
+                <Orders />
+              </div>
             </div>
             {/* <!-- orders tab content end -->
 
@@ -2556,19 +2563,19 @@ const MyAccount = () => {
           <!-- add product tab content start --> */}
             {isAdmin && (
               <div
-                className={`xl:max-w-[770px] w-full ${
+                className={`lg:max-w-[770px] w-full ${
                   activeTab === "add-product" ? "block" : "hidden"
                 }`}
               >
-                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
-                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-6 lg:p-8 xl:p-8.5">
+                  <h2 className="font-medium text-lg sm:text-xl lg:text-2xl text-dark mb-6 sm:mb-7">
                     Yeni Ürün Ekle
                   </h2>
                   
-                  <form className="space-y-6" onSubmit={handleProductSubmit}>
+                  <form className="space-y-4 sm:space-y-6" onSubmit={handleProductSubmit}>
                     {/* Ürün Adı */}
                     <div>
-                      <label className="block mb-2.5 text-dark font-medium">
+                      <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
                         Ürün Adı <span className="text-red">*</span>
                       </label>
                       <input
@@ -2577,7 +2584,7 @@ const MyAccount = () => {
                         value={productForm.name}
                         onChange={handleProductFormChange}
                         placeholder="Ürün adını girin"
-                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base"
                         required
                         disabled={submitLoading}
                       />
@@ -2585,14 +2592,14 @@ const MyAccount = () => {
 
                     {/* Kategori Seçimi */}
                     <div>
-                      <label className="block mb-2.5 text-dark font-medium">
+                      <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
                         Kategori <span className="text-red">*</span>
                       </label>
                       <select 
                         name="category"
                         value={productForm.category}
                         onChange={handleProductFormChange}
-                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base"
                         required
                         disabled={submitLoading}
                       >
@@ -2606,9 +2613,9 @@ const MyAccount = () => {
                     </div>
 
                     {/* Fiyat */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                       <div>
-                        <label className="block mb-2.5 text-dark font-medium">
+                        <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
                           Fiyat (₺) <span className="text-red">*</span>
                         </label>
                         <input
@@ -2619,14 +2626,14 @@ const MyAccount = () => {
                           step="0.01"
                           min="0"
                           placeholder="0.00"
-                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base"
                           required
                           disabled={submitLoading}
                         />
                       </div>
                       
                       <div>
-                        <div className="flex items-center mb-2.5">
+                        <div className="flex items-center mb-2 sm:mb-2.5">
                           <input
                             type="checkbox"
                             id="applyDiscount"
@@ -2635,7 +2642,7 @@ const MyAccount = () => {
                             className="h-4 w-4 text-blue border-gray-300 rounded focus:ring-blue"
                             disabled={submitLoading}
                           />
-                          <label htmlFor="applyDiscount" className="ml-2 text-dark font-medium">
+                          <label htmlFor="applyDiscount" className="ml-2 text-dark font-medium text-sm sm:text-base">
                             İndirim Uygula
                         </label>
                         </div>
@@ -2647,13 +2654,13 @@ const MyAccount = () => {
                           step="0.01"
                           min="0"
                           placeholder="0.00"
-                          className={`w-full rounded-lg border border-gray-3 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white ${
+                          className={`w-full rounded-lg border border-gray-3 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base ${
                             applyDiscount ? 'bg-gray-1' : 'bg-gray-100'
                           }`}
                           disabled={submitLoading || !applyDiscount}
                         />
                         {applyDiscount && (
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className="text-xs sm:text-sm text-gray-500 mt-1">
                             İndirimli fiyat normal fiyattan düşük olmalıdır
                           </p>
                         )}
@@ -2662,7 +2669,7 @@ const MyAccount = () => {
 
                     {/* Açıklama */}
                     <div>
-                      <label className="block mb-2.5 text-dark font-medium">
+                      <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
                         Ürün Açıklaması <span className="text-red">*</span>
                       </label>
                       <textarea
@@ -2671,16 +2678,16 @@ const MyAccount = () => {
                         onChange={handleProductFormChange}
                         rows={4}
                         placeholder="Ürün açıklamasını girin"
-                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white resize-none"
+                        className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white resize-none text-sm sm:text-base"
                         required
                         disabled={submitLoading}
                       />
                     </div>
 
                     {/* Stok */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                       <div>
-                        <label className="block mb-2.5 text-dark font-medium">
+                        <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
                           Stok Miktarı <span className="text-red">*</span>
                         </label>
                         <input
@@ -2690,14 +2697,14 @@ const MyAccount = () => {
                           onChange={handleProductFormChange}
                           min="0"
                           placeholder="0"
-                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base"
                           required
                           disabled={submitLoading}
                         />
                       </div>
                       
                       <div>
-                        <label className="block mb-2.5 text-dark font-medium">
+                        <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
                           SKU Kodu
                         </label>
                         <input
@@ -2706,9 +2713,64 @@ const MyAccount = () => {
                           value={productForm.sku}
                           onChange={handleProductFormChange}
                           placeholder="SKU123"
-                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-3 px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white"
+                          className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base"
                           disabled={submitLoading}
                         />
+                      </div>
+                    </div>
+
+                    {/* Etiketler */}
+                    <div>
+                      <label className="block mb-2 sm:mb-2.5 text-dark font-medium text-sm sm:text-base">
+                        Etiketler
+                      </label>
+                      <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="text"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyPress={handleTagInputKeyPress}
+                            placeholder="Etiket ekleyin (Enter ile ekleyin)"
+                            className="flex-1 rounded-lg border border-gray-3 bg-gray-1 py-2.5 sm:py-3 px-3 sm:px-4 text-dark outline-none transition-all focus:border-blue focus:bg-white text-sm sm:text-base"
+                            disabled={submitLoading}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddTag}
+                            disabled={submitLoading || !tagInput.trim()}
+                            className="px-3 sm:px-4 py-2.5 sm:py-3 bg-blue text-white rounded-lg hover:bg-blue-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm sm:text-base"
+                          >
+                            Ekle
+                          </button>
+                        </div>
+                        
+                        {productForm.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {productForm.tags.map((tag, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                              >
+                                {tag}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTag(tag)}
+                                  disabled={submitLoading}
+                                  className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <p className="text-sm text-gray-500">
+                          Etiketler ürün arama ve filtreleme için kullanılır. Enter tuşu ile hızlıca ekleyebilirsiniz.
+                        </p>
                       </div>
                     </div>
 
@@ -2793,15 +2855,15 @@ const MyAccount = () => {
                       </div>
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                       <button
                         type="submit"
                         disabled={submitLoading}
-                        className="inline-flex items-center justify-center font-medium text-white bg-blue py-3 px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center font-medium text-white bg-blue py-2.5 sm:py-3 px-5 sm:px-7 rounded-md ease-out duration-200 hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                       >
                         {submitLoading ? (
                           <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin -ml-1 mr-2 sm:mr-3 h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -2814,7 +2876,7 @@ const MyAccount = () => {
                       <button
                         type="button"
                         disabled={submitLoading}
-                        className="inline-flex font-medium text-dark bg-gray-1 border border-gray-3 py-3 px-7 rounded-md ease-out duration-200 hover:bg-gray-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex font-medium text-dark bg-gray-1 border border-gray-3 py-2.5 sm:py-3 px-5 sm:px-7 rounded-md ease-out duration-200 hover:bg-gray-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                         onClick={() => {
                           setProductForm({
                             name: '',
@@ -2824,9 +2886,11 @@ const MyAccount = () => {
                             description: '',
                             stock: '',
                             sku: '',
-                            status: 'active'
+                            status: 'active',
+                            tags: []
                           });
                           setProductImages(null);
+                          setTagInput('');
                         }}
                       >
                         İptal
@@ -3017,6 +3081,9 @@ const MyAccount = () => {
                                       Stok
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Etiketler
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                       Durum
                                     </th>
                                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -3081,6 +3148,27 @@ const MyAccount = () => {
                                             <div className="text-xs text-purple-600 mt-1">
                                               {product.variants.length} varyasyon
                                             </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <div className="flex flex-wrap gap-1">
+                                          {product.tags && product.tags.length > 0 ? (
+                                            product.tags.slice(0, 2).map((tag, index) => (
+                                              <span
+                                                key={index}
+                                                className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full"
+                                              >
+                                                {tag}
+                                              </span>
+                                            ))
+                                          ) : (
+                                            <span className="text-xs text-gray-400">Etiket yok</span>
+                                          )}
+                                          {product.tags && product.tags.length > 2 && (
+                                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                                              +{product.tags.length - 2}
+                                            </span>
                                           )}
                                         </div>
                                       </td>
@@ -3931,220 +4019,6 @@ const MyAccount = () => {
             )}
             {/* <!-- stock management tab content end -->
 
-            {/* <!-- advanced reports tab content start --> */}
-            {isAdmin && (
-              <div
-                className={`xl:max-w-[770px] w-full ${
-                  activeTab === "advanced-reports" ? "block" : "hidden"
-                }`}
-              >
-                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
-                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                    Gelişmiş Raporlar
-                  </h2>
-
-                  {/* Rapor Filtreleri */}
-                  <div className="mb-8 bg-gray-50 p-4 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Rapor Türü</label>
-                        <select
-                          value={reportType}
-                          onChange={(e) => setReportType(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="sales">Satış Raporları</option>
-                          <option value="customers">Müşteri Raporları</option>
-                          <option value="products">Ürün Raporları</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Dönem</label>
-                        <select
-                          value={reportPeriod}
-                          onChange={(e) => setReportPeriod(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="7days">Son 7 Gün</option>
-                          <option value="30days">Son 30 Gün</option>
-                          <option value="90days">Son 90 Gün</option>
-                          <option value="custom">Özel Tarih</option>
-                        </select>
-                      </div>
-                      {reportPeriod === 'custom' && (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Başlangıç</label>
-                            <input
-                              type="date"
-                              value={dateRange.startDate}
-                              onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Bitiş</label>
-                            <input
-                              type="date"
-                              value={dateRange.endDate}
-                              onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {reportLoading ? (
-                    <div className="flex justify-center items-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
-                    </div>
-                  ) : reportData ? (
-                    <div className="space-y-8">
-                      {/* Özet Kartları */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-blue-100 text-sm">Toplam</p>
-                              <p className="text-2xl font-bold">
-                                {reportType === 'sales' ? `${reportData.sales.total.toLocaleString('tr-TR')}₺` :
-                                 reportType === 'customers' ? reportData.customers.total :
-                                 reportData.products.total}
-                              </p>
-                            </div>
-                            <div className="bg-blue-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                              </svg>
-                            </div>
-                          </div>
-                          <div className="mt-4">
-                            <span className={`text-sm ${reportData[reportType].change >= 0 ? 'text-green-200' : 'text-red-200'}`}>
-                              {reportData[reportType].change >= 0 ? '+' : ''}{reportData[reportType].change}%
-                            </span>
-                            <span className="text-blue-100 text-sm ml-2">geçen döneme göre</span>
-                          </div>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-green-100 text-sm">Ortalama</p>
-                              <p className="text-2xl font-bold">
-                                {reportType === 'sales' ? `${(reportData.sales.total / 7).toFixed(0)}₺` :
-                                 reportType === 'customers' ? Math.round(reportData.customers.total / 7) :
-                                 Math.round(reportData.products.total / 7)}
-                              </p>
-                            </div>
-                            <div className="bg-green-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                              </svg>
-                            </div>
-                          </div>
-                          <p className="text-green-100 text-sm mt-2">günlük ortalama</p>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-purple-100 text-sm">En Yüksek</p>
-                              <p className="text-2xl font-bold">
-                                {reportType === 'sales' ? `${Math.max(...reportData.sales.data.map(d => d.value)).toLocaleString('tr-TR')}₺` :
-                                 reportType === 'customers' ? Math.max(...reportData.customers.data.map(d => d.value)) :
-                                 Math.max(...reportData.products.data.map(d => d.value))}
-                              </p>
-                            </div>
-                            <div className="bg-purple-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                              </svg>
-                            </div>
-                          </div>
-                          <p className="text-purple-100 text-sm mt-2">tek günlük rekor</p>
-                        </div>
-                      </div>
-
-                      {/* Grafik */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-medium text-dark mb-4">
-                          {reportType === 'sales' ? 'Satış Trendi' :
-                           reportType === 'customers' ? 'Müşteri Artışı' :
-                           'Ürün Performansı'}
-                        </h3>
-                        <div className="h-64 flex items-end justify-between space-x-2">
-                          {reportData[reportType].data.map((day: any, index: number) => (
-                            <div key={index} className="flex-1 flex flex-col items-center">
-                              <div 
-                                className="w-full bg-blue-500 rounded-t"
-                                style={{ 
-                                  height: `${(day.value / Math.max(...reportData[reportType].data.map((d: any) => d.value))) * 200}px` 
-                                }}
-                              ></div>
-                              <p className="text-xs text-gray-500 mt-2">
-                                {new Date(day.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Detaylı Tablo */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-medium text-dark mb-4">Detaylı Veriler</h3>
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  {reportType === 'sales' ? 'Satış' :
-                                   reportType === 'customers' ? 'Müşteri' :
-                                   'Ürün'}
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Değişim</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {reportData[reportType].data.map((day: any, index: number) => {
-                                const prevValue = index > 0 ? reportData[reportType].data[index - 1].value : 0;
-                                const change = prevValue > 0 ? ((day.value - prevValue) / prevValue) * 100 : 0;
-                                
-                                return (
-                                  <tr key={index} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                      {new Date(day.date).toLocaleDateString('tr-TR')}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                      {reportType === 'sales' ? `${day.value.toLocaleString('tr-TR')}₺` : day.value}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                        change >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                      }`}>
-                                        {change >= 0 ? '+' : ''}{change.toFixed(1)}%
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <p className="text-gray-500">Rapor verileri yüklenemedi.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {/* <!-- advanced reports tab content end -->
-
             {/* <!-- bulk operations tab content start --> */}
             {isAdmin && (
               <div
@@ -4444,73 +4318,96 @@ const MyAccount = () => {
           <!-- admin dashboard tab content start --> */}
             {isAdmin && (
               <div
-                className={`xl:max-w-[770px] w-full ${
+                className={`lg:max-w-[770px] w-full ${
                   activeTab === "dashboard" ? "block" : "hidden"
                 }`}
               >
-                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
-                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                    Yönetici Paneli
-                  </h2>
+                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-6 lg:p-8 xl:p-8.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
+                    <div>
+                      <h2 className="font-medium text-lg sm:text-xl lg:text-2xl text-dark">
+                        Yönetici Paneli
+                      </h2>
+                      <p className="text-gray-600 text-sm sm:text-base mt-1">
+                        Mağaza performansınızı takip edin ve yönetin
+                      </p>
+                    </div>
+                    <div className="mt-4 sm:mt-0">
+                      <button
+                        onClick={loadDashboardStats}
+                        disabled={dashboardLoading}
+                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span className="font-medium">{dashboardLoading ? 'Yenileniyor...' : 'Yenile'}</span>
+                      </button>
+                    </div>
+                  </div>
                   
                   {dashboardLoading ? (
                     <div className="flex justify-center items-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
                     </div>
                   ) : dashboardStats ? (
-                    <div className="space-y-8">
+                    <div className="space-y-6 sm:space-y-8">
                       {/* İstatistik Kartları */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 sm:p-6 shadow-lg">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-blue-100 text-sm">Toplam Satış</p>
-                              <p className="text-2xl font-bold">{dashboardStats.totalSales.toLocaleString('tr-TR')}₺</p>
+                              <p className="text-blue-100 text-xs sm:text-sm font-medium">Toplam Satış</p>
+                              <p className="text-lg sm:text-xl lg:text-2xl font-bold drop-shadow-sm">{dashboardStats.totalSales.toLocaleString('tr-TR')}₺</p>
+                              <p className="text-blue-100 text-xs mt-1">Tüm zamanlar</p>
                             </div>
-                            <div className="bg-blue-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3">
+                              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                            </svg>
+                              </svg>
                             </div>
                           </div>
                         </div>
 
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 sm:p-6 shadow-lg">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-green-100 text-sm">Toplam Sipariş</p>
-                              <p className="text-2xl font-bold">{dashboardStats.totalOrders}</p>
+                              <p className="text-green-100 text-xs sm:text-sm font-medium">Toplam Sipariş</p>
+                              <p className="text-lg sm:text-xl lg:text-2xl font-bold drop-shadow-sm">{dashboardStats.totalOrders}</p>
+                              <p className="text-green-100 text-xs mt-1">Tüm siparişler</p>
                             </div>
-                            <div className="bg-green-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3">
+                              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                            </svg>
+                              </svg>
                             </div>
                           </div>
                         </div>
 
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 sm:p-6 shadow-lg">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-purple-100 text-sm">Toplam Müşteri</p>
-                              <p className="text-2xl font-bold">{dashboardStats.totalCustomers}</p>
+                              <p className="text-purple-100 text-xs sm:text-sm font-medium">Toplam Müşteri</p>
+                              <p className="text-lg sm:text-xl lg:text-2xl font-bold drop-shadow-sm">{dashboardStats.totalCustomers}</p>
+                              <p className="text-purple-100 text-xs mt-1">Kayıtlı müşteriler</p>
                             </div>
-                            <div className="bg-purple-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3">
+                              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
+                              </svg>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      
-                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg p-6">
+
+                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 sm:p-6 shadow-lg">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-orange-100 text-sm">Toplam Ürün</p>
-                              <p className="text-2xl font-bold">{dashboardStats.totalProducts}</p>
+                              <p className="text-orange-100 text-xs sm:text-sm font-medium">Toplam Ürün</p>
+                              <p className="text-lg sm:text-xl lg:text-2xl font-bold drop-shadow-sm">{dashboardStats.totalProducts}</p>
+                              <p className="text-orange-100 text-xs mt-1">Aktif ürünler</p>
                             </div>
-                            <div className="bg-orange-400 rounded-full p-3">
-                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 sm:p-3">
+                              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                               </svg>
                             </div>
@@ -4518,146 +4415,360 @@ const MyAccount = () => {
                         </div>
                       </div>
 
-                      {/* Aylık İstatistikler */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white border border-gray-200 rounded-lg p-6">
-                          <h3 className="text-lg font-medium text-dark mb-4">Bu Ay</h3>
-                          <div className="space-y-4">
+                      {/* Aylık İstatistikler ve Sipariş Durumu */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Bu Ay</h3>
+                          <div className="space-y-3 sm:space-y-4">
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600">Yeni Müşteriler</span>
-                              <span className="font-medium text-dark">{dashboardStats.newCustomersThisMonth}</span>
+                              <span className="text-gray-600 text-sm sm:text-base">Yeni Müşteriler</span>
+                              <span className="font-medium text-dark text-sm sm:text-base">{dashboardStats.newCustomersThisMonth}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600">Aylık Satış</span>
-                              <span className="font-medium text-dark">{dashboardStats.monthlySales.toLocaleString('tr-TR')}₺</span>
+                              <span className="text-gray-600 text-sm sm:text-base">Aylık Satış</span>
+                              <span className="font-medium text-dark text-sm sm:text-base">{dashboardStats.monthlySales.toLocaleString('tr-TR')}₺</span>
                             </div>
-                      </div>
-                    </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-600 text-sm sm:text-base">Ortalama Sipariş</span>
+                              <span className="font-medium text-dark text-sm sm:text-base">
+                                {dashboardStats.totalOrders > 0 ? (dashboardStats.totalSales / dashboardStats.totalOrders).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 0}₺
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-                        <div className="bg-white border border-gray-200 rounded-lg p-6">
-                          <h3 className="text-lg font-medium text-dark mb-4">Sipariş Durumu</h3>
-                          <div className="space-y-3">
-                            {dashboardStats.orderStatusDistribution.map((status) => (
-                              <div key={status.status} className="flex justify-between items-center">
-                                <span className="text-gray-600 capitalize">
-                                  {status.status === 'pending' ? 'Bekliyor' :
-                                   status.status === 'confirmed' ? 'Onaylandı' :
-                                   status.status === 'processing' ? 'İşleniyor' :
-                                   status.status === 'shipped' ? 'Kargoda' :
-                                   status.status === 'delivered' ? 'Teslim Edildi' :
-                                   status.status === 'cancelled' ? 'İptal Edildi' : status.status}
-                                </span>
-                                <span className="font-medium text-dark">{status.count}</span>
-                              </div>
-                            ))}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Sipariş Durumu Dağılımı</h3>
+                          <div className="space-y-3 sm:space-y-4">
+                            {dashboardStats.orderStatusDistribution.map((status) => {
+                              const percentage = dashboardStats.totalOrders > 0 ? ((status.count / dashboardStats.totalOrders) * 100).toFixed(1) : 0;
+                              return (
+                                <div key={status.status} className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 capitalize text-sm sm:text-base">
+                                      {status.status === 'pending' ? 'Bekliyor' :
+                                       status.status === 'confirmed' ? 'Onaylandı' :
+                                       status.status === 'processing' ? 'İşleniyor' :
+                                       status.status === 'shipped' ? 'Kargoda' :
+                                       status.status === 'delivered' ? 'Teslim Edildi' :
+                                       status.status === 'cancelled' ? 'İptal Edildi' : status.status}
+                                    </span>
+                                    <span className="font-medium text-dark text-sm sm:text-base">{status.count} ({percentage}%)</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
 
                       {/* Son Siparişler ve Popüler Ürünler */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
                         {/* Son Siparişler */}
-                        <div className="bg-white border border-gray-200 rounded-lg p-6">
-                          <h3 className="text-lg font-medium text-dark mb-4">Son Siparişler</h3>
-                          <div className="space-y-4">
-                            {dashboardStats.recentOrders.map((order) => (
-                              <div key={order._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span className="text-blue-600 font-medium text-sm">#{order.orderNumber}</span>
-                          </div>
-                          <div>
-                                    <p className="font-medium text-dark text-sm">
-                                      {order.customerInfo?.firstName} {order.customerInfo?.lastName}
-                                    </p>
-                                    <p className="text-gray-500 text-xs">
-                                      {new Date(order.createdAt).toLocaleDateString('tr-TR')}
-                                    </p>
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Son Siparişler</h3>
+                          <div className="space-y-3 sm:space-y-4">
+                            {dashboardStats.recentOrders.length > 0 ? (
+                              dashboardStats.recentOrders.map((order) => (
+                                <div key={order._id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                  <div className="flex items-center space-x-3 sm:space-x-4">
+                                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                      <span className="text-blue-600 font-medium text-xs sm:text-sm" title={order.orderNumber}>
+                                        #{order.orderNumber?.slice(0, 6) || order._id?.slice(0, 6)}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <p className={`font-medium text-dark truncate max-w-[120px] sm:max-w-[150px] lg:max-w-[180px] ${
+                                        `${order.customerInfo?.firstName} ${order.customerInfo?.lastName}`.length > 20 ? 'text-xs' :
+                                        `${order.customerInfo?.firstName} ${order.customerInfo?.lastName}`.length > 15 ? 'text-sm' : 'text-sm sm:text-base'
+                                      }`}>
+                                        {order.customerInfo?.firstName} {order.customerInfo?.lastName}
+                                      </p>
+                                      <p className="text-gray-500 text-xs sm:text-sm">
+                                        {new Date(order.createdAt).toLocaleDateString('tr-TR', { 
+                                          day: 'numeric', 
+                                          month: 'short', 
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium text-dark text-sm sm:text-base">{order.pricing?.total?.toLocaleString('tr-TR')}₺</p>
+                                    <span className={`text-xs sm:text-sm px-2 py-1 rounded-full font-medium ${
+                                      order.fulfillment?.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                                      order.fulfillment?.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
+                                      order.fulfillment?.status === 'processing' ? 'bg-yellow-100 text-yellow-700' :
+                                      order.fulfillment?.status === 'confirmed' ? 'bg-purple-100 text-purple-700' :
+                                      order.fulfillment?.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                      'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {order.fulfillment?.status === 'pending' ? 'Bekliyor' :
+                                       order.fulfillment?.status === 'confirmed' ? 'Onaylandı' :
+                                       order.fulfillment?.status === 'processing' ? 'İşleniyor' :
+                                       order.fulfillment?.status === 'shipped' ? 'Kargoda' :
+                                       order.fulfillment?.status === 'delivered' ? 'Teslim Edildi' :
+                                       order.fulfillment?.status === 'cancelled' ? 'İptal Edildi' : order.fulfillment?.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center py-8">
+                                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                </svg>
+                                <p className="text-gray-500">Henüz sipariş bulunmuyor</p>
+                              </div>
+                            )}
                           </div>
                         </div>
-                                <div className="text-right">
-                                  <p className="font-medium text-dark">{order.pricing?.total}₺</p>
-                                  <span className={`text-xs px-2 py-1 rounded-full ${
-                                    order.fulfillment?.status === 'delivered' ? 'bg-green-100 text-green-700' :
-                                    order.fulfillment?.status === 'shipped' ? 'bg-blue-100 text-blue-700' :
-                                    order.fulfillment?.status === 'processing' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-gray-100 text-gray-700'
-                                  }`}>
-                                    {order.fulfillment?.status === 'pending' ? 'Bekliyor' :
-                                     order.fulfillment?.status === 'confirmed' ? 'Onaylandı' :
-                                     order.fulfillment?.status === 'processing' ? 'İşleniyor' :
-                                     order.fulfillment?.status === 'shipped' ? 'Kargoda' :
-                                     order.fulfillment?.status === 'delivered' ? 'Teslim Edildi' :
-                                     order.fulfillment?.status === 'cancelled' ? 'İptal Edildi' : order.fulfillment?.status}
-                        </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                      </div>
                       
                         {/* Popüler Ürünler */}
-                        <div className="bg-white border border-gray-200 rounded-lg p-6">
-                          <h3 className="text-lg font-medium text-dark mb-4">Popüler Ürünler</h3>
-                          <div className="space-y-4">
-                            {dashboardStats.popularProducts.map((product) => (
-                              <div key={product._id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                                <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
-                                  {product.images?.[0]?.url ? (
-                                    <img
-                                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`}
-                                      alt={product.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                                      <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Popüler Ürünler</h3>
+                          <div className="space-y-3 sm:space-y-4">
+                            {dashboardStats.popularProducts.length > 0 ? (
+                              dashboardStats.popularProducts.map((product, index) => (
+                                <div key={product._id} className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                  <div className="flex-shrink-0">
+                                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-200 rounded-lg overflow-hidden">
+                                      {product.images?.[0]?.url ? (
+                                        <img
+                                          src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`}
+                                          alt={product.name}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                                          <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      <span className="text-xs font-medium text-gray-500">#{index + 1}</span>
+                                      <p className="font-medium text-dark text-sm sm:text-base line-clamp-1">{product.name}</p>
+                                    </div>
+                                    <p className="text-gray-500 text-xs sm:text-sm">{product.category}</p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <span className="text-xs text-gray-500">{product.totalSold || 0} satış</span>
+                                      <span className="text-xs text-gray-400">•</span>
+                                      <span className="text-xs text-gray-500">{product.averageRating || 0} ⭐</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <p className="font-medium text-dark text-sm sm:text-base">
+                                      {product.salePrice ? (
+                                        <span>
+                                          <span className="line-through text-gray-400 text-xs">{product.price}₺</span>
+                                          <br />
+                                          <span className="text-green-600">{product.salePrice}₺</span>
+                                        </span>
+                                      ) : (
+                                        `${product.price}₺`
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-center py-8">
+                                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                                <p className="text-gray-500">Henüz ürün satışı bulunmuyor</p>
+                              </div>
+                            )}
                           </div>
-                                  )}
                         </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-dark text-sm line-clamp-1">{product.name}</p>
-                                  <p className="text-gray-500 text-xs">{product.category}</p>
                       </div>
-                                <div className="text-right">
-                                  <p className="font-medium text-dark text-sm">{product.price}₺</p>
-                                  <p className="text-gray-500 text-xs">{product.totalSold || 0} satış</p>
+
+                      {/* Satış Grafiği ve Ek İstatistikler */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {/* Satış Grafiği */}
+                        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Son 7 Günlük Gelir ve Sipariş</h3>
+                          {dashboardStats.salesChart.length > 0 ? (
+                            <div className="space-y-4">
+                              <div className="h-64 sm:h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <LineChart
+                                    data={(() => {
+                                      const last7Days = [];
+                                      const today = new Date();
+                                      
+                                      for (let i = 6; i >= 0; i--) {
+                                        const date = new Date(today);
+                                        date.setDate(date.getDate() - i);
+                                        
+                                        const turkeyDate = new Date(date.getTime() + (3 * 60 * 60 * 1000));
+                                        const dateString = turkeyDate.toISOString().split('T')[0];
+                                        
+                                        const existingData = dashboardStats.salesChart.find(day => day._id === dateString);
+                                        
+                                        last7Days.push({
+                                          name: date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
+                                          date: dateString,
+                                          sipariş: existingData ? existingData.count : 0,
+                                          getiri: existingData ? existingData.total : 0 
+                                        });
+                                      }
+                                      
+                                      return last7Days;
+                                    })()}
+                                    margin={{
+                                      top: 5,
+                                      right: 30,
+                                      left: 20,
+                                      bottom: 5,
+                                    }}
+                                  >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis 
+                                      dataKey="name" 
+                                      stroke="#666"
+                                      fontSize={12}
+                                    />
+                                    <YAxis 
+                                      yAxisId="left"
+                                      stroke="#10b981"
+                                      fontSize={12}
+                                      tickFormatter={(value) => `${value.toLocaleString('tr-TR')}₺`}
+                                    />
+                                    <YAxis 
+                                      yAxisId="right"
+                                      orientation="right"
+                                      stroke="#f59e0b"
+                                      fontSize={12}
+                                      tickFormatter={(value) => value.toString()}
+                                    />
+                                    <Tooltip 
+                                      contentStyle={{
+                                        backgroundColor: 'white',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                      }}
+                                      formatter={(value, name) => {
+                                        if (name === 'getiri') {
+                                          return [`${value.toLocaleString('tr-TR')}₺`, 'Gelir'];
+                                        }
+                                        return [value, 'Sipariş'];
+                                      }}
+                                      labelStyle={{ color: '#374151', fontWeight: '600' }}
+                                    />
+                                    <Legend 
+                                      wrapperStyle={{ paddingTop: '10px' }}
+                                    />
+                                    <Line
+                                      yAxisId="left"
+                                      type="monotone"
+                                      dataKey="getiri"
+                                      stroke="#10b981"
+                                      strokeWidth={3}
+                                      dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                                      activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
+                                      name="Gelir"
+                                    />
+                                    <Line
+                                      yAxisId="right"
+                                      type="monotone"
+                                      dataKey="sipariş"
+                                      stroke="#f59e0b"
+                                      strokeWidth={3}
+                                      dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
+                                      activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2 }}
+                                      name="Sipariş"
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                                        </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                                <div className="text-center p-3 bg-green-50 rounded-lg">
+                                  <p className="text-lg font-bold text-green-600">
+                                    {dashboardStats.salesChart.reduce((sum, day) => sum + day.total, 0).toLocaleString('tr-TR')}₺
+                                  </p>
+                                  <p className="text-xs">Toplam Gelir</p>
+                                </div>
+                                <div className="text-center p-3 bg-orange-50 rounded-lg">
+                                  <p className="text-lg font-bold text-orange-600">
+                                    {dashboardStats.salesChart.reduce((sum, day) => sum + day.count, 0)}
+                                  </p>
+                                  <p className="text-xs">Toplam Sipariş</p>
                                 </div>
                               </div>
-                            ))}
-                      </div>
-                    </div>
-                  </div>
-
-                      {/* Satış Grafiği */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-medium text-dark mb-4">Son 7 Günlük Satış</h3>
-                        <div className="h-64 flex items-end justify-between space-x-2">
-                          {dashboardStats.salesChart.map((day) => (
-                            <div key={day._id} className="flex-1 flex flex-col items-center">
-                              <div 
-                                className="w-full bg-blue-500 rounded-t"
-                                style={{ 
-                                  height: `${Math.max((day.total / Math.max(...dashboardStats.salesChart.map(d => d.total))) * 200, 20)}px` 
-                                }}
-                              ></div>
-                              <p className="text-xs text-gray-500 mt-2">{new Date(day._id).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</p>
-                              <p className="text-xs font-medium text-dark">{day.total}₺</p>
                             </div>
-                          ))}
+                          ) : (
+                            <div className="text-center py-12">
+                              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                              <p className="text-gray-500">Henüz satış verisi bulunmuyor</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Hızlı İstatistikler */}
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Hızlı Bakış</h3>
+                          <div className="space-y-4">
+                            <div className="text-center p-3 bg-blue-50 rounded-lg">
+                              <p className="text-2xl font-bold text-blue-600">
+                                {dashboardStats.totalOrders > 0 ? (dashboardStats.totalSales / dashboardStats.totalOrders).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 0}₺
+                              </p>
+                              <p className="text-sm text-blue-600">Ortalama Sipariş</p>
+                            </div>
+                            
+                            <div className="text-center p-3 bg-green-50 rounded-lg">
+                              <p className="text-2xl font-bold text-green-600">
+                                {dashboardStats.totalCustomers > 0 ? (dashboardStats.totalSales / dashboardStats.totalCustomers).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 0}₺
+                              </p>
+                              <p className="text-sm text-green-600">Müşteri Başına</p>
+                            </div>
+                            
+                            <div className="text-center p-3 bg-purple-50 rounded-lg">
+                              <p className="text-2xl font-bold text-purple-600">
+                                {dashboardStats.totalProducts > 0 ? (dashboardStats.totalOrders / dashboardStats.totalProducts).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : 0}
+                              </p>
+                              <p className="text-sm text-purple-600">Ürün Başına Sipariş</p>
+                            </div>
+                            
+                            <div className="text-center p-3 bg-orange-50 rounded-lg">
+                              <p className="text-2xl font-bold text-orange-600">
+                                {dashboardStats.totalOrders > 0 ? ((dashboardStats.orderStatusDistribution.find(s => s.status === 'delivered')?.count || 0) / dashboardStats.totalOrders * 100).toFixed(1) : 0}%
+                              </p>
+                              <p className="text-sm text-orange-600">Teslim Oranı</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="text-center py-12">
+                      <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+                      </svg>
                       <h3 className="text-lg font-medium text-dark mb-2">İstatistikler yüklenemedi</h3>
-                      <p className="text-gray-500">Dashboard verileri yüklenirken bir hata oluştu.</p>
-                  </div>
+                      <p className="text-gray-500 mb-4">Dashboard verileri yüklenirken bir hata oluştu.</p>
+                      <button
+                        onClick={loadDashboardStats}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md font-medium"
+                      >
+                        Tekrar Dene
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -4718,6 +4829,10 @@ const MyAccount = () => {
                   formData.append('images', file);
                   console.log(`Added file ${index}:`, file.name);
                 });
+                
+                if (editProduct.tags && editProduct.tags.length > 0) {
+                  formData.append('tags', JSON.stringify(editProduct.tags));
+                }
                 
                 Array.from(formData.entries()).forEach(([key, value]) => {
                   console.log(`FormData key: ${key}, value:`, value);
@@ -4827,6 +4942,92 @@ const MyAccount = () => {
                       defaultValue={editProduct.sku}
                       className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
                     />
+                  </div>
+                </div>
+
+                {/* Etiketler */}
+                <div>
+                  <label className="block mb-2 text-dark font-medium">Etiketler</label>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        id="editTagInput"
+                        placeholder="Etiket ekleyin (Enter ile ekleyin)"
+                        className="flex-1 rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.target as HTMLInputElement;
+                            const tag = input.value.trim();
+                            if (tag) {
+                              const currentTags = editProduct.tags || [];
+                              if (!currentTags.includes(tag)) {
+                                const updatedProduct = {
+                                  ...editProduct,
+                                  tags: [...currentTags, tag]
+                                };
+                                setEditProduct(updatedProduct);
+                                input.value = '';
+                              }
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById('editTagInput') as HTMLInputElement;
+                          const tag = input.value.trim();
+                          if (tag) {
+                            const currentTags = editProduct.tags || [];
+                            if (!currentTags.includes(tag)) {
+                              const updatedProduct = {
+                                ...editProduct,
+                                tags: [...currentTags, tag]
+                              };
+                              setEditProduct(updatedProduct);
+                              input.value = '';
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-blue text-white rounded-lg hover:bg-blue-dark transition-colors"
+                      >
+                        Ekle
+                      </button>
+                    </div>
+                    
+                    {editProduct.tags && editProduct.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {editProduct.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updatedProduct = {
+                                  ...editProduct,
+                                  tags: editProduct.tags.filter((t: string) => t !== tag)
+                                };
+                                setEditProduct(updatedProduct);
+                              }}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <p className="text-sm text-gray-500">
+                      Etiketler ürün arama ve filtreleme için kullanılır. Enter tuşu ile hızlıca ekleyebilirsiniz.
+                    </p>
                   </div>
                 </div>
 

@@ -1,12 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Product } from "@/types";
+import { Product, ProductVariant } from "@/types";
 import Breadcrumb from "../Common/Breadcrumb";
 import Image from "next/image";
 import { getImageUrl } from "@/utils/apiUtils";
 import { useDispatch } from "react-redux";
 import { addItemToCart } from "@/redux/features/cart-slice";
 import { AppDispatch } from "@/redux/store";
+import { cartService } from "@/services/cartService";
 // import { toast } from "react-hot-toast";
 
 interface ProductDetailsProps {
@@ -17,6 +18,9 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [showVariantImage, setShowVariantImage] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
 
   const tabs = [
@@ -25,23 +29,185 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
     { id: "reviews", title: "Yorumlar" },
   ];
 
-  const handleAddToCart = () => {
-    dispatch(addItemToCart({
-      id: parseInt(product._id) || 0,
-      title: product.name,
-      price: product.price,
-      discountedPrice: product.salePrice || product.price,
-      quantity: quantity,
-      imgs: {
-        thumbnails: product.images?.map(img => getImageUrl(img.url)) || [],
-        previews: product.images?.map(img => getImageUrl(img.url)) || []
+  // Varyasyonları varsa varsayılan varyasyonu seç
+  useEffect(() => {
+    if (product.variants && product.variants.length > 0) {
+      const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
+      setSelectedVariant(defaultVariant);
+      
+      // Varsayılan seçenekleri ayarla
+      const defaultOptions: Record<string, string> = {};
+      defaultVariant.options.forEach(option => {
+        defaultOptions[option.name] = option.value;
+      });
+      setSelectedOptions(defaultOptions);
+      
+      // Varsayılan varyasyonun görseli varsa onu göster
+      if (defaultVariant.image) {
+        setShowVariantImage(true);
       }
-    }));
-    alert("Ürün sepete eklendi!");
+    }
+  }, [product.variants]);
+
+  // Seçilen seçeneklere göre varyasyon bul
+  const findVariantByOptions = (options: Record<string, string>): ProductVariant | null => {
+    if (!product.variants) return null;
+    
+    return product.variants.find(variant => 
+      variant.options.every(option => 
+        options[option.name] === option.value
+      )
+    ) || null;
+  };
+
+  // Seçenek değiştiğinde varyasyonu güncelle
+  const handleOptionChange = (optionName: string, optionValue: string) => {
+    const newOptions = { ...selectedOptions, [optionName]: optionValue };
+    setSelectedOptions(newOptions);
+    
+    const matchingVariant = findVariantByOptions(newOptions);
+    setSelectedVariant(matchingVariant);
+    
+    // Eğer varyasyonun kendi görseli varsa onu göster
+    if (matchingVariant && matchingVariant.image) {
+      setShowVariantImage(true);
+    } else {
+      setShowVariantImage(false);
+    }
+  };
+
+  // Orijinal ürünü seç
+  const handleSelectOriginal = () => {
+    setSelectedVariant(null);
+    setSelectedOptions({});
+    setShowVariantImage(false);
+  };
+
+  // Normal ürün görseline dön
+  const handleShowProductImage = () => {
+    setShowVariantImage(false);
+    setSelectedImage(0);
+  };
+
+  // Varyasyon görselini göster
+  const handleShowVariantImage = () => {
+    if (selectedVariant && selectedVariant.image) {
+      setShowVariantImage(true);
+    }
+  };
+
+  // Varyasyon seçeneklerini grupla
+  const getVariantOptions = () => {
+    if (!product.variants || product.variants.length === 0) return {};
+    
+    const options: Record<string, string[]> = {};
+    product.variants.forEach(variant => {
+      variant.options.forEach(option => {
+        if (!options[option.name]) {
+          options[option.name] = [];
+        }
+        if (!options[option.name].includes(option.value)) {
+          options[option.name].push(option.value);
+        }
+      });
+    });
+    
+    return options;
+  };
+
+  // Seçilen varyasyonun stok durumunu kontrol et
+  const getCurrentStock = () => {
+    if (selectedVariant) {
+      return selectedVariant.stock;
+    }
+    return product.stock;
+  };
+
+  // Seçilen varyasyonun fiyatını al
+  const getCurrentPrice = () => {
+    if (selectedVariant) {
+      return selectedVariant.salePrice || selectedVariant.price || product.price;
+    }
+    return product.salePrice || product.price;
+  };
+
+  // Seçilen varyasyonun normal fiyatını al
+  const getCurrentOriginalPrice = () => {
+    if (selectedVariant) {
+      return selectedVariant.price || product.price;
+    }
+    return product.price;
+  };
+
+  // Görüntülenecek görseli al
+  const getCurrentImage = () => {
+    if (showVariantImage && selectedVariant && selectedVariant.image) {
+      return {
+        url: selectedVariant.image,
+        alt: `${product.name} - ${selectedVariant.name}`
+      };
+    }
+    return product.images[selectedImage] || product.images[0];
+  };
+
+  // Varyasyonun görseli var mı kontrol et
+  const hasVariantImage = selectedVariant && selectedVariant.image;
+
+  // Aktif seçenek adını al
+  const getActiveOptionName = () => {
+    if (!selectedVariant) return 'Orijinal';
+    return selectedVariant.options[0]?.value || selectedVariant.name;
+  };
+
+  const handleAddToCart = async () => {
+    const currentStock = getCurrentStock();
+    if (currentStock === 0) return;
+
+    try {
+      // Backend API'sine ekle
+      const response = await cartService.addToCart({
+        productId: product._id,
+        quantity: quantity,
+        variantId: selectedVariant?._id
+      });
+
+      if (response.success) {
+        // Redux store'a da ekle (geriye uyumluluk için)
+        const productTitle = selectedVariant 
+          ? `${product.name} - ${selectedVariant.name}`
+          : product.name;
+
+        dispatch(addItemToCart({
+          id: product._id,
+          title: productTitle,
+          price: getCurrentPrice(),
+          discountedPrice: getCurrentPrice(),
+          quantity: quantity,
+          imgs: {
+            thumbnails: product.images?.map(img => getImageUrl(img.url)) || [],
+            previews: product.images?.map(img => getImageUrl(img.url)) || []
+          },
+          variant: selectedVariant ? {
+            id: selectedVariant._id || '',
+            name: selectedVariant.name,
+            sku: selectedVariant.sku,
+            options: selectedVariant.options
+          } : undefined
+        }));
+
+        alert("Ürün sepete eklendi!");
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert("Ürün sepete eklenirken hata oluştu!");
+    }
   };
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1 && newQuantity <= product.stock) {
+    const currentStock = getCurrentStock();
+    if (newQuantity >= 1 && newQuantity <= currentStock) {
       setQuantity(newQuantity);
     }
   };
@@ -53,9 +219,17 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
     }).format(price);
   };
 
-  const discountPercentage = product.salePrice && product.price 
-    ? Math.round(((product.price - product.salePrice) / product.price) * 100)
+  const currentPrice = getCurrentPrice();
+  const currentOriginalPrice = getCurrentOriginalPrice();
+  const currentStock = getCurrentStock();
+  const currentImage = getCurrentImage();
+  
+  const discountPercentage = currentPrice && currentOriginalPrice && currentPrice < currentOriginalPrice
+    ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
     : 0;
+
+  const variantOptions = getVariantOptions();
+  const hasVariants = product.variants && product.variants.length > 0;
 
   return (
     <>
@@ -73,24 +247,23 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
           <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-17.5">
             {/* Ürün Görselleri */}
             <div className="lg:max-w-[570px] w-full">
-                                <div className="lg:min-h-[512px] rounded-lg shadow-1 bg-gray-50 p-4 sm:p-7.5 relative flex items-center justify-center">
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Image
-                        src={getImageUrl(product.images[selectedImage]?.url || "")}
-                        alt={product.images[selectedImage]?.alt || product.name}
-                        width={400}
-                        height={400}
-                        className="w-full h-full object-contain max-w-full max-h-full p-4"
-                        style={{ 
-                          aspectRatio: '1/1',
-                          objectFit: 'contain'
-                        }}
-                      />
-                    </div>
-                  </div>
+              <div className="lg:min-h-[512px] rounded-lg shadow-1 bg-gray-50 p-4 sm:p-7.5 relative flex items-center justify-center">
+                <div className="w-full h-full flex items-center justify-center">
+                  <Image
+                    src={getImageUrl(currentImage?.url || "")}
+                    alt={currentImage?.alt || product.name}
+                    width={400}
+                    height={400}
+                    className="w-full h-full object-contain max-w-full max-h-full p-4 transition-all duration-300 ease-in-out"
+                    style={{ 
+                      aspectRatio: '1/1'
+                    }}
+                  />
+                </div>
+              </div>
 
-              {/* Küçük Görseller */}
-              {product.images.length > 1 && (
+              {/* Küçük Görseller - Sadece ürün görselleri için göster */}
+              {!showVariantImage && product.images.length > 1 && (
                 <div className="flex flex-wrap sm:flex-nowrap gap-4.5 mt-6">
                   {product.images.map((image, index) => (
                     <button
@@ -100,18 +273,19 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                         index === selectedImage ? "border-blue" : "border-transparent"
                       }`}
                     >
-                                              <Image
-                          width={50}
-                          height={50}
-                          src={getImageUrl(image.url)}
-                          alt={image.alt || product.name}
-                          className="w-full h-full object-contain rounded p-1"
-                          style={{ objectFit: 'contain' }}
-                        />
+                      <Image
+                        width={50}
+                        height={50}
+                        src={getImageUrl(image.url)}
+                        alt={image.alt || product.name}
+                        className="w-full h-full object-contain rounded p-1"
+                        style={{ objectFit: 'contain' }}
+                      />
                     </button>
                   ))}
                 </div>
               )}
+
             </div>
 
             {/* Ürün Bilgileri */}
@@ -130,23 +304,88 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
               {/* Fiyat */}
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-2xl font-bold text-blue">
-                  {formatPrice(product.salePrice || product.price)}
+                  {formatPrice(currentPrice)}
                 </span>
-                {product.salePrice && product.price > product.salePrice && (
+                {currentPrice < currentOriginalPrice && (
                   <span className="text-lg text-gray-500 line-through">
-                    {formatPrice(product.price)}
+                    {formatPrice(currentOriginalPrice)}
                   </span>
                 )}
               </div>
 
+              {/* Varyasyon Seçenekleri */}
+              {hasVariants && (
+                <div className="mb-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Varyasyon Seçenekleri</h3>
+                  
+                  {/* Orijinal Seçeneği */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Seçenek:
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleSelectOriginal}
+                        className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
+                          !selectedVariant
+                            ? 'bg-blue text-white border-blue'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue hover:text-blue'
+                        }`}
+                      >
+                        Orijinal
+                      </button>
+                      {Object.entries(variantOptions).map(([optionName, optionValues]) => (
+                        optionValues.map((value) => (
+                          <button
+                            key={value}
+                            onClick={() => handleOptionChange(optionName, value)}
+                            className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
+                              selectedOptions[optionName] === value
+                                ? 'bg-blue text-white border-blue'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue hover:text-blue'
+                            }`}
+                          >
+                            {value}
+                          </button>
+                        ))
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Seçilen Varyasyon Bilgisi */}
+                  {selectedVariant && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Seçilen:</span> {selectedVariant.name}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        SKU: {selectedVariant.sku}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Orijinal Seçili Bilgisi */}
+                  {!selectedVariant && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <div className="text-sm text-blue-600">
+                        <span className="font-medium">Seçilen:</span> Orijinal Ürün
+                      </div>
+                      <div className="text-sm text-blue-500 mt-1">
+                        SKU: {product.sku}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Stok Durumu */}
               <div className="mb-4">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  product.stock > 0 
+                  currentStock > 0 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-red-100 text-red-800'
                 }`}>
-                  {product.stock > 0 ? `Stokta ${product.stock} adet` : 'Stokta yok'}
+                  {currentStock > 0 ? `Stokta ${currentStock} adet` : 'Stokta yok'}
                 </span>
               </div>
 
@@ -166,7 +405,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   </span>
                   <button
                     onClick={() => handleQuantityChange(quantity + 1)}
-                    disabled={quantity >= product.stock}
+                    disabled={quantity >= currentStock}
                     className="px-3 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
                   >
                     +
@@ -177,10 +416,10 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
               {/* Sepete Ekle Butonu */}
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={currentStock === 0}
                 className="w-full bg-blue text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 mb-4"
               >
-                {product.stock > 0 ? 'Sepete Ekle' : 'Stokta Yok'}
+                {currentStock > 0 ? 'Sepete Ekle' : 'Stokta Yok'}
               </button>
 
               {/* Ürün Açıklaması */}
@@ -199,7 +438,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                 </div>
                 <div className="flex justify-between">
                   <span>SKU:</span>
-                  <span className="font-medium">{product.sku}</span>
+                  <span className="font-medium">{selectedVariant?.sku || product.sku}</span>
                 </div>
                 {product.tags && product.tags.length > 0 && (
                   <div className="flex justify-between">
@@ -249,22 +488,22 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                     </div>
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="font-medium">SKU</span>
-                      <span>{product.sku}</span>
+                      <span>{selectedVariant?.sku || product.sku}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="font-medium">Stok</span>
-                      <span>{product.stock} adet</span>
+                      <span>{currentStock} adet</span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="font-medium">Fiyat</span>
-                      <span>{formatPrice(product.price)}</span>
+                      <span>{formatPrice(currentOriginalPrice)}</span>
                     </div>
-                    {product.salePrice && (
+                    {currentPrice < currentOriginalPrice && (
                       <div className="flex justify-between py-2 border-b border-gray-100">
                         <span className="font-medium">İndirimli Fiyat</span>
-                        <span className="text-red-600">{formatPrice(product.salePrice)}</span>
+                        <span className="text-red-600">{formatPrice(currentPrice)}</span>
                       </div>
                     )}
                     <div className="flex justify-between py-2 border-b border-gray-100">

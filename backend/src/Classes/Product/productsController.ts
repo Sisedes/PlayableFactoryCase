@@ -448,6 +448,16 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       variants
     } = req.body;
 
+    let parsedTags = [];
+    if (tags) {
+      try {
+        parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      } catch (error) {
+        console.error('Tags parse error:', error);
+        parsedTags = [];
+      }
+    }
+
 
 
     if (!name || !description || !category || !price || !sku) {
@@ -489,7 +499,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       counter++;
     }
 
-    if (salePrice && salePrice >= price) {
+    if (salePrice && parseFloat(salePrice) >= parseFloat(price)) {
       res.status(400).json({
         success: false,
         message: 'İndirimli fiyat normal fiyattan düşük olmalıdır'
@@ -514,15 +524,15 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       description,
       shortDescription,
       category,
-      price,
-      salePrice,
+      price: parseFloat(price),
+      salePrice: salePrice ? parseFloat(salePrice) : undefined,
       sku,
-      stock: trackQuantity ? stock : 0,
+      stock: trackQuantity ? parseInt(stock) : 0,
       trackQuantity,
       lowStockThreshold,
       images: uploadedImages.length > 0 ? uploadedImages : (images || []),
       variants: variants || [],
-      tags: tags || [],
+      tags: parsedTags,
       status,
       isFeatured
     });
@@ -599,6 +609,16 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
         counter++;
       }
       updateData.slug = uniqueSlug;
+    }
+
+    if (updateData.price) {
+      updateData.price = parseFloat(updateData.price);
+    }
+    if (updateData.salePrice) {
+      updateData.salePrice = parseFloat(updateData.salePrice);
+    }
+    if (updateData.stock) {
+      updateData.stock = parseInt(updateData.stock);
     }
 
     if (updateData.salePrice && updateData.price && updateData.salePrice >= updateData.price) {
@@ -686,6 +706,25 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
     const { id } = req.params;
     const updateData = req.body;
     const files = req.files as Express.Multer.File[];
+
+    if (updateData.tags) {
+      try {
+        updateData.tags = typeof updateData.tags === 'string' ? JSON.parse(updateData.tags) : updateData.tags;
+      } catch (error) {
+        console.error('Tags parse error:', error);
+        updateData.tags = [];
+      }
+    }
+
+    if (updateData.price) {
+      updateData.price = parseFloat(updateData.price);
+    }
+    if (updateData.salePrice) {
+      updateData.salePrice = parseFloat(updateData.salePrice);
+    }
+    if (updateData.stock) {
+      updateData.stock = parseInt(updateData.stock);
+    }
 
     console.log('=== UPDATE PRODUCT ADMIN DEBUG ===');
     console.log('Product ID:', id);
@@ -1477,15 +1516,34 @@ export const updateProductVariants = async (req: Request, res: Response): Promis
       });
     }
 
-    if (req.files && Array.isArray(req.files)) {
-      const variantImages = req.files as Express.Multer.File[];
+    if (req.files) {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
-      variantImages.forEach((file, index) => {
-        const variantIndex = parseInt(file.fieldname.split('-')[1]);
-        if (variants[variantIndex]) {
-          variants[variantIndex].image = `/uploads/products/${file.filename}`;
+      console.log('=== VARIANT IMAGES DEBUG ===');
+      console.log('Files object keys:', Object.keys(files));
+      
+      Object.entries(files).forEach(([fieldname, fileArray]) => {
+        if (fileArray && fileArray.length > 0) {
+          const file = fileArray[0]; 
+          console.log(`Processing file for field: ${fieldname}`, {
+            filename: file.filename,
+            originalname: file.originalname
+          });
+          
+          if (fieldname.startsWith('variant-')) {
+            const variantIndex = parseInt(fieldname.split('-')[1]);
+            console.log('Parsed variant index:', variantIndex);
+            
+            if (variants[variantIndex]) {
+              variants[variantIndex].image = `/uploads/products/${file.filename}`;
+              console.log(`Variant ${variantIndex} image set to:`, variants[variantIndex].image);
+            } else {
+              console.log(`Variant ${variantIndex} not found in variants array`);
+            }
+          }
         }
       });
+      console.log('=== END VARIANT IMAGES DEBUG ===');
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -1554,9 +1612,9 @@ export const getProductVariants = async (req: Request, res: Response): Promise<v
 }; 
 
 /**
- * @desc    Varyasyon stok güncelle
- * @route   PUT /api/products/:id/variants/:variantId/stock
- * @access  Private (Admin)
+ * @desc    
+ * @route   put /api/products/:id/variants/:variantId/stock
+ * @access  
  */
 export const updateVariantStock = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -1630,124 +1688,3 @@ export const updateVariantStock = async (req: Request, res: Response): Promise<v
     });
   }
 };
-
-/**
- * @desc    
- * @route   post /api/products/test/variant-product
- * @access  
- */
-export const createTestVariantProduct = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const giyimCategory = await Category.findOne({ slug: 'giyim' });
-    if (!giyimCategory) {
-      res.status(404).json({
-        success: false,
-        message: 'Giyim kategorisi bulunamadı'
-      });
-      return;
-    }
-
-    const testProduct = new Product({
-      name: 'T-Shirt',
-      slug: 'tshirt',
-      description: '%20 sentetik %80 pamuklu kumaştan yapılmış yazlık giyim için uygundur.',
-      category: giyimCategory._id,
-      price: 500,
-      salePrice: 450,
-      currency: 'TRY',
-      sku: 'TSHIRT1',
-      stock: 500,
-      trackQuantity: true,
-      lowStockThreshold: 5,
-      images: [
-        {
-          url: '/uploads/products/product-1752862160305-928708826.jpg',
-          alt: 'T-Shirt - Görsel 1',
-          isPrimary: true,
-          sortOrder: 0
-        }
-      ],
-      variants: [
-        {
-          name: 'Kırmızı T-SHIRT',
-          options: [
-            {
-              name: 'Renk',
-              value: 'Kırmızı'
-            }
-          ],
-          sku: 'TSHIRT1-KIRMIZI',
-          price: 500,
-          salePrice: 450,
-          stock: 50,
-          isDefault: true
-        },
-        {
-          name: 'Mavi T-SHIRT',
-          options: [
-            {
-              name: 'Renk',
-              value: 'Mavi'
-            }
-          ],
-          sku: 'TSHIRT1-MAVI',
-          price: 500,
-          salePrice: 450,
-          stock: 30,
-          isDefault: false
-        },
-        {
-          name: 'Yeşil T-SHIRT',
-          options: [
-            {
-              name: 'Renk',
-              value: 'Yeşil'
-            }
-          ],
-          sku: 'TSHIRT1-YESIL',
-          price: 500,
-          salePrice: 450,
-          stock: 2, 
-          isDefault: false
-        },
-        {
-          name: 'Siyah T-SHIRT',
-          options: [
-            {
-              name: 'Renk',
-              value: 'Siyah'
-            }
-          ],
-          sku: 'TSHIRT1-SIYAH',
-          price: 500,
-          salePrice: 450,
-          stock: 0, 
-          isDefault: false
-        }
-      ],
-      tags: ['tshirt', 'giyim', 'yazlık'],
-      status: 'active',
-      isFeatured: false,
-      averageRating: 0,
-      reviewCount: 0
-    });
-
-    const savedProduct = await testProduct.save();
-    await savedProduct.populate('category', 'name slug');
-
-    res.status(201).json({
-      success: true,
-      message: 'Test varyasyonlu ürün başarıyla oluşturuldu',
-      data: savedProduct
-    });
-  } catch (error) {
-    console.error('Create test variant product error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Test ürünü oluşturulurken hata oluştu',
-      error: process.env.NODE_ENV === 'development' ? error : {}
-    });
-  }
-}; 
-
- 

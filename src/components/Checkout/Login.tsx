@@ -1,7 +1,62 @@
 import React, { useState } from "react";
+import { useAuth } from "@/store/authStore";
+import Link from "next/link";
 
-const Login = () => {
+interface LoginProps {
+  showLoginForm?: boolean;
+  onShowLoginForm?: (show: boolean) => void;
+}
+
+const Login: React.FC<LoginProps> = ({ showLoginForm, onShowLoginForm }) => {
+  const { user, isAuthenticated } = useAuth();
   const [dropdown, setDropdown] = useState(false);
+
+  if (isAuthenticated && user) {
+    return (
+      <div className="bg-white shadow-1 rounded-[10px] p-4 sm:p-8.5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium text-lg text-dark">Müşteri Bilgileri</h3>
+          <div className="flex items-center gap-2 text-green-600">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="text-sm font-medium">Giriş Yapıldı</span>
+          </div>
+        </div>
+        
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Ad Soyad</p>
+              <p className="font-medium text-dark">{user.firstName} {user.lastName}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">E-posta</p>
+              <p className="font-medium text-dark">{user.email}</p>
+            </div>
+            {user.phone && (
+              <div>
+                <p className="text-sm text-gray-600">Telefon</p>
+                <p className="font-medium text-dark">{user.phone}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-sm text-gray-600">Hesap Durumu</p>
+              <p className="font-medium text-dark">
+                {user.emailVerified ? 'E-posta Doğrulandı' : 'E-posta Doğrulanmadı'}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-4 text-sm text-gray-600">
+          <p>✓ Bilgileriniz otomatik olarak dolduruldu</p>
+          <p>✓ Sipariş geçmişinize erişebilirsiniz</p>
+          <p>✓ Hızlı ödeme seçenekleri</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white shadow-1 rounded-[10px]">
@@ -11,9 +66,9 @@ const Login = () => {
           dropdown && "border-b border-gray-3"
         }`}
       >
-        Returning customer?
-        <span className="flex items-center gap-2.5 pl-1 font-medium text-dark">
-          Click here to login
+        <span className="text-dark">Mevcut müşteri misiniz?</span>
+        <span className="flex items-center gap-2.5 pl-1 font-medium text-blue">
+          Giriş yapmak için tıklayın
           <svg
             className={`${
               dropdown && "rotate-180"
@@ -40,43 +95,43 @@ const Login = () => {
           dropdown ? "block" : "hidden"
         } pt-7.5 pb-8.5 px-4 sm:px-8.5`}
       >
-        <p className="text-custom-sm mb-6">
-          If you didn&apos;t Logged in, Please Log in first.
-        </p>
-
-        <div className="mb-5">
-          <label htmlFor="name" className="block mb-2.5">
-            Username or Email
-          </label>
-
-          <input
-            type="text"
-            name="name"
-            id="name"
-            className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-          />
+        <div className="mb-6">
+          <p className="text-custom-sm text-gray-600 mb-4">
+            Giriş yaparak daha hızlı ödeme yapabilir ve sipariş geçmişinize erişebilirsiniz.
+          </p>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <h4 className="font-medium text-blue-800 mb-2">Giriş Yapmanın Avantajları:</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Bilgileriniz otomatik doldurulur</li>
+              <li>• Sipariş geçmişinize erişim</li>
+              <li>• Hızlı ödeme seçenekleri</li>
+              <li>• Özel indirimler ve kampanyalar</li>
+            </ul>
+          </div>
         </div>
 
-        <div className="mb-5">
-          <label htmlFor="password" className="block mb-2.5">
-            Password
-          </label>
-
-          <input
-            type="password"
-            name="password"
-            id="password"
-            autoComplete="on"
-            className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-          />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href="/signin?redirect=/checkout"
+            className="flex-1 flex justify-center items-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark"
+          >
+            Giriş Yap
+          </Link>
+          
+          <Link
+            href="/signup?redirect=/checkout"
+            className="flex-1 flex justify-center items-center font-medium text-blue bg-blue-50 border border-blue-200 py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-100"
+          >
+            Kayıt Ol
+          </Link>
         </div>
 
-        <button
-          type="submit"
-          className="inline-flex font-medium text-white bg-blue py-3 px-10.5 rounded-md ease-out duration-200 hover:bg-blue-dark"
-        >
-          Login
-        </button>
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-500">
+            Veya misafir olarak devam edebilirsiniz
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ export interface IProductVariant {
   options: IVariantOption[];
   sku: string;
   price?: number;
-  salePrice?: number; // İndirimli fiyat eklendi
+  salePrice?: number;
   stock: number;
   image?: string;
   isDefault: boolean;
@@ -24,7 +24,7 @@ interface VariationModalProps {
   onClose: () => void;
   productName: string;
   variants: IProductVariant[];
-  onSave: (variants: IProductVariant[]) => void;
+  onSave: (variants: IProductVariant[], selectedFiles?: { [key: string]: File }) => void;
   loading?: boolean;
 }
 
@@ -44,7 +44,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
     setLocalVariants(variants);
     setSelectedFiles({});
     
-    // İndirim checkbox'larını ayarla
     const discountStates: { [key: string]: boolean } = {};
     variants.forEach((variant, index) => {
       discountStates[index] = !!(variant.salePrice && variant.salePrice > 0);
@@ -67,7 +66,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
   const handleRemoveVariant = (index: number) => {
     const updatedVariants = localVariants.filter((_, i) => i !== index);
-    // Eğer silinen varyant varsayılan ise, ilk varyantı varsayılan yap
     if (localVariants[index].isDefault && updatedVariants.length > 0) {
       updatedVariants[0].isDefault = true;
     }
@@ -122,13 +120,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
   };
 
   const handleImageChange = (variantIndex: number, file: File) => {
-    // Dosya boyutu kontrolü (5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Dosya boyutu 5MB\'dan büyük olamaz');
       return;
     }
     
-    // Dosya tipi kontrolü
     if (!file.type.startsWith('image/')) {
       alert('Sadece resim dosyaları kabul edilir');
       return;
@@ -153,7 +149,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
   };
 
   const handleSave = () => {
-    // Validasyon
     const errors: string[] = [];
     
     localVariants.forEach((variant, index) => {
@@ -191,7 +186,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
       return;
     }
 
-    onSave(localVariants);
+    onSave(localVariants, selectedFiles);
   };
 
   const handleClose = () => {
@@ -328,7 +323,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                               [variantIndex]: e.target.checked
                             }));
                             
-                            // Eğer indirim kapatılırsa, salePrice'ı sıfırla
                             if (!e.target.checked) {
                               handleVariantChange(variantIndex, 'salePrice', 0);
                             }

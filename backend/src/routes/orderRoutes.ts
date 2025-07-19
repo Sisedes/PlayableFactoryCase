@@ -2,14 +2,39 @@ import express from 'express';
 import {
   getMyOrders,
   getOrderById,
+  getOrderByNumber,
   createOrder,
   getAllOrdersAdmin,
   getOrderByIdAdmin,
-  updateOrderStatusAdmin
+  updateOrderStatusAdmin,
+  createOrderFromCart,
+  processPayment,
+  createGuestOrder
 } from '../Classes/Order/orderController';
 import { authenticateToken, requireAdmin } from '../middleware/authMiddleware';
 
 const router = express.Router();
+
+/**
+ * @route   post /api/orders/create-from-cart
+ * @desc    
+ * @access  
+ */
+router.post('/create-from-cart', authenticateToken, createOrderFromCart);
+
+/**
+ * @route   post /api/orders/create-guest
+ * @desc    
+ * @access  
+ */
+router.post('/create-guest', createGuestOrder);
+
+/**
+ * @route   post /api/orders/:orderId/process-payment
+ * @desc    
+ * @access  
+ */
+router.post('/:orderId/process-payment', authenticateToken, processPayment);
 
 /**
  * @route   get /api/orders/my-orders
@@ -17,6 +42,13 @@ const router = express.Router();
  * @access  
  */
 router.get('/my-orders', authenticateToken, getMyOrders);
+
+/**
+ * @route   get /api/orders/by-number/:orderNumber
+ * @desc    
+ * @access  
+ */
+router.get('/by-number/:orderNumber', getOrderByNumber);
 
 /**
  * @route   get /api/orders/:id

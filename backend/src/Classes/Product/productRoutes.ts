@@ -22,10 +22,9 @@ import {
   updateProductVariants,
   getProductVariants,
   updateVariantStock,
-  createTestVariantProduct
 } from './productsController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
-import { uploadMultiple } from '../../middleware/upload';
+import { uploadMultiple, uploadVariantImages } from '../../middleware/upload';
 
 const router = express.Router();
 
@@ -174,7 +173,7 @@ router.get('/:id/variants', authenticateToken, requireAdmin, getProductVariants)
  * @desc    
  * @access  
  */
-router.put('/:id/variants', authenticateToken, requireAdmin, uploadMultiple, updateProductVariants);
+router.put('/:id/variants', authenticateToken, requireAdmin, uploadVariantImages, updateProductVariants);
 
 /**
  * @route   put /api/products/:id/variants/:variantId/stock
@@ -195,6 +194,5 @@ router.get('/:id/variants/:variantId/stock-history', authenticateToken, requireA
  * @desc    
  * @access  
  */
-router.post('/test/variant-product', authenticateToken, requireAdmin, createTestVariantProduct);
 
 export default router; 

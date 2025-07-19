@@ -9,6 +9,8 @@ import {
   AdminOrder,
   OrdersResponse 
 } from "@/services/adminService";
+import OrderDetailsModal from "./OrderDetailsModal";
+import UpdateStatusModal from "./UpdateStatusModal";
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -31,12 +33,6 @@ const AdminOrders = () => {
   const [orderDetailsModal, setOrderDetailsModal] = useState(false);
   const [statusUpdateModal, setStatusUpdateModal] = useState(false);
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
-  const [statusForm, setStatusForm] = useState({
-    status: '',
-    trackingNumber: '',
-    carrier: '',
-    notes: ''
-  });
 
   const { accessToken, isAuthenticated, user } = useAuth();
 
@@ -89,8 +85,6 @@ const AdminOrders = () => {
     }
   }, [loadOrders, accessToken, isAuthenticated]);
 
-
-
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, currentPage: 1 }));
@@ -107,44 +101,7 @@ const AdminOrders = () => {
 
   const handleUpdateStatus = async (order: AdminOrder) => {
     setSelectedOrder(order);
-    setStatusForm({
-      status: order.fulfillment.status,
-      trackingNumber: order.fulfillment.trackingNumber || '',
-      carrier: order.fulfillment.carrier || '',
-      notes: order.fulfillment.notes || ''
-    });
     setStatusUpdateModal(true);
-  };
-
-  const handleStatusSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedOrder || !accessToken) return;
-
-    setUpdatingOrder(selectedOrder._id);
-    
-    try {
-      const response = await updateOrderStatus(
-        selectedOrder._id,
-        statusForm.status,
-        accessToken,
-        statusForm.trackingNumber || undefined,
-        statusForm.carrier || undefined,
-        statusForm.notes || undefined
-      );
-
-      if (response.success) {
-        alert('Sipariş durumu başarıyla güncellendi');
-        setStatusUpdateModal(false);
-        loadOrders(1);
-      } else {
-        alert(response.message || 'Sipariş durumu güncellenemedi');
-      }
-    } catch (error) {
-      console.error('Sipariş durumu güncellenirken hata:', error);
-      alert('Sipariş durumu güncellenirken hata oluştu');
-    } finally {
-      setUpdatingOrder(null);
-    }
   };
 
   const getStatusColor = (status: string) => {
@@ -256,10 +213,10 @@ const AdminOrders = () => {
                   Tarih
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Durum
+                  Toplam
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Toplam
+                  Durum
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   İşlemler
@@ -269,28 +226,39 @@ const AdminOrders = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {orders.map((order) => (
                 <tr key={order._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {order.orderNumber}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div>
-                      <div className="font-medium">{order.customerInfo.firstName} {order.customerInfo.lastName}</div>
-                      <div className="text-gray-500">{order.customerInfo.email}</div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      #{order.orderNumber}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {order.customerInfo.firstName} {order.customerInfo.lastName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {order.customerInfo.email}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
                     {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(order.createdAt).toLocaleTimeString('tr-TR')}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {order.pricing.total.toLocaleString('tr-TR')} ₺
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.fulfillment.status)}`}>
                       {getStatusText(order.fulfillment.status)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.pricing.total.toFixed(2)}₺
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex gap-2">
+                    <div className="flex space-x-2">
                       <button
                         onClick={() => handleViewOrderDetails(order)}
                         className="text-blue-600 hover:text-blue-900"
@@ -342,210 +310,49 @@ const AdminOrders = () => {
         )}
       </div>
 
-      {/* Sipariş Detayları Modal */}
-      {orderDetailsModal && selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-medium text-dark">Sipariş Detayları - {selectedOrder.orderNumber}</h3>
-                <button
-                  onClick={() => setOrderDetailsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={orderDetailsModal}
+        onClose={() => setOrderDetailsModal(false)}
+      />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Müşteri Bilgileri */}
-                <div>
-                  <h4 className="font-medium text-dark mb-3">Müşteri Bilgileri</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p><strong>Ad Soyad:</strong> {selectedOrder.customerInfo.firstName} {selectedOrder.customerInfo.lastName}</p>
-                    <p><strong>E-posta:</strong> {selectedOrder.customerInfo.email}</p>
-                    {selectedOrder.customerInfo.phone && (
-                      <p><strong>Telefon:</strong> {selectedOrder.customerInfo.phone}</p>
-                    )}
-                  </div>
-                </div>
+      {/* Update Status Modal */}
+      <UpdateStatusModal
+        order={selectedOrder}
+        isOpen={statusUpdateModal}
+        onClose={() => setStatusUpdateModal(false)}
+        onSubmit={async (status, trackingNumber, carrier, notes) => {
+          if (!selectedOrder || !accessToken) return;
 
-                {/* Sipariş Bilgileri */}
-                <div>
-                  <h4 className="font-medium text-dark mb-3">Sipariş Bilgileri</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p><strong>Sipariş No:</strong> {selectedOrder.orderNumber}</p>
-                    <p><strong>Tarih:</strong> {new Date(selectedOrder.createdAt).toLocaleString('tr-TR')}</p>
-                    <p><strong>Durum:</strong> 
-                      <span className={`ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedOrder.fulfillment.status)}`}>
-                        {getStatusText(selectedOrder.fulfillment.status)}
-                      </span>
-                    </p>
-                    {selectedOrder.fulfillment.trackingNumber && (
-                      <p><strong>Takip No:</strong> {selectedOrder.fulfillment.trackingNumber}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+          setUpdatingOrder(selectedOrder._id);
+          
+          try {
+            const response = await updateOrderStatus(
+              selectedOrder._id,
+              status,
+              accessToken,
+              trackingNumber,
+              carrier,
+              notes
+            );
 
-              {/* Ürünler */}
-              <div className="mt-6">
-                <h4 className="font-medium text-dark mb-3">Ürünler</h4>
-                <div className="space-y-3">
-                  {selectedOrder.items.map((item, index) => (
-                    <div key={index} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg">
-                      <div className="w-16 h-16 relative">
-                        {item.product.images && item.product.images.length > 0 ? (
-                          <Image
-                            src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${item.product.images[0].url}`}
-                            alt={item.product.images[0].alt || item.product.name}
-                            fill
-                            className="object-cover rounded"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-300 rounded flex items-center justify-center">
-                            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="font-medium text-dark">{item.product.name}</h5>
-                        <p className="text-sm text-gray-500">Adet: {item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-dark">{item.price.toFixed(2)}₺</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fiyat Detayları */}
-              <div className="mt-6">
-                <h4 className="font-medium text-dark mb-3">Fiyat Detayları</h4>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between mb-2">
-                    <span>Ara Toplam:</span>
-                    <span>{selectedOrder.pricing.subtotal.toFixed(2)}₺</span>
-                  </div>
-                  {selectedOrder.pricing.discount > 0 && (
-                    <div className="flex justify-between mb-2 text-green-600">
-                      <span>İndirim:</span>
-                      <span>-{selectedOrder.pricing.discount.toFixed(2)}₺</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between mb-2">
-                    <span>KDV:</span>
-                    <span>{selectedOrder.pricing.tax.toFixed(2)}₺</span>
-                  </div>
-                  <div className="flex justify-between mb-2">
-                    <span>Kargo:</span>
-                    <span>{selectedOrder.pricing.shipping.toFixed(2)}₺</span>
-                  </div>
-                  <div className="flex justify-between font-medium text-lg border-t pt-2">
-                    <span>Toplam:</span>
-                    <span>{selectedOrder.pricing.total.toFixed(2)}₺</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Durum Güncelleme Modal */}
-      {statusUpdateModal && selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-medium text-dark">Sipariş Durumu Güncelle</h3>
-                <button
-                  onClick={() => setStatusUpdateModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <form onSubmit={handleStatusSubmit} className="space-y-4">
-                <div>
-                  <label className="block mb-2 text-dark font-medium">Durum</label>
-                  <select
-                    value={statusForm.status}
-                    onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
-                    required
-                  >
-                    <option value="pending">Beklemede</option>
-                    <option value="confirmed">Onaylandı</option>
-                    <option value="processing">İşleniyor</option>
-                    <option value="shipped">Kargoda</option>
-                    <option value="delivered">Teslim Edildi</option>
-                    <option value="cancelled">İptal Edildi</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-dark font-medium">Takip Numarası</label>
-                  <input
-                    type="text"
-                    value={statusForm.trackingNumber}
-                    onChange={(e) => setStatusForm(prev => ({ ...prev, trackingNumber: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
-                    placeholder="Kargo takip numarası"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-dark font-medium">Kargo Firması</label>
-                  <input
-                    type="text"
-                    value={statusForm.carrier}
-                    onChange={(e) => setStatusForm(prev => ({ ...prev, carrier: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue"
-                    placeholder="Kargo firması adı"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-2 text-dark font-medium">Notlar</label>
-                  <textarea
-                    value={statusForm.notes}
-                    onChange={(e) => setStatusForm(prev => ({ ...prev, notes: e.target.value }))}
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-3 bg-gray-1 py-2 px-3 text-dark outline-none transition-all focus:border-blue resize-none"
-                    placeholder="Sipariş hakkında notlar"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setStatusUpdateModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    İptal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={updatingOrder === selectedOrder._id}
-                    className="flex-1 px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark disabled:opacity-50"
-                  >
-                    {updatingOrder === selectedOrder._id ? 'Güncelleniyor...' : 'Güncelle'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+            if (response.success) {
+              alert('Sipariş durumu başarıyla güncellendi');
+              setStatusUpdateModal(false);
+              loadOrders(1);
+            } else {
+              alert(response.message || 'Sipariş durumu güncellenemedi');
+            }
+          } catch (error) {
+            console.error('Sipariş durumu güncellenirken hata:', error);
+            alert('Sipariş durumu güncellenirken hata oluştu');
+          } finally {
+            setUpdatingOrder(null);
+          }
+        }}
+        isUpdating={updatingOrder === selectedOrder?._id}
+      />
     </>
   );
 };

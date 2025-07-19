@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Pagination } from "swiper/modules";
 
@@ -10,29 +10,39 @@ import "swiper/css";
 import Image from "next/image";
 import { getPopularProducts } from "@/services/productService";
 import { Product } from "@/types";
-import { getImageUrl } from "@/utils/apiUtils";
+import { getImageUrl, handleApiError } from "@/utils/apiUtils";
 
 const HeroCarousal = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchFeaturedProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getPopularProducts(2);
+      if (response.success) {
+        setFeaturedProducts(response.data);
+      }
+    } catch (error: any) {
+      console.error('Featured products fetch error:', error);
+      const errorMessage = handleApiError(error, 'Popüler ürünler yüklenirken hata oluştu');
+      setError(errorMessage);
+      // Fallback olarak boş array kullan
+      setFeaturedProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchFeaturedProducts = async () => {
-      try {
-        setLoading(true);
-        const response = await getPopularProducts(2);
-        if (response.success) {
-          setFeaturedProducts(response.data);
-        }
-      } catch (error) {
-        console.error('Featured products fetch error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const timeoutId = setTimeout(() => {
+      fetchFeaturedProducts();
+    }, 100);
 
-    fetchFeaturedProducts();
-  }, []);
+    return () => clearTimeout(timeoutId);
+  }, [fetchFeaturedProducts]);
 
   return (
     <Swiper
@@ -60,6 +70,41 @@ const HeroCarousal = () => {
                 <div className="h-8 bg-gray-200 rounded mb-3 animate-pulse"></div>
                 <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
                 <div className="h-10 bg-gray-200 rounded w-32 mt-10 animate-pulse"></div>
+              </>
+            ) : error ? (
+              <>
+                <div className="flex items-center gap-4 mb-7.5 sm:mb-10">
+                  <span className="block font-semibold text-heading-3 sm:text-heading-1 text-blue">
+                    %30
+                  </span>
+                  <span className="block text-dark text-sm sm:text-custom-1 sm:leading-[24px]">
+                    İndirim
+                    <br />
+                    Fırsatı
+                  </span>
+                </div>
+
+                <h1 className="font-semibold text-dark text-xl sm:text-3xl mb-3">
+                  <a href="#">En Popüler Ürünlerimiz</a>
+                </h1>
+
+                <p className="text-red-500 text-sm mb-4">
+                  {error}
+                </p>
+
+                <button
+                  onClick={fetchFeaturedProducts}
+                  className="inline-flex font-medium text-white text-custom-sm rounded-md bg-blue py-3 px-9 ease-out duration-200 hover:bg-blue-dark mt-4"
+                >
+                  Tekrar Dene
+                </button>
+
+                <a
+                  href="/shop-with-sidebar"
+                  className="inline-flex font-medium text-white text-custom-sm rounded-md bg-dark py-3 px-9 ease-out duration-200 hover:bg-blue mt-4 ml-4"
+                >
+                  Tüm Ürünleri Gör
+                </a>
               </>
             ) : featuredProducts.length > 0 ? (
               <>

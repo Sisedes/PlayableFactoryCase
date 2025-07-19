@@ -9,8 +9,34 @@ export interface DashboardStats {
   totalProducts: number;
   newCustomersThisMonth: number;
   monthlySales: number;
-  recentOrders: any[];
-  popularProducts: any[];
+  recentOrders: Array<{
+    _id: string;
+    orderNumber: string;
+    customerInfo: {
+      firstName: string;
+      lastName: string;
+    };
+    pricing: {
+      total: number;
+    };
+    fulfillment: {
+      status: string;
+    };
+    createdAt: string;
+  }>;
+  popularProducts: Array<{
+    _id: string;
+    name: string;
+    price: number;
+    salePrice?: number;
+    images: Array<{
+      url: string;
+      alt: string;
+    }>;
+    category: string;
+    totalSold: number;
+    averageRating?: number;
+  }>;
   salesChart: Array<{
     _id: string;
     total: number;
@@ -68,6 +94,18 @@ export interface AdminOrder {
     shippedAt?: string;
     deliveredAt?: string;
     notes?: string;
+  };
+  addresses?: {
+    shipping: {
+      firstName: string;
+      lastName: string;
+      address1: string;
+      address2?: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
   };
   createdAt: string;
   updatedAt: string;

@@ -5,7 +5,7 @@ const featureData = [
   {
     img: "/images/icons/icon-01.svg",
     title: "Ücretsiz Kargo",
-    description: "200₺ üzeri tüm siparişlerde",
+    description: "1000₺ üzeri tüm siparişlerde",
   },
   {
     img: "/images/icons/icon-02.svg",

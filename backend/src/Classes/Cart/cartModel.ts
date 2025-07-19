@@ -115,11 +115,13 @@ cartSchema.virtual('isEmpty').get(function(this: ICart) {
 cartSchema.pre('save', function(next) {
   this.totals.subtotal = this.items.reduce((total, item) => total + item.total, 0);
   
-  this.totals.tax = Math.round(this.totals.subtotal * 0.18 * 100) / 100;
+  const subtotalAfterDiscount = this.totals.subtotal - this.totals.discount;
   
-  this.totals.shipping = this.totals.subtotal >= 500 ? 0 : 29.99;
+  this.totals.tax = Math.round(subtotalAfterDiscount * 0.18 * 100) / 100;
   
-  this.totals.total = this.totals.subtotal + this.totals.tax + this.totals.shipping - this.totals.discount;
+  this.totals.shipping = subtotalAfterDiscount >= 1000 ? 0 : 200;
+  
+  this.totals.total = subtotalAfterDiscount + this.totals.tax + this.totals.shipping;
   
   next();
 });
@@ -135,11 +137,17 @@ cartSchema.pre('save', function(next) {
 });
 
 cartSchema.statics.findByUser = function(userId: string) {
-  return this.findOne({ user: userId }).populate('items.product');
+  return this.findOne({ user: userId }).populate({
+    path: 'items.product',
+    select: 'name images price salePrice stock sku category description shortDescription variants'
+  });
 };
 
 cartSchema.statics.findBySession = function(sessionId: string) {
-  return this.findOne({ sessionId }).populate('items.product');
+  return this.findOne({ sessionId }).populate({
+    path: 'items.product',
+    select: 'name images price salePrice stock sku category description shortDescription variants'
+  });
 };
 
 cartSchema.statics.findActiveWithItems = function() {
@@ -149,7 +157,45 @@ cartSchema.statics.findActiveWithItems = function() {
   });
 };
 
-cartSchema.methods.addItem = function(productId: string, quantity: number, price: number, variantId?: string) {
+interface ICartModel extends Model<ICart> {
+  findByUser(userId: string): Promise<ICart | null>;
+  findBySession(sessionId: string): Promise<ICart | null>;
+  findActiveWithItems(): Promise<ICart[]>;
+}
+
+interface ICartDocument extends ICart {
+  addItem(productId: string, quantity: number, variantId?: string): Promise<ICart>;
+  updateItem(itemId: string, quantity: number): Promise<ICart>;
+  removeItem(itemId: string): Promise<ICart>;
+  clearCart(): Promise<ICart>;
+  mergeCarts(otherCart: ICart): Promise<ICart>;
+}
+
+cartSchema.methods.addItem = async function(productId: string, quantity: number, variantId?: string) {
+  const Product = mongoose.model('Product');
+  const product = await Product.findById(productId);
+  
+  if (!product) {
+    throw new Error('Ürün bulunamadı');
+  }
+
+  let finalPrice = product.price;
+  
+  if (variantId && product.variants) {
+    const variant = product.variants.find((v: any) => v._id.toString() === variantId);
+    if (variant) {
+      finalPrice = variant.price || product.price;
+      
+      if (variant.salePrice && variant.salePrice > 0 && variant.salePrice < finalPrice) {
+        finalPrice = variant.salePrice;
+      }
+    }
+  } else {
+    if (product.salePrice && product.salePrice > 0 && product.salePrice < product.price) {
+      finalPrice = product.salePrice;
+    }
+  }
+
   const existingItemIndex = this.items.findIndex((item: ICartItem) => 
     item.product.toString() === productId && 
     (!variantId || item.variant?.toString() === variantId)
@@ -157,21 +203,22 @@ cartSchema.methods.addItem = function(productId: string, quantity: number, price
 
   if (existingItemIndex > -1) {
     this.items[existingItemIndex].quantity += quantity;
-    this.items[existingItemIndex].total = this.items[existingItemIndex].quantity * price;
+    this.items[existingItemIndex].price = finalPrice; 
+    this.items[existingItemIndex].total = Math.round(this.items[existingItemIndex].quantity * finalPrice * 100) / 100;
   } else {
     this.items.push({
       product: productId as any,
       variant: variantId as any,
       quantity,
-      price,
-      total: quantity * price
+      price: finalPrice, 
+      total: Math.round(quantity * finalPrice * 100) / 100
     });
   }
 
   return this.save();
 };
 
-cartSchema.methods.updateItem = function(itemId: string, quantity: number) {
+cartSchema.methods.updateItem = async function(itemId: string, quantity: number) {
   const item = this.items.id(itemId);
   if (!item) {
     throw new Error('Ürün sepette bulunamadı');
@@ -181,8 +228,32 @@ cartSchema.methods.updateItem = function(itemId: string, quantity: number) {
     return this.removeItem(itemId);
   }
 
+  const Product = mongoose.model('Product');
+  const product = await Product.findById(item.product);
+  
+  if (product) {
+    let finalPrice = product.price;
+    
+    if (item.variant && product.variants) {
+      const variant = product.variants.find((v: any) => v._id.toString() === item.variant.toString());
+      if (variant) {
+        finalPrice = variant.price || product.price;
+        
+        if (variant.salePrice && variant.salePrice > 0 && variant.salePrice < finalPrice) {
+          finalPrice = variant.salePrice;
+        }
+      }
+    } else {
+      if (product.salePrice && product.salePrice > 0 && product.salePrice < product.price) {
+        finalPrice = product.salePrice;
+      }
+    }
+    
+    item.price = finalPrice;
+  }
+
   item.quantity = quantity;
-  item.total = item.quantity * item.price;
+  item.total = Math.round(item.quantity * item.price * 100) / 100;
   
   return this.save();
 };
@@ -215,6 +286,6 @@ cartSchema.methods.mergeCarts = function(otherCart: ICart) {
   return this.save();
 };
 
-const Cart: Model<ICart> = mongoose.model<ICart>('Cart', cartSchema);
+const Cart: ICartModel = mongoose.model<ICart, ICartModel>('Cart', cartSchema);
 
 export default Cart; 

@@ -144,10 +144,17 @@ export interface ICart extends Document {
     shipping: number;
     total: number;
   };
-  appliedCoupons?: string[];
+  appliedCoupons: string[];
   expiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  
+  // Cart metodları
+  addItem(productId: string, quantity: number, variantId?: string): Promise<ICart>;
+  updateItem(itemId: string, quantity: number): Promise<ICart>;
+  removeItem(itemId: string): Promise<ICart>;
+  clearCart(): Promise<ICart>;
+  mergeCarts(otherCart: ICart): Promise<ICart>;
 }
 
 export interface ICartItem {

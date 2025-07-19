@@ -50,4 +50,18 @@ export const uploadFields = upload.fields([
   { name: 'images', maxCount: 9 }
 ]);
 
+export const uploadVariantImages = upload.fields([
+  { name: 'images', maxCount: 9 },
+  { name: 'variant-0', maxCount: 1 },
+  { name: 'variant-1', maxCount: 1 },
+  { name: 'variant-2', maxCount: 1 },
+  { name: 'variant-3', maxCount: 1 },
+  { name: 'variant-4', maxCount: 1 },
+  { name: 'variant-5', maxCount: 1 },
+  { name: 'variant-6', maxCount: 1 },
+  { name: 'variant-7', maxCount: 1 },
+  { name: 'variant-8', maxCount: 1 },
+  { name: 'variant-9', maxCount: 1 }
+]);
+
 export default upload; 

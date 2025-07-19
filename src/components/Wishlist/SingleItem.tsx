@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 
 import { removeItemFromWishlist } from "@/redux/features/wishlist-slice";
 import { addItemToCart } from "@/redux/features/cart-slice";
+import { cartService } from "@/services/cartService";
 
 import Image from "next/image";
 
@@ -14,13 +15,30 @@ const SingleItem = ({ item }) => {
     dispatch(removeItemFromWishlist(item.id));
   };
 
-  const handleAddToCart = () => {
-    dispatch(
-      addItemToCart({
-        ...item,
+  const handleAddToCart = async () => {
+    try {
+      const response = await cartService.addToCart({
+        productId: item.id,
         quantity: 1,
-      })
-    );
+        variantId: undefined
+      });
+
+      if (response.success) {
+        dispatch(
+          addItemToCart({
+            ...item,
+            quantity: 1,
+          })
+        );
+        
+        alert("Ürün sepete eklendi!");
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert("Ürün sepete eklenirken hata oluştu!");
+    }
   };
 
   return (

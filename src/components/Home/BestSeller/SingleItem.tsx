@@ -6,35 +6,52 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { updateQuickView } from "@/redux/features/quickView-slice";
 import { addItemToCart } from "@/redux/features/cart-slice";
+import { addItemToWishlist } from "@/redux/features/wishlist-slice";
+import { updateproductDetails } from "@/redux/features/product-details";
 import Image from "next/image";
 import Link from "next/link";
-import { addItemToWishlist } from "@/redux/features/wishlist-slice";
+import { cartService } from "@/services/cartService";
 import StarRating from '../../Common/StarRating';
 
 const SingleItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
   const dispatch = useDispatch<AppDispatch>();
 
-  // update the QuickView state
   const handleQuickViewUpdate = () => {
     dispatch(updateQuickView({ ...item }));
   };
 
-  // add to cart
-  const handleAddToCart = () => {
-    dispatch(
-      addItemToCart({
-        id: parseInt(item._id) || 0,
-        title: item.name,
-        price: item.price,
-        discountedPrice: item.salePrice || item.price,
-        imgs: { 
-          thumbnails: item.images?.map(img => img.url) || [],
-          previews: item.images?.map(img => img.url) || [] 
-        },
+  const handleAddToCart = async () => {
+    try {
+      const response = await cartService.addToCart({
+        productId: item._id,
         quantity: 1,
-      })
-    );
+        variantId: undefined
+      });
+
+      if (response.success) {
+        dispatch(
+          addItemToCart({
+            id: item._id,
+            title: item.name,
+            price: item.price,
+            discountedPrice: item.salePrice || item.price,
+            imgs: { 
+              thumbnails: item.images?.map(img => img.url) || [],
+              previews: item.images?.map(img => img.url) || [] 
+            },
+            quantity: 1,
+          })
+        );
+        
+        alert("Ürün sepete eklendi!");
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert("Ürün sepete eklenirken hata oluştu!");
+    }
   };
 
   const handleItemToWishList = () => {

@@ -211,24 +211,204 @@ export const contactSchema = z.object({
 
 // Checkout Validation
 export const checkoutSchema = z.object({
-  shippingAddress: addressSchema.omit({ type: true }),
-  billingAddress: addressSchema.omit({ type: true }).optional(),
-  sameAsShipping: z.boolean(),
+  customerInfo: z.object({
+    email: z
+      .string()
+      .min(1, "E-posta adresi gereklidir")
+      .email("Geçerli bir e-posta adresi giriniz"),
+    phone: z
+      .string()
+      .optional()
+      .refine((phone) => {
+        if (!phone) return true;
+        return /^(\+90|90)?[1-9][0-9]{9}$/.test(phone.replace(/\s/g, ""));
+      }, "Geçerli bir telefon numarası giriniz"),
+    firstName: z
+      .string()
+      .min(2, "Ad en az 2 karakter olmalıdır")
+      .max(50, "Ad çok uzun")
+      .regex(/^[a-zA-ZğüşıöçĞÜŞİÖÇ\s]+$/, "Ad sadece harf içerebilir"),
+    lastName: z
+      .string()
+      .min(2, "Soyad en az 2 karakter olmalıdır")
+      .max(50, "Soyad çok uzun")
+      .regex(/^[a-zA-ZğüşıöçĞÜŞİÖÇ\s]+$/, "Soyad sadece harf içerebilir"),
+  }),
+  addresses: z.object({
+    shipping: z.object({
+      firstName: z
+        .string()
+        .min(2, "Ad en az 2 karakter olmalıdır")
+        .max(50, "Ad çok uzun"),
+      lastName: z
+        .string()
+        .min(2, "Soyad en az 2 karakter olmalıdır")
+        .max(50, "Soyad çok uzun"),
+      company: z
+        .string()
+        .max(100, "Şirket adı çok uzun")
+        .optional(),
+      address1: z
+        .string()
+        .min(10, "Adres en az 10 karakter olmalıdır")
+        .max(200, "Adres çok uzun"),
+      address2: z
+        .string()
+        .max(200, "Adres çok uzun")
+        .optional(),
+      city: z
+        .string()
+        .min(2, "Şehir adı en az 2 karakter olmalıdır")
+        .max(50, "Şehir adı çok uzun"),
+      state: z
+        .string()
+        .min(2, "İl/Bölge en az 2 karakter olmalıdır")
+        .max(50, "İl/Bölge çok uzun"),
+      postalCode: z
+        .string()
+        .min(5, "Posta kodu en az 5 karakter olmalıdır")
+        .max(10, "Posta kodu çok uzun")
+        .regex(/^[0-9]+$/, "Posta kodu sadece rakam içerebilir"),
+      country: z
+        .string()
+        .min(2, "Ülke seçiniz")
+        .max(50, "Ülke adı çok uzun"),
+      phone: z
+        .string()
+        .optional()
+        .refine((phone) => {
+          if (!phone) return true;
+          return /^(\+90|90)?[1-9][0-9]{9}$/.test(phone.replace(/\s/g, ""));
+        }, "Geçerli bir telefon numarası giriniz"),
+    }),
+    billing: z.object({
+      firstName: z
+        .string()
+        .min(2, "Ad en az 2 karakter olmalıdır")
+        .max(50, "Ad çok uzun"),
+      lastName: z
+        .string()
+        .min(2, "Soyad en az 2 karakter olmalıdır")
+        .max(50, "Soyad çok uzun"),
+      company: z
+        .string()
+        .max(100, "Şirket adı çok uzun")
+        .optional(),
+      address1: z
+        .string()
+        .min(10, "Adres en az 10 karakter olmalıdır")
+        .max(200, "Adres çok uzun"),
+      address2: z
+        .string()
+        .max(200, "Adres çok uzun")
+        .optional(),
+      city: z
+        .string()
+        .min(2, "Şehir adı en az 2 karakter olmalıdır")
+        .max(50, "Şehir adı çok uzun"),
+      state: z
+        .string()
+        .min(2, "İl/Bölge en az 2 karakter olmalıdır")
+        .max(50, "İl/Bölge çok uzun"),
+      postalCode: z
+        .string()
+        .min(5, "Posta kodu en az 5 karakter olmalıdır")
+        .max(10, "Posta kodu çok uzun")
+        .regex(/^[0-9]+$/, "Posta kodu sadece rakam içerebilir"),
+      country: z
+        .string()
+        .min(2, "Ülke seçiniz")
+        .max(50, "Ülke adı çok uzun"),
+      phone: z
+        .string()
+        .optional()
+        .refine((phone) => {
+          if (!phone) return true;
+          return /^(\+90|90)?[1-9][0-9]{9}$/.test(phone.replace(/\s/g, ""));
+        }, "Geçerli bir telefon numarası giriniz"),
+    }),
+  }),
   paymentMethod: z
-    .string()
-    .min(1, "Ödeme yöntemi seçiniz"),
+    .enum(['credit_card', 'paypal', 'bank_transfer', 'cash_on_delivery'], {
+      message: "Ödeme yöntemi seçiniz",
+    }),
+  sameAsShipping: z.boolean(),
   notes: z
     .string()
     .max(500, "Not çok uzun")
     .optional(),
 }).refine((data) => {
-  if (!data.sameAsShipping && !data.billingAddress) {
-    return false;
+  // Eğer sameAsShipping false ise, fatura adresi alanları zorunlu
+  if (!data.sameAsShipping) {
+    const billing = data.addresses.billing;
+    if (!billing.firstName || !billing.lastName || !billing.address1 || 
+        !billing.city || !billing.state || !billing.postalCode) {
+      return false;
+    }
   }
   return true;
 }, {
-  message: "Fatura adresi gereklidir",
-  path: ["billingAddress"],
+  message: "Fatura adresi bilgileri eksik",
+  path: ["addresses", "billing"],
+});
+
+// Address Form Validation (for AddressSelector)
+export const addressFormSchema = z.object({
+  type: z.enum(['home', 'work', 'other'], {
+    message: "Adres tipi seçiniz",
+  }),
+  title: z
+    .string()
+    .min(2, "Adres başlığı en az 2 karakter olmalıdır")
+    .max(50, "Adres başlığı çok uzun"),
+  firstName: z
+    .string()
+    .min(2, "Ad en az 2 karakter olmalıdır")
+    .max(50, "Ad çok uzun")
+    .regex(/^[a-zA-ZğüşıöçĞÜŞİÖÇ\s]+$/, "Ad sadece harf içerebilir"),
+  lastName: z
+    .string()
+    .min(2, "Soyad en az 2 karakter olmalıdır")
+    .max(50, "Soyad çok uzun")
+    .regex(/^[a-zA-ZğüşıöçĞÜŞİÖÇ\s]+$/, "Soyad sadece harf içerebilir"),
+  company: z
+    .string()
+    .max(100, "Şirket adı çok uzun")
+    .optional(),
+  address1: z
+    .string()
+    .min(10, "Adres en az 10 karakter olmalıdır")
+    .max(200, "Adres çok uzun"),
+  address2: z
+    .string()
+    .max(200, "Adres çok uzun")
+    .optional(),
+  city: z
+    .string()
+    .min(2, "Şehir adı en az 2 karakter olmalıdır")
+    .max(50, "Şehir adı çok uzun")
+    .regex(/^[a-zA-ZğüşıöçĞÜŞİÖÇ\s]+$/, "Şehir sadece harf içerebilir"),
+  state: z
+    .string()
+    .min(2, "İl/Bölge en az 2 karakter olmalıdır")
+    .max(50, "İl/Bölge çok uzun"),
+  postalCode: z
+    .string()
+    .min(5, "Posta kodu en az 5 karakter olmalıdır")
+    .max(10, "Posta kodu çok uzun")
+    .regex(/^[0-9]+$/, "Posta kodu sadece rakam içerebilir"),
+  country: z
+    .string()
+    .min(2, "Ülke seçiniz")
+    .max(50, "Ülke adı çok uzun"),
+  phone: z
+    .string()
+    .optional()
+    .refine((phone) => {
+      if (!phone) return true;
+      return /^(\+90|90)?[1-9][0-9]{9}$/.test(phone.replace(/\s/g, ""));
+    }, "Geçerli bir telefon numarası giriniz"),
+  isDefault: z.boolean().optional(),
 });
 
 // Product Review Validation
@@ -386,6 +566,7 @@ export type ProfileFormData = z.infer<typeof profileSchema>;
 export type AddressFormData = z.infer<typeof addressSchema>;
 export type ContactFormData = z.infer<typeof contactSchema>;
 export type CheckoutFormData = z.infer<typeof checkoutSchema>;
+export type AddressFormFormData = z.infer<typeof addressFormSchema>;
 export type ReviewFormData = z.infer<typeof reviewSchema>;
 export type NewsletterFormData = z.infer<typeof newsletterSchema>;
 export type SearchFormData = z.infer<typeof searchSchema>;

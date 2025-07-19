@@ -7,6 +7,8 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
+import { getImageUrl } from "@/utils/apiUtils";
+import { cartService } from "@/services/cartService";
 
 const QuickViewModal = () => {
   const { isOpen, closeModal, product } = useModalContext();
@@ -46,22 +48,39 @@ const QuickViewModal = () => {
     };
   }, [isOpen, closeModal]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
     
-    dispatch(
-      addItemToCart({
-        id: parseInt(product._id) || 0,
-        title: product.name,
-        price: product.price,
-        discountedPrice: product.salePrice || product.price,
-        imgs: { 
-          thumbnails: product.images?.map(img => getImageUrl(img.url)) || [],
-          previews: product.images?.map(img => getImageUrl(img.url)) || [] 
-        },
+    try {
+      const response = await cartService.addToCart({
+        productId: product._id,
         quantity: 1,
-      })
-    );
+        variantId: undefined
+      });
+
+      if (response.success) {
+        dispatch(
+          addItemToCart({
+            id: product._id,
+            title: product.name,
+            price: product.price,
+            discountedPrice: product.salePrice || product.price,
+            imgs: { 
+              thumbnails: product.images?.map(img => getImageUrl(img.url)) || [],
+              previews: product.images?.map(img => getImageUrl(img.url)) || [] 
+            },
+            quantity: 1,
+          })
+        );
+        
+        alert("Ürün sepete eklendi!");
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert("Ürün sepete eklenirken hata oluştu!");
+    }
   };
 
   const handleToggleFavorite = async () => {

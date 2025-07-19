@@ -4,24 +4,34 @@ import Link from "next/link";
 import CustomSelect from "./CustomSelect";
 import { menuData } from "./menuData";
 import Dropdown from "./Dropdown";
-import { useAppSelector } from "@/redux/store";
-import { useSelector } from "react-redux";
-import { selectTotalPrice } from "@/redux/features/cart-slice";
 import { useCartModalContext } from "@/app/context/CartSidebarModalContext";
 import { useAuth } from "@/store/authStore";
+import { useCart } from "@/hooks/useCart";
 import Image from "next/image";
 
 const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [stickyMenu, setStickyMenu] = useState(false);
-  const { openCartModal } = useCartModalContext();
+  const { openCartModal, refreshCart: refreshCartFromContext } = useCartModalContext();
 
-  const product = useAppSelector((state) => state.cartReducer.items);
-  const totalPrice = useSelector(selectTotalPrice);
+  const { cart: serverCart, refreshCart } = useCart();
+  
   const { user, isAuthenticated, logout, fullName } = useAuth();
 
+  const cartItems = serverCart?.items || [];
+  const cartTotal = serverCart?.totals?.total || 0;
+  const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY'
+    }).format(price);
+  };
+
   const handleOpenCartModal = () => {
+    refreshCart(); // Sepet verilerini güncelle
     openCartModal();
   };
 
@@ -34,7 +44,6 @@ const Header = () => {
     }
   };
 
-  // Sticky menu
   const handleStickyMenu = () => {
     if (window.scrollY >= 80) {
       setStickyMenu(true);
@@ -46,17 +55,6 @@ const Header = () => {
   useEffect(() => {
     window.addEventListener("scroll", handleStickyMenu);
   });
-
-  const options = [
-    { label: "All Categories", value: "0" },
-    { label: "Desktop", value: "1" },
-    { label: "Laptop", value: "2" },
-    { label: "Monitor", value: "3" },
-    { label: "Phone", value: "4" },
-    { label: "Watch", value: "5" },
-    { label: "Mouse", value: "6" },
-    { label: "Tablet", value: "7" },
-  ];
 
   return (
     <header
@@ -85,7 +83,6 @@ const Header = () => {
             <div className="max-w-[475px] w-full">
               <form>
                 <div className="flex items-center">
-                  <CustomSelect options={options} />
 
                   <div className="relative max-w-[333px] sm:min-w-[333px] w-full">
                     {/* <!-- divider --> */}
@@ -96,7 +93,7 @@ const Header = () => {
                       type="search"
                       name="search"
                       id="search"
-                      placeholder="I am shopping for..."
+                      placeholder="Ne arıyorsunuz?"
                       autoComplete="off"
                       className="custom-search w-full rounded-r-[5px] bg-gray-1 !border-l-0 border border-gray-3 py-2.5 pl-4 pr-10 outline-none ease-in duration-200"
                     />
@@ -156,10 +153,10 @@ const Header = () => {
 
               <div>
                 <span className="block text-2xs text-dark-4 uppercase">
-                  24/7 SUPPORT
+                  7/24 DESTEK
                 </span>
                 <p className="font-medium text-custom-sm text-dark">
-                  (+965) 7492-3477
+                  (+90) 212-555-0123
                 </p>
               </div>
             </div>
@@ -262,7 +259,7 @@ const Header = () => {
 
                     <div>
                       <span className="block text-2xs text-dark-4 uppercase">
-                        account
+                        Hesap
                       </span>
                       <p className="font-medium text-custom-sm text-dark">
                         Giriş Yap
@@ -308,16 +305,16 @@ const Header = () => {
                     </svg>
 
                     <span className="flex items-center justify-center font-medium text-2xs absolute -right-2 -top-2.5 bg-blue w-4.5 h-4.5 rounded-full text-white">
-                      {product.length}
+                      {itemCount}
                     </span>
                   </span>
 
                   <div>
                     <span className="block text-2xs text-dark-4 uppercase">
-                      cart
+                      Sepet
                     </span>
                     <p className="font-medium text-custom-sm text-dark">
-                      ${totalPrice}
+                      {formatPrice(cartTotal)}
                     </p>
                   </div>
                 </button>

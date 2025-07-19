@@ -22,6 +22,20 @@ import {
   isTokenValid,
   validateTokenWithServer
 } from '@/services/authService';
+import { cartService } from '@/services/cartService';
+
+// Session ID alma fonksiyonu
+const getSessionId = (): string => {
+  if (typeof window === 'undefined') return '';
+  
+  const SESSION_ID_KEY = 'pazarcik_session_id';
+  let sessionId = localStorage.getItem(SESSION_ID_KEY);
+  if (!sessionId) {
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem(SESSION_ID_KEY, sessionId);
+  }
+  return sessionId;
+};
 
 interface AuthState {
   user: User | null;
@@ -205,6 +219,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         
         get().startTokenValidation();
         
+        // Sepet senkronizasyonu
+        try {
+          await cartService.mergeCarts(getSessionId());
+        } catch (error) {
+          console.warn('Sepet senkronizasyonu başarısız:', error);
+        }
+        
         return { success: true, message: response.message };
       } else {
         set({ error: response.message || 'Giriş başarısız' });
@@ -266,6 +287,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Local sepeti temizle
+      cartService.clearLocalStorage();
+      
       clearStoredAuth();
       
       set({
@@ -491,6 +515,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   forceLogout: () => {
     get().stopTokenValidation();
+    // Local sepeti temizle
+    cartService.clearLocalStorage();
     clearStoredAuth();
     set({
       user: null,

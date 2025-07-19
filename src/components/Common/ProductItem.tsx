@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
 import { getImageUrl } from "@/utils/apiUtils";
+import { cartService } from "@/services/cartService";
 import StarRating from './StarRating';
 
 const ProductItem = ({ item }: { item: Product }) => {
@@ -36,20 +37,37 @@ const ProductItem = ({ item }: { item: Product }) => {
     openModal(item);
   };
 
-  const handleAddToCart = () => {
-    dispatch(
-      addItemToCart({
-        id: parseInt(item._id) || 0,
-        title: item.name,
-        price: item.price,
-        discountedPrice: item.salePrice || item.price,
-        imgs: { 
-          thumbnails: item.images?.map(img => getImageUrl(img.url)) || [],
-          previews: item.images?.map(img => getImageUrl(img.url)) || [] 
-        },
+  const handleAddToCart = async () => {
+    try {
+      const response = await cartService.addToCart({
+        productId: item._id,
         quantity: 1,
-      })
-    );
+        variantId: undefined
+      });
+
+      if (response.success) {
+        dispatch(
+          addItemToCart({
+            id: item._id.toString(),
+            title: item.name,
+            price: item.price,
+            discountedPrice: item.salePrice || item.price,
+            imgs: { 
+              thumbnails: item.images?.map(img => getImageUrl(img.url)) || [],
+              previews: item.images?.map(img => getImageUrl(img.url)) || [] 
+            },
+            quantity: 1,
+          })
+        );
+        
+        alert("Ürün sepete eklendi!");
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      alert("Ürün sepete eklenirken hata oluştu!");
+    }
   };
 
   const handleItemToWishList = () => {
@@ -108,6 +126,38 @@ const ProductItem = ({ item }: { item: Product }) => {
   return (
     <div className="group w-full">
       <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] w-full h-[320px] mb-4">
+        {/* Etiketler - Sol üst köşe */}
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
+          {item.salePrice && item.salePrice < item.price && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-md shadow-sm">
+              İndirim
+            </span>
+          )}
+          {item.createdAt && new Date(item.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-md shadow-sm">
+              Yeni
+            </span>
+          )}
+          {item.isFeatured && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-md shadow-sm">
+              Öne Çıkan
+            </span>
+          )}
+        </div>
+
+        {/* Stok durumu - Sağ üst köşe */}
+        <div className="absolute top-3 right-3 z-10">
+          {item.stock && item.stock > 0 ? (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-green-600 rounded-md shadow-sm">
+              Stokta
+            </span>
+          ) : (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-gray-500 rounded-md shadow-sm">
+              Tükendi
+            </span>
+          )}
+        </div>
+
         <Image 
           src={getImageUrl(item.images?.[0]?.url || "/images/products/default.png")} 
           alt={item.name || "Ürün görseli"} 
@@ -217,6 +267,25 @@ const ProductItem = ({ item }: { item: Product }) => {
         <span className="text-dark">₺{item.salePrice || item.price}</span>
         {item.salePrice && <span className="text-dark-4 line-through">₺{item.price}</span>}
       </span>
+
+      {/* Etiketler */}
+      {item.tags && item.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {item.tags.slice(0, 3).map((tag, index) => (
+            <span
+              key={index}
+              className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full"
+            >
+              {tag}
+            </span>
+          ))}
+          {item.tags.length > 3 && (
+            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+              +{item.tags.length - 3}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -9,15 +9,14 @@ interface RouteParams {
 }
 
 /**
- * @desc    Get category by slug
- * @route   GET /api/categories/[slug]
- * @access  Public
+ * @desc    
+ * @route   get /api/categories/[slug]
+ * @access  
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { slug } = params;
 
-    // Slug validation
     if (!slug || typeof slug !== 'string' || slug.length < 2) {
       return NextResponse.json(
         { 
@@ -28,7 +27,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Backend'den kategori detayını fetch et
     const response = await fetch(`${BACKEND_URL}/api/categories/${encodeURIComponent(slug)}`, {
       method: 'GET',
       headers: {
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         'User-Agent': 'NextJS-Frontend/1.0',
       },
       next: {
-        revalidate: 120, // 2 dakika cache
+        revalidate: 120, 
       },
     });
 
@@ -63,7 +61,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const data = await response.json();
 
-    // Response headers
     const headers = new Headers();
     headers.set('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     headers.set('X-API-Source', 'NextJS-Proxy');

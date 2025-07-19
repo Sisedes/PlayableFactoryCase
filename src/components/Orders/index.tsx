@@ -91,7 +91,7 @@ const Orders = () => {
               </div>
 
               <div className="min-w-[113px]">
-                <p className="text-custom-sm text-dark">İşlem</p>
+                <p className="text-custom-sm text-dark">Detay</p>
               </div>
             </div>
           )}

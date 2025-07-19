@@ -9,15 +9,14 @@ interface RouteParams {
 }
 
 /**
- * @desc    Get product by ID
- * @route   GET /api/products/[id]
- * @access  Public
+ * @desc    
+ * @route   get /api/products/[id]
+ * @access  
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
 
-    // ID validation
     if (!id || typeof id !== 'string' || id.length !== 24) {
       return NextResponse.json(
         { 
@@ -28,7 +27,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Backend'den ürün detayını fetch et
     const response = await fetch(`${BACKEND_URL}/api/products/${encodeURIComponent(id)}`, {
       method: 'GET',
       headers: {
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         'User-Agent': 'NextJS-Frontend/1.0',
       },
       next: {
-        revalidate: 60, // 1 dakika cache
+        revalidate: 60,
       },
     });
 
@@ -63,7 +61,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const data = await response.json();
 
-    // Response headers
     const headers = new Headers();
     headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     headers.set('X-API-Source', 'NextJS-Proxy');

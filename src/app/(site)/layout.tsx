@@ -5,7 +5,7 @@ import ClientLayout from "./ClientLayout";
 // Add global metadata for better SEO
 export const metadata = {
   title: {
-    default: "E-Commerce Platform | Modern Online Shopping Experience",
+    default: "Pazarcık | Alışverişin Model Hali",
     template: "%s | E-Commerce Platform"
   },
   description: "Discover amazing products with our modern e-commerce platform. Shop electronics, clothing, home & garden, sports, books, health & beauty, toys, and food categories.",

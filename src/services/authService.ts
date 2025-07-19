@@ -88,7 +88,26 @@ export const login = async (formData: LoginRequest): Promise<AuthResponse> => {
       };
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Login başarılıysa sepetleri birleştir
+    if (result.success && result.data?.accessToken) {
+      try {
+        // Session ID'yi al
+        const sessionId = typeof window !== 'undefined' ? localStorage.getItem('pazarcik_session_id') : null;
+        
+        if (sessionId) {
+          // Cart service'i import et
+          const { cartService } = await import('./cartService');
+          await cartService.mergeCarts(sessionId);
+        }
+      } catch (cartError) {
+        console.error('Cart merge error:', cartError);
+        // Sepet birleştirme hatası login'i etkilemesin
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error('Login error:', error);
     return {

@@ -38,7 +38,6 @@ export const subscribeToNewsletter = async (email: string): Promise<{ success: b
   }
 };
 
-// Service Types - Genel kullanım için tipleri export et
 export type { ApiResponse, ProductFilters } from './productService';
 export type { 
   LoginRequest, 

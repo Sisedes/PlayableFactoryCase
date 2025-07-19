@@ -5,22 +5,15 @@ import Image from "next/image";
 
 const SingleOrder = ({ orderItem, smallView }: any) => {
   const [showDetails, setShowDetails] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
   };
 
-  const toggleEdit = () => {
-    setShowEdit(!showEdit);
-  };
-
   const toggleModal = (status: boolean) => {
     setShowDetails(status);
-    setShowEdit(status);
   };
 
-  // Sipariş durumunu Türkçe'ye çevir
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
       'pending': 'Bekliyor',
@@ -33,7 +26,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
     return statusMap[status] || status;
   };
 
-  // Sipariş durumuna göre renk sınıfı
   const getStatusClass = (status: string) => {
     const statusClassMap: { [key: string]: string } = {
       'pending': 'text-yellow-600 bg-yellow-100',
@@ -46,7 +38,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
     return statusClassMap[status] || 'text-gray-600 bg-gray-100';
   };
 
-  // Tarihi formatla
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR', {
@@ -58,7 +49,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
     });
   };
 
-  // Ürün adlarını birleştir
   const getProductNames = () => {
     if (!orderItem.items || orderItem.items.length === 0) return 'Ürün bilgisi yok';
     
@@ -106,7 +96,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
           <div className="flex gap-5 items-center">
             <OrderActions
               toggleDetails={toggleDetails}
-              toggleEdit={toggleEdit}
             />
           </div>
         </div>
@@ -154,10 +143,9 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
 
             <div className="">
               <p className="text-custom-sm text-dark flex items-center">
-                <span className="font-bold pr-2">İşlemler:</span>{" "}
+                <span className="font-bold pr-2">Detay:</span>{" "}
                 <OrderActions
                   toggleDetails={toggleDetails}
-                  toggleEdit={toggleEdit}
                 />
               </p>
             </div>
@@ -167,7 +155,6 @@ const SingleOrder = ({ orderItem, smallView }: any) => {
 
       <OrderModal
         showDetails={showDetails}
-        showEdit={showEdit}
         toggleModal={toggleModal}
         order={orderItem}
       />

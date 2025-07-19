@@ -5,6 +5,7 @@ interface CartModalContextType {
   isCartModalOpen: boolean;
   openCartModal: () => void;
   closeCartModal: () => void;
+  refreshCart: () => void;
 }
 
 const CartModalContext = createContext<CartModalContextType | undefined>(
@@ -30,9 +31,15 @@ export const CartModalProvider = ({ children }) => {
     setIsCartModalOpen(false);
   };
 
+  const refreshCart = () => {
+    // Bu fonksiyon sepet yenileme işlemini tetikleyecek
+    // Custom event ile sepet yenileme işlemini tetikleyeceğiz
+    window.dispatchEvent(new CustomEvent('refreshCart'));
+  };
+
   return (
     <CartModalContext.Provider
-      value={{ isCartModalOpen, openCartModal, closeCartModal }}
+      value={{ isCartModalOpen, openCartModal, closeCartModal, refreshCart }}
     >
       {children}
     </CartModalContext.Provider>

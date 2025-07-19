@@ -30,107 +30,200 @@ export interface ProductFilters {
 }
 
 export const getAllProducts = async (filters: ProductFilters = {}): Promise<ApiResponse<Product[]>> => {
-  try {
-    const queryParams = new URLSearchParams();
-    
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        queryParams.append(key, value.toString());
-      }
-    });
-
-    const queryString = queryParams.toString();
-    const url = queryString ? `${API_BASE}/products?${queryString}` : `${API_BASE}/products`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('getAllProducts error:', error);
-    throw new Error('Ürünler getirilirken hata oluştu');
+  const cacheKey = `all_products_${JSON.stringify(filters)}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    return cached;
   }
+
+  return retryWithDelay(async () => {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+
+      const queryString = queryParams.toString();
+      const url = queryString ? `${API_BASE}/products?${queryString}` : `${API_BASE}/products`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCachedData(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error('getAllProducts error:', error);
+      throw new Error('Ürünler getirilirken hata oluştu');
+    }
+  });
 };
 
 
 export const getProductById = async (id: string): Promise<ApiResponse<{ product: Product; relatedProducts: Product[] }>> => {
-  try {
-    if (!id) {
-      throw new Error('Ürün ID gereklidir');
-    }
-
-    const response = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error('Ürün bulunamadı');
-      }
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('getProductById error:', error);
-    throw error;
+  const cacheKey = `product_${id}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    return cached;
   }
+
+  return retryWithDelay(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/products/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Ürün bulunamadı');
+        }
+        if (response.status === 429) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCachedData(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error('getProductById error:', error);
+      throw error;
+    }
+  });
 };
 
 
-export const getPopularProducts = async (limit: number = 8): Promise<ApiResponse<Product[]>> => {
-  try {
-    const response = await fetch(`${API_BASE}/products/popular?limit=${limit}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+// Retry mekanizması için yardımcı fonksiyon
+const retryWithDelay = async <T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (error.message?.includes('429') && i < maxRetries - 1) {
+        console.warn(`Rate limit hit, retrying in ${delay}ms... (attempt ${i + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // Exponential backoff
+        continue;
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('getPopularProducts error:', error);
-    throw new Error('Popüler ürünler getirilirken hata oluştu');
   }
+  throw new Error('Max retries exceeded');
+};
+
+// Cache mekanizması
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 2 * 60 * 1000; // 2 dakika (daha kısa süre)
+
+const getCachedData = (key: string) => {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+  return null;
+};
+
+const setCachedData = (key: string, data: any) => {
+  cache.set(key, { data, timestamp: Date.now() });
+};
+
+// Cache'i temizleme fonksiyonu
+export const clearProductCache = () => {
+  cache.clear();
+  console.log('Product cache cleared');
+};
+
+// Belirli bir cache key'ini temizleme
+export const clearProductCacheByKey = (key: string) => {
+  cache.delete(key);
+  console.log(`Product cache cleared for key: ${key}`);
+};
+
+export const getPopularProducts = async (limit: number = 8): Promise<ApiResponse<Product[]>> => {
+  const cacheKey = `popular_products_${limit}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  return retryWithDelay(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/products/popular?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCachedData(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error('getPopularProducts error:', error);
+      throw new Error('Popüler ürünler getirilirken hata oluştu');
+    }
+  });
 };
 
 export const getLatestProducts = async (limit: number = 4): Promise<ApiResponse<Product[]>> => {
-  try {
-    const response = await fetch(`${API_BASE}/products/latest?limit=${limit}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('getLatestProducts error:', error);
-    throw new Error('En yeni ürünler getirilirken hata oluştu');
+  const cacheKey = `latest_products_${limit}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    return cached;
   }
+
+  return retryWithDelay(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/products/latest?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCachedData(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error('getLatestProducts error:', error);
+      throw new Error('En yeni ürünler getirilirken hata oluştu');
+    }
+  });
 };
 
 export const getProductsByCategory = async (

@@ -7,6 +7,21 @@ export type ProductImage = {
   sortOrder?: number;
 };
 
+export type ProductVariant = {
+  _id?: string;
+  name: string;
+  options: Array<{
+    name: string;
+    value: string;
+  }>;
+  sku: string;
+  price?: number;
+  salePrice?: number;
+  stock: number;
+  image?: string;
+  isDefault: boolean;
+};
+
 export type Product = {
   _id: string;
   name: string;
@@ -26,9 +41,11 @@ export type Product = {
   trackQuantity?: boolean;
   lowStockThreshold?: number;
   images: ProductImage[];
+  variants?: ProductVariant[];
   tags?: string[];
   status: 'draft' | 'active' | 'inactive';
   isFeatured?: boolean;
+  isNew?: boolean;
   averageRating?: number;
   reviewCount?: number;
   createdAt: string;

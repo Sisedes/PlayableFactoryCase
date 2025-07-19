@@ -31,6 +31,13 @@ const SingleItem = ({ item }) => {
     }
   };
 
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY'
+    }).format(price);
+  };
+
   return (
     <div className="flex items-center border-t border-gray-3 py-5 px-7.5">
       <div className="min-w-[400px]">
@@ -44,13 +51,30 @@ const SingleItem = ({ item }) => {
               <h3 className="text-dark ease-out duration-200 hover:text-blue">
                 <a href="#"> {item.title} </a>
               </h3>
+              {/* Varyasyon bilgileri */}
+              {item.variant && (
+                <div className="mt-1 text-sm text-gray-600">
+                  <div className="font-medium">{item.variant.name}</div>
+                  <div className="text-xs text-gray-500">
+                    {item.variant.options.map((option, index) => (
+                      <span key={index}>
+                        {option.name}: {option.value}
+                        {index < item.variant.options.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    SKU: {item.variant.sku}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       <div className="min-w-[180px]">
-        <p className="text-dark">${item.discountedPrice}</p>
+        <p className="text-dark">{formatPrice(item.discountedPrice)}</p>
       </div>
 
       <div className="min-w-[275px]">
@@ -106,7 +130,7 @@ const SingleItem = ({ item }) => {
       </div>
 
       <div className="min-w-[200px]">
-        <p className="text-dark">${item.discountedPrice * quantity}</p>
+        <p className="text-dark">{formatPrice(item.discountedPrice * quantity)}</p>
       </div>
 
       <div className="min-w-[50px] flex justify-end">
