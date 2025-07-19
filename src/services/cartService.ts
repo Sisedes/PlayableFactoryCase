@@ -529,7 +529,6 @@ export const cartService = {
 
       return response;
     } catch (error) {
-      // API başarısız olursa localStorage'da uygula
       const localCart = getLocalCart();
       if (localCart) {
         let discountAmount = 0;
@@ -585,7 +584,6 @@ export const cartService = {
         if (response.data) {
           saveLocalCart(response.data);
         } else {
-          // Sepet silindi, boş sepet oluştur
           const emptyCart: Cart = {
             _id: 'local_cart',
             sessionId: getSessionId(),
