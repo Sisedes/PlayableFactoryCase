@@ -36,6 +36,11 @@ const SingleItem = ({ item }: { item: Product }) => {
   };
 
   const handleAddToCart = async () => {
+    if (item.stock === 0 || item.stock === undefined || item.stock === null) {
+      alert("Bu ürün stokta bulunmamaktadır!");
+      return;
+    }
+    
     try {
       const response = await cartService.addToCart({
         productId: item._id,
@@ -62,9 +67,13 @@ const SingleItem = ({ item }: { item: Product }) => {
       } else {
         alert("Ürün sepete eklenirken hata oluştu!");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Add to cart error:', error);
-      alert("Ürün sepete eklenirken hata oluştu!");
+      if (error.message && error.message.includes('Yetersiz stok')) {
+        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
     }
   };
 
@@ -116,8 +125,10 @@ const SingleItem = ({ item }: { item: Product }) => {
           </h3>
 
           <span className="flex items-center justify-center gap-2 font-medium text-lg">
-            <span className="text-dark">₺{item.salePrice || item.price}</span>
-            {item.salePrice && <span className="text-dark-4 line-through">₺{item.price}</span>}
+            <span className="text-dark">₺{item.salePrice && item.salePrice > 0 ? item.salePrice : item.price}</span>
+            {item.salePrice && item.salePrice > 0 && item.salePrice < item.price && (
+              <span className="text-dark-4 line-through">₺{item.price}</span>
+            )}
           </span>
           
           {/* Görüntüleme Sayısı */}

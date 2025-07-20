@@ -38,6 +38,11 @@ const ProductItem = ({ item }: { item: Product }) => {
   };
 
   const handleAddToCart = async () => {
+    if (item.stock === 0 || item.stock === undefined || item.stock === null) {
+      alert("Bu ürün stokta bulunmamaktadır!");
+      return;
+    }
+    
     try {
       const response = await cartService.addToCart({
         productId: item._id,
@@ -64,9 +69,13 @@ const ProductItem = ({ item }: { item: Product }) => {
       } else {
         alert("Ürün sepete eklenirken hata oluştu!");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Add to cart error:', error);
-      alert("Ürün sepete eklenirken hata oluştu!");
+      if (error.message && error.message.includes('Yetersiz stok')) {
+        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
     }
   };
 
@@ -122,65 +131,66 @@ const ProductItem = ({ item }: { item: Product }) => {
     }
   };
 
-
+  const isNewProduct = item.createdAt && new Date(item.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const hasDiscount = item.salePrice && item.salePrice < item.price;
+  const isInStock = item.stock !== undefined && item.stock !== null && item.stock > 0;
+  const mainImage = sortProductImages(item.images)[0]?.url || "/images/products/default.png";
 
   return (
-    <div className="group w-full">
-      <div className="relative overflow-hidden flex items-center justify-center rounded-lg bg-[#F6F7FB] w-full h-[280px] sm:h-[300px] lg:h-[320px] mb-3 sm:mb-4">
-        <div className="absolute top-3 left-3 z-10 flex flex-col gap-2">
-          {item.salePrice && item.salePrice < item.price && (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-red rounded-md shadow-sm">
-              % İndirim %
+    <article className="group w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+      <div className="relative overflow-hidden flex items-center justify-center bg-gray-50 w-full h-48 sm:h-56 lg:h-64 mb-3 sm:mb-4">
+        {/* Badges */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1.5">
+          {hasDiscount && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-md shadow-sm">
+              İndirim
             </span>
           )}
-          {item.createdAt && new Date(item.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-green rounded-md shadow-sm">
+          {isNewProduct && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-md shadow-sm">
               Yeni
             </span>
           )}
           {item.isFeatured && (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-blue rounded-md shadow-sm">
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-blue-500 rounded-md shadow-sm">
               Öne Çıkan
             </span>
           )}
         </div>
 
-        {/* Stok durumu - Sağ üst köşe */}
-        <div className="absolute top-3 right-3 z-10">
-          {item.stock !== undefined && item.stock !== null && item.stock > 0 ? (
+        {/* Stock Status */}
+        <div className="absolute top-2 right-2 z-10">
+          {isInStock ? (
             <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-green rounded-md shadow-sm">
               Stokta
             </span>
           ) : (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold text-white bg-gray rounded-md shadow-sm">
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold  bg-gray rounded-md shadow-sm">
               Tükendi
             </span>
           )}
         </div>
 
+        {/* Product Image */}
         <Image 
-          src={getImageUrl(sortProductImages(item.images)[0]?.url || "/images/products/default.png")} 
+          src={getImageUrl(mainImage)} 
           alt={item.name || "Ürün görseli"} 
           width={320}
           height={320}
-          className="object-contain w-full h-full p-1 transition-transform duration-300 group-hover:scale-105"
-          style={{ 
-            aspectRatio: '1/1',
-            objectFit: 'contain'
-          }}
+          className="object-contain w-full h-full p-2 transition-transform duration-300 group-hover:scale-105"
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          priority={false}
           loading="lazy"
+          quality={85}
           placeholder="blur"
           blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
         />
 
-        <div className="absolute left-0 bottom-0 translate-y-full w-full flex items-center justify-center gap-2 sm:gap-2.5 pb-3 sm:pb-5 ease-linear duration-200 group-hover:translate-y-0">
+        {/* Action Buttons */}
+        <div className="absolute left-0 bottom-0 translate-y-full w-full flex items-center justify-center gap-2 pb-3 ease-linear duration-200 group-hover:translate-y-0">
           <button
             onClick={handleQuickView}
-            id="newOne"
-            aria-label="button for quick view"
-            className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-[5px] shadow-1 ease-out duration-200 text-dark bg-white hover:text-blue"
+            aria-label="Hızlı görünüm"
+            className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg shadow-lg ease-out duration-200 text-gray-700 bg-white hover:text-blue-600 hover:bg-blue-50 transition-colors"
           >
             <svg
               className="fill-current"
@@ -207,25 +217,24 @@ const ProductItem = ({ item }: { item: Product }) => {
 
           <button
             onClick={handleAddToCart}
-            disabled={item.stock === 0 || item.stock === undefined || item.stock === null}
-            className={`inline-flex font-medium text-xs sm:text-custom-sm py-1.5 sm:py-[7px] px-3 sm:px-5 rounded-[5px] ease-out duration-200 ${
-              item.stock !== undefined && item.stock !== null && item.stock > 0 
-                ? 'bg-blue text-white hover:bg-blue-dark' 
+            disabled={!isInStock}
+            className={`inline-flex font-medium text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg ease-out duration-200 transition-colors ${
+              isInStock 
+                ? 'bg-blue-600 text-white hover:bg-blue-700' 
                 : 'bg-gray-400 text-gray-600 cursor-not-allowed'
             }`}
           >
-            {item.stock !== undefined && item.stock !== null && item.stock > 0 ? 'Sepete Ekle' : 'Stokta Yok'}
+            {isInStock ? 'Sepete Ekle' : 'Stokta Yok'}
           </button>
 
           <button
             onClick={handleToggleFavorite}
             disabled={favoriteLoading}
-            aria-label="button for favorite select"
-            id="favOne"
-            className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-[5px] shadow-1 ease-out duration-200 ${
+            aria-label="Favorilere ekle"
+            className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg shadow-lg ease-out duration-200 transition-colors ${
               isFavorite 
-                ? 'text-red bg-red-50 hover:text-red-dark' 
-                : 'text-dark bg-white hover:text-blue'
+                ? 'text-red-500 bg-red-50 hover:text-red-600 hover:bg-red-100' 
+                : 'text-gray-700 bg-white hover:text-blue-600 hover:bg-blue-50'
             } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {favoriteLoading ? (
@@ -258,52 +267,63 @@ const ProductItem = ({ item }: { item: Product }) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-2.5 mb-2">
-        <StarRating 
-          rating={item.averageRating !== undefined && item.averageRating !== null ? item.averageRating : 0} 
-          reviewCount={item.reviewCount !== undefined && item.reviewCount !== null ? item.reviewCount : 0}
-          size="sm"
-        />
-      </div>
+      <div className="p-3 sm:p-4">
+        {/* Rating */}
+        <div className="flex items-center gap-2 mb-2">
+          <StarRating 
+            rating={item.averageRating !== undefined && item.averageRating !== null ? item.averageRating : 0} 
+            reviewCount={item.reviewCount !== undefined && item.reviewCount !== null ? item.reviewCount : 0}
+            size="sm"
+          />
+        </div>
 
-      <h3
-        className="font-medium text-dark ease-out duration-200 hover:text-blue mb-1 sm:mb-1.5 text-sm sm:text-base line-clamp-2"
-        onClick={() => handleProductDetails()}
-      >
-        <Link href={`/product/${item._id}`}> {item.name} </Link>
-      </h3>
+        {/* Product Title */}
+        <h3
+          className="font-medium text-gray-900 ease-out duration-200 hover:text-blue-600 mb-2 text-sm sm:text-base line-clamp-2"
+          onClick={() => handleProductDetails()}
+        >
+          <Link href={`/product/${item._id}`} className="hover:underline"> 
+            {item.name} 
+          </Link>
+        </h3>
 
-      <span className="flex items-center gap-2 font-medium text-base sm:text-lg">
-        <span className="text-dark">₺{item.salePrice || item.price}</span>
-        {item.salePrice && <span className="text-dark-4 line-through text-sm sm:text-base">₺{item.price}</span>}
-      </span>
-
-      <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-        </svg>
-        <span>{item.viewCount !== undefined && item.viewCount !== null ? item.viewCount : 0} görüntüleme</span>
-      </div>
-
-      {item.tags && item.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {item.tags.slice(0, 2).map((tag, index) => (
-            <span
-              key={index}
-              className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full"
-            >
-              {tag}
-            </span>
-          ))}
-          {item.tags.length > 2 && (
-            <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
-              +{item.tags.length - 2}
-            </span>
+        {/* Price */}
+        <div className="flex items-center gap-2 font-semibold text-base sm:text-lg mb-2">
+          <span className="text-gray-900">₺{item.salePrice && item.salePrice > 0 ? item.salePrice : item.price}</span>
+          {hasDiscount && (
+            <span className="text-gray-500 line-through text-sm sm:text-base">₺{item.price}</span>
           )}
         </div>
-      )}
-    </div>
+
+        {/* View Count */}
+        <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+          </svg>
+          <span>{item.viewCount !== undefined && item.viewCount !== null ? item.viewCount : 0} görüntüleme</span>
+        </div>
+
+        {/* Tags */}
+        {item.tags && item.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {item.tags.slice(0, 2).map((tag, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+            {item.tags.length > 2 && (
+              <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                +{item.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
   );
 };
 

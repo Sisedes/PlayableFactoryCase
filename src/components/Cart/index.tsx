@@ -1,14 +1,19 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Discount from "./Discount";
 import OrderSummary from "./OrderSummary";
 import Breadcrumb from "../Common/Breadcrumb";
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
 import { cartService } from "@/services/cartService";
+import { getSimilarProducts } from "@/services/productService";
+import { Product } from "@/types";
+import { getImageUrl } from "@/utils/apiUtils";
 
 const Cart = () => {
   const { cart: serverCart, loading, error, refreshCart, clearCart } = useCart();
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
+  const [similarProductsLoading, setSimilarProductsLoading] = useState(false);
 
   const handleClearCart = async () => {
     if (!confirm('Sepetinizdeki tüm ürünleri silmek istediğinizden emin misiniz?')) {
@@ -28,6 +33,59 @@ const Cart = () => {
       currency: 'TRY'
     }).format(price);
   };
+
+  useEffect(() => {
+    const fetchSimilarProducts = async () => {
+      if (!serverCart?.items || serverCart.items.length === 0) {
+        setSimilarProducts([]);
+        return;
+      }
+
+      try {
+        setSimilarProductsLoading(true);
+        
+        const categoryIds: string[] = [];
+        const tags: string[] = [];
+        const excludeProductIds: string[] = [];
+
+        serverCart.items.forEach((item: any) => {
+          if (item.product?.category?._id) {
+            categoryIds.push(item.product.category._id);
+          }
+          if (item.product?.tags && Array.isArray(item.product.tags)) {
+            tags.push(...item.product.tags);
+          }
+          if (item.product?._id) {
+            excludeProductIds.push(item.product._id);
+          }
+        });
+
+        const uniqueCategoryIds = Array.from(new Set(categoryIds));
+        const uniqueTags = Array.from(new Set(tags));
+
+        const response = await getSimilarProducts(
+          uniqueCategoryIds,
+          uniqueTags,
+          excludeProductIds.join(','),
+          4
+        );
+
+        if (response.success && response.data) {
+          setSimilarProducts(response.data);
+        } else {
+          console.error('Benzer ürünler getirilemedi:', response.message);
+          setSimilarProducts([]);
+        }
+      } catch (err) {
+        console.error('Benzer ürünler getirilirken hata:', err);
+        setSimilarProducts([]);
+      } finally {
+        setSimilarProductsLoading(false);
+      }
+    };
+
+    fetchSimilarProducts();
+  }, [serverCart?.items]);
 
   if (loading) {
     return (
@@ -168,51 +226,30 @@ const Cart = () => {
                   <p className="text-gray-600">Sepetinizdeki ürünlere benzer önerilerimiz</p>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                    <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Ürün Resmi</span>
-                    </div>
-                    <h4 className="font-medium text-dark mb-2">Benzer Ürün 1</h4>
-                    <p className="text-blue font-medium mb-3">₺99.99</p>
-                    <button className="w-full bg-blue text-white py-2 px-4 rounded-md hover:bg-blue-dark transition-colors">
-                      Sepete Ekle
-                    </button>
+                {similarProductsLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4].map((index) => (
+                      <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                        <div className="animate-pulse">
+                          <div className="w-full h-32 bg-gray-200 rounded-lg mb-3"></div>
+                          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                          <div className="h-8 bg-gray-200 rounded"></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                    <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Ürün Resmi</span>
-                    </div>
-                    <h4 className="font-medium text-dark mb-2">Benzer Ürün 2</h4>
-                    <p className="text-blue font-medium mb-3">₺149.99</p>
-                    <button className="w-full bg-blue text-white py-2 px-4 rounded-md hover:bg-blue-dark transition-colors">
-                      Sepete Ekle
-                    </button>
+                ) : similarProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {similarProducts.map((product) => (
+                      <SimilarProductCard key={product._id} product={product} />
+                    ))}
                   </div>
-                  
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                    <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Ürün Resmi</span>
-                    </div>
-                    <h4 className="font-medium text-dark mb-2">Benzer Ürün 3</h4>
-                    <p className="text-blue font-medium mb-3">₺79.99</p>
-                    <button className="w-full bg-blue text-white py-2 px-4 rounded-md hover:bg-blue-dark transition-colors">
-                      Sepete Ekle
-                    </button>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Şu anda benzer ürün bulunmuyor</p>
                   </div>
-                  
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                    <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
-                      <span className="text-gray-400 text-sm">Ürün Resmi</span>
-                    </div>
-                    <h4 className="font-medium text-dark mb-2">Benzer Ürün 4</h4>
-                    <p className="text-blue font-medium mb-3">₺199.99</p>
-                    <button className="w-full bg-blue text-white py-2 px-4 rounded-md hover:bg-blue-dark transition-colors">
-                      Sepete Ekle
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -313,18 +350,27 @@ const ServerCartItem = ({ item, onUpdate }: {
     }
     
     if (newQuantity > maxStock) {
-      alert(`Bu üründen maksimum ${maxStock} adet sipariş verebilirsiniz.`);
+      alert(`Bu üründen maksimum ${maxStock} adet sipariş verebilirsiniz. Stok yetersiz!`);
       return;
     }
     
     try {
       setUpdating(true);
-      await cartService.updateCartItem(itemId, newQuantity);
-      setQuantity(newQuantity);
-      setTimeout(() => onUpdate(), 100);
-    } catch (err) {
+      const response = await cartService.updateCartItem(itemId, newQuantity);
+      
+      if (response.success) {
+        setQuantity(newQuantity);
+        setTimeout(() => onUpdate(), 100);
+      } else {
+        alert('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
+      }
+    } catch (err: any) {
       console.error('Miktar güncellenirken hata:', err);
-      alert('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
+      if (err.message && err.message.includes('Yetersiz stok')) {
+        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+      } else {
+        alert('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
+      }
     } finally {
       setUpdating(false);
     }
@@ -462,10 +508,10 @@ const ServerCartItem = ({ item, onUpdate }: {
                 }
               }
             } else {
-              if (item.product?.salePrice && item.product.salePrice < item.product.price) {
-                displayPrice = item.product.salePrice;
-                isDiscounted = true;
-              }
+                          if (item.product?.salePrice && item.product.salePrice > 0 && item.product.salePrice < item.product.price) {
+              displayPrice = item.product.salePrice;
+              isDiscounted = true;
+            }
             }
             
             if (isDiscounted) {
@@ -611,3 +657,100 @@ const ServerCartItem = ({ item, onUpdate }: {
 };
 
 export default Cart;
+
+const SimilarProductCard = ({ product }: { product: Product }) => {
+  const [addingToCart, setAddingToCart] = useState(false);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY'
+    }).format(price);
+  };
+
+  const getDisplayPrice = () => {
+    if (product.salePrice && product.salePrice > 0 && product.salePrice < product.price) {
+      return {
+        displayPrice: product.salePrice,
+        originalPrice: product.price,
+        isDiscounted: true
+      };
+    }
+    return {
+      displayPrice: product.price,
+      originalPrice: product.price,
+      isDiscounted: false
+    };
+  };
+
+  const handleAddToCart = async () => {
+    if (addingToCart) return;
+
+    try {
+      setAddingToCart(true);
+      const response = await cartService.addToCart({
+        productId: product._id,
+        quantity: 1
+      });
+
+      if (response.success) {
+        alert('Ürün sepete eklendi!');
+      } else {
+        alert('Ürün sepete eklenirken hata oluştu');
+      }
+    } catch (err: any) {
+      console.error('Ürün sepete eklenirken hata:', err);
+      alert(err.message || 'Ürün sepete eklenirken hata oluştu');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const { displayPrice, originalPrice, isDiscounted } = getDisplayPrice();
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center hover:shadow-md transition-shadow duration-200">
+      <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
+        <img 
+          src={product.images && product.images.length > 0 ? getImageUrl(product.images[0].url) : '/images/products/default.jpg'} 
+          alt={product.name}
+          className="w-full h-full object-cover"
+        />
+      </div>
+      
+      <h4 className="font-medium text-dark mb-2 text-sm line-clamp-2" title={product.name}>
+        {product.name}
+      </h4>
+      
+      <div className="mb-3">
+        {isDiscounted ? (
+          <div>
+            <p className="text-blue font-medium text-sm">{formatPrice(displayPrice)}</p>
+            <p className="text-gray-500 line-through text-xs">{formatPrice(originalPrice)}</p>
+            <p className="text-green-600 text-xs font-medium">
+              %{Math.round(((originalPrice - displayPrice) / originalPrice) * 100)} İndirim
+            </p>
+          </div>
+        ) : (
+          <p className="text-blue font-medium text-sm">{formatPrice(displayPrice)}</p>
+        )}
+      </div>
+      
+      <button 
+        onClick={handleAddToCart}
+        disabled={addingToCart || (product.stock || 0) === 0}
+        className={`w-full py-2 px-4 rounded-md transition-colors text-sm font-medium ${
+          (product.stock || 0) === 0
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-blue text-white hover:bg-blue-dark'
+        }`}
+      >
+        {addingToCart ? 'Ekleniyor...' : (product.stock || 0) === 0 ? 'Tükendi' : 'Sepete Ekle'}
+      </button>
+      
+      {(product.stock || 0) <= 5 && (product.stock || 0) > 0 && (
+        <p className="text-red-500 text-xs mt-1">Az kaldı!</p>
+      )}
+    </div>
+  );
+};

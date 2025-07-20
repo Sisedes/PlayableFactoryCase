@@ -36,6 +36,8 @@ export interface DashboardStats {
     category: string;
     totalSold: number;
     averageRating?: number;
+    reviewCount?: number;
+    viewCount?: number;
   }>;
   salesChart: Array<{
     _id: string;

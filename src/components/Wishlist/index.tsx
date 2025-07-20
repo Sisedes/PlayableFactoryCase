@@ -67,6 +67,12 @@ export const Wishlist = () => {
   };
 
   const handleAddToCart = async (product: FavoriteProduct) => {
+    // Stok kontrolü
+    if (product.stock === 0 || product.stock === undefined || product.stock === null) {
+      alert("Bu ürün stokta bulunmamaktadır!");
+      return;
+    }
+    
     try {
       await cartService.addToCart({
         productId: product._id,
@@ -75,9 +81,14 @@ export const Wishlist = () => {
       });
       
       alert("Ürün sepete eklendi!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sepete ekleme hatası:", error);
-      alert("Ürün sepete eklenirken bir hata oluştu!");
+      // Hata mesajını kontrol et
+      if (error.message && error.message.includes('Yetersiz stok')) {
+        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+      } else {
+        alert("Ürün sepete eklenirken bir hata oluştu!");
+      }
     }
   };
 
@@ -296,9 +307,9 @@ const WishlistTableRow = ({
       <td className="py-5 px-6">
         <div className="flex flex-col">
           <p className="text-dark font-medium">
-            {formatPrice(product.salePrice || product.price)}
+            {formatPrice(product.salePrice && product.salePrice > 0 ? product.salePrice : product.price)}
           </p>
-          {product.salePrice && product.price > product.salePrice && (
+          {product.salePrice && product.salePrice > 0 && product.price > product.salePrice && (
             <p className="text-sm text-gray-500 line-through">
               {formatPrice(product.price)}
             </p>
@@ -456,9 +467,9 @@ const WishlistMobileCard = ({
           {/* Price */}
           <div className="mb-3">
             <p className="text-lg font-semibold text-blue">
-              {formatPrice(product.salePrice || product.price)}
+              {formatPrice(product.salePrice && product.salePrice > 0 ? product.salePrice : product.price)}
             </p>
-            {product.salePrice && product.price > product.salePrice && (
+            {product.salePrice && product.salePrice > 0 && product.price > product.salePrice && (
               <div className="flex items-center gap-2">
                 <p className="text-sm text-gray-500 line-through">
                   {formatPrice(product.price)}

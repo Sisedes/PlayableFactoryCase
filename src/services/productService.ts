@@ -659,3 +659,57 @@ export const incrementProductView = async (productId: string): Promise<ApiRespon
     throw new Error('Görüntüleme sayısı artırılırken hata oluştu');
   }
 }; 
+
+export const getSimilarProducts = async (
+  categoryIds: string[] = [], 
+  tags: string[] = [], 
+  excludeProductId?: string,
+  limit: number = 4
+): Promise<ApiResponse<Product[]>> => {
+  const cacheKey = `similar_products_${categoryIds.join(',')}_${tags.join(',')}_${excludeProductId}_${limit}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  return retryWithDelay(async () => {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (categoryIds.length > 0) {
+        queryParams.append('categories', categoryIds.join(','));
+      }
+      
+      if (tags.length > 0) {
+        queryParams.append('tags', tags.join(','));
+      }
+      
+      if (excludeProductId) {
+        queryParams.append('exclude', excludeProductId);
+      }
+      
+      queryParams.append('limit', limit.toString());
+
+      const response = await fetch(`${API_BASE}/products/similar?${queryParams.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCachedData(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error('getSimilarProducts error:', error);
+      throw new Error('Benzer ürünler getirilirken hata oluştu');
+    }
+  });
+}; 

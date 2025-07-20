@@ -405,6 +405,8 @@ export interface DashboardStats {
     category: string;
     totalSold: number;
     averageRating?: number;
+    reviewCount?: number;
+    viewCount?: number;
   }>;
   salesChart: ChartData[];
   orderStatusDistribution: StatusDistribution[];

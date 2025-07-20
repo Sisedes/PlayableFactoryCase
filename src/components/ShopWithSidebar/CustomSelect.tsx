@@ -9,18 +9,30 @@ interface CustomSelectProps {
   options: SelectOption[];
   onChange?: (value: string) => void;
   defaultValue?: string;
+  value?: string;
 }
 
 const CustomSelect: React.FC<CustomSelectProps> = ({ 
   options, 
   onChange,
-  defaultValue 
+  defaultValue,
+  value 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(
-    options.find(opt => opt.value === defaultValue) || options[0]
+    options.find(opt => opt.value === (value || defaultValue)) || options[0]
   );
   const selectRef = useRef<HTMLDivElement>(null);
+
+  // Update selected option when value prop changes
+  useEffect(() => {
+    if (value) {
+      const newSelectedOption = options.find(opt => opt.value === value);
+      if (newSelectedOption) {
+        setSelectedOption(newSelectedOption);
+      }
+    }
+  }, [value, options]);
 
   // Function to close the dropdown when a click occurs outside the component
   const handleClickOutside = (event: MouseEvent) => {

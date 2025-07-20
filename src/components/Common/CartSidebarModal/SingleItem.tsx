@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { cartService } from "@/services/cartService";
 import Image from "next/image";
 
@@ -6,37 +6,61 @@ const SingleItem = ({ item, onUpdate }) => {
   const [quantity, setQuantity] = useState(item.quantity);
   const [updating, setUpdating] = useState(false);
 
-  // item.quantity değiştiğinde state'i güncelle
   useEffect(() => {
     setQuantity(item.quantity);
   }, [item.quantity]);
 
-  const handleRemoveFromCart = async () => {
+  const handleRemoveFromCart = useCallback(async () => {
     try {
       await cartService.removeFromCart(item._id);
-      onUpdate();
+      setTimeout(() => {
+        onUpdate();
+      }, 100);
     } catch (err) {
       console.error('Ürün kaldırılırken hata:', err);
       alert('Ürün kaldırılırken hata oluştu. Lütfen tekrar deneyin.');
     }
-  };
+  }, [item._id, onUpdate]);
 
-  const handleQuantityChange = async (newQuantity: number) => {
-    if (newQuantity < 1 || newQuantity > 99) return;
+  const handleQuantityChange = useCallback(async (newQuantity: number) => {
+    if (newQuantity < 1) return;
+    
+    let maxStock = item.product?.stock || 0;
+    if (item.variant && item.product?.variants) {
+      const variant = item.product.variants.find((v: any) => v._id === item.variant);
+      if (variant) {
+        maxStock = variant.stock || 0;
+      }
+    }
+    
+    if (newQuantity > maxStock) {
+      alert(`Bu üründen maksimum ${maxStock} adet sipariş verebilirsiniz. Stok yetersiz!`);
+      return;
+    }
     
     try {
       setUpdating(true);
-      await cartService.updateCartItem(item._id, newQuantity);
-      setQuantity(newQuantity);
-      onUpdate();
-    } catch (err) {
+      const response = await cartService.updateCartItem(item._id, newQuantity);
+      if (response.success) {
+        setQuantity(newQuantity);
+        setTimeout(() => {
+          onUpdate();
+        }, 100);
+      } else {
+        setQuantity(item.quantity); 
+      }
+    } catch (err: any) {
       console.error('Miktar güncellenirken hata:', err);
-      alert('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
-      setQuantity(item.quantity); // Hata durumunda eski değere geri dön
+      if (err.message && err.message.includes('Yetersiz stok')) {
+        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+      } else {
+        alert('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
+      }
+      setQuantity(item.quantity); 
     } finally {
       setUpdating(false);
     }
-  };
+  }, [item._id, item.quantity, onUpdate]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
@@ -45,7 +69,6 @@ const SingleItem = ({ item, onUpdate }) => {
     }).format(price);
   };
 
-  // Resim URL'sini düzelt
   const getImageUrl = (imageUrl: string) => {
     if (!imageUrl) return '/images/products/default.jpg';
     if (imageUrl.startsWith('/uploads/')) {
@@ -55,14 +78,12 @@ const SingleItem = ({ item, onUpdate }) => {
   };
 
   const getProductImage = () => {
-    // Varyasyon varsa ve varyasyon resmi varsa varyasyon resmini göster
     if (item.variant && item.product?.variants) {
       const variant = item.product.variants.find((v: any) => v._id === item.variant);
       if (variant?.image) {
         return getImageUrl(variant.image);
       }
     }
-    // Varyasyon resmi yoksa ürün resmini göster
     return getImageUrl(item.product?.images?.[0]?.url);
   };
 
@@ -115,6 +136,24 @@ const SingleItem = ({ item, onUpdate }) => {
           )}
           <p className="text-custom-sm">Fiyat: {formatPrice(item.price)}</p>
           
+          {/* Stok Bilgisi */}
+          <div className="text-xs mt-1">
+            {(() => {
+              let stock = item.product?.stock || 0;
+              if (item.variant && item.product?.variants) {
+                const variant = item.product.variants.find((v: any) => v._id === item.variant);
+                stock = variant?.stock || 0;
+              }
+              return (
+                <span className={`${stock <= 5 && stock > 0 ? 'text-orange-600' : stock === 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  Stok: {stock} adet
+                  {stock <= 5 && stock > 0 && ' (Az kaldı!)'}
+                  {stock === 0 && ' (Tükendi)'}
+                </span>
+              );
+            })()}
+          </div>
+          
           {/* Miktar Güncelleme */}
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs text-gray-500">Miktar:</span>
@@ -131,7 +170,14 @@ const SingleItem = ({ item, onUpdate }) => {
               </span>
               <button
                 onClick={() => handleQuantityChange(quantity + 1)}
-                disabled={updating || quantity >= 99}
+                disabled={updating || quantity >= (() => {
+                  let stock = item.product?.stock || 0;
+                  if (item.variant && item.product?.variants) {
+                    const variant = item.product.variants.find((v: any) => v._id === item.variant);
+                    stock = variant?.stock || 0;
+                  }
+                  return stock;
+                })()}
                 className="px-2 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 +
@@ -143,7 +189,7 @@ const SingleItem = ({ item, onUpdate }) => {
 
       <div className="flex flex-col items-end gap-2">
         <p className="text-sm font-medium text-dark">
-          {formatPrice(item.price * item.quantity)}
+          {formatPrice(item.total)}
         </p>
         
         <button

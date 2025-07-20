@@ -5,14 +5,28 @@ import ClientLayout from "./ClientLayout";
 // Add global metadata for better SEO
 export const metadata = {
   title: {
-    default: "Pazarcık | Alışverişin Model Hali",
-    template: "%s | E-Commerce Platform"
+    default: "Pazarcık | Alışverişin Modern Hali",
+    template: "%s | Pazarcık"
   },
-  description: "Discover amazing products with our modern e-commerce platform. Shop electronics, clothing, home & garden, sports, books, health & beauty, toys, and food categories.",
-  keywords: ["e-commerce", "online shopping", "electronics", "clothing", "home", "garden", "sports", "books", "health", "beauty", "toys", "food"],
-  authors: [{ name: "E-Commerce Platform Team" }],
-  creator: "E-Commerce Platform",
-  publisher: "E-Commerce Platform",
+  description: "Pazarcık'ta en yeni ürünler, en iyi fırsatlar ve kaliteli hizmet. Elektronik, giyim, ev & bahçe, spor, kitap, sağlık & güzellik kategorilerinde güvenli alışveriş deneyimi.",
+  keywords: [
+    "online alışveriş",
+    "e-ticaret",
+    "elektronik",
+    "giyim",
+    "ev & bahçe",
+    "spor",
+    "kitap",
+    "sağlık & güzellik",
+    "oyuncak",
+    "gıda",
+    "indirim",
+    "fırsat",
+    "pazarcık"
+  ],
+  authors: [{ name: "Pazarcık E-Ticaret Platformu" }],
+  creator: "Pazarcık",
+  publisher: "Pazarcık",
   formatDetection: {
     email: false,
     address: false,
@@ -26,23 +40,23 @@ export const metadata = {
     type: "website",
     locale: "tr_TR",
     url: "/",
-    title: "E-Commerce Platform | Modern Online Shopping Experience",
-    description: "Discover amazing products with our modern e-commerce platform. Shop across multiple categories with secure checkout and fast delivery.",
-    siteName: "E-Commerce Platform",
+    title: "Pazarcık | Alışverişin Modern Hali",
+    description: "Pazarcık'ta en yeni ürünler, en iyi fırsatlar ve kaliteli hizmet. Güvenli alışveriş deneyimi için Pazarcık'ı tercih edin.",
+    siteName: "Pazarcık",
     images: [
       {
-        url: "/images/og-image.jpg",
+        url: "/images/hero/hero-01.png",
         width: 1200,
         height: 630,
-        alt: "E-Commerce Platform - Online Shopping",
+        alt: "Pazarcık - Modern Alışveriş Deneyimi",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "E-Commerce Platform | Modern Online Shopping Experience",
-    description: "Discover amazing products with our modern e-commerce platform.",
-    images: ["/images/twitter-image.jpg"],
+    title: "Pazarcık | Alışverişin Modern Hali",
+    description: "Pazarcık'ta en yeni ürünler, en iyi fırsatlar ve kaliteli hizmet.",
+    images: ["/images/hero/hero-01.png"],
   },
   robots: {
     index: true,
@@ -59,6 +73,26 @@ export const metadata = {
     google: "google-site-verification-code",
     yandex: "yandex-verification-code",
   },
+  category: "e-commerce",
+  classification: "online shopping",
+  referrer: "origin-when-cross-origin",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#3C50E0" },
+    { media: "(prefers-color-scheme: dark)", color: "#1C274C" },
+  ],
+  colorScheme: "light dark",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  applicationName: "Pazarcık",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Pazarcık",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -73,11 +107,21 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#1C274C" />
+        <meta name="theme-color" content="#3C50E0" />
+        <meta name="msapplication-TileColor" content="#3C50E0" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
+        
+        {/* Preconnect to external domains for better performance */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        
+        {/* DNS prefetch for better performance */}
+        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="//fonts.gstatic.com" />
       </head>
-      <body>
+      <body className="antialiased">
         <ClientLayout>
-                    {children}
+          {children}
         </ClientLayout>
       </body>
     </html>

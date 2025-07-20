@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import Order from '../Order/orderModel';
 import User from './userModel';
 import Product from '../Product/productModel';
-import Review from '../Review/reviewModel';
-import Category from '../Categories/categoriesModel';
+
 
 /**
  * @desc    
@@ -80,10 +79,18 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
               then: { $avg: '$reviews.rating' },
               else: 0
             }
-          }
+          },
+          reviewCount: { $size: '$reviews' },
+          viewCount: { $ifNull: ['$viewCount', 0] }
         }
       },
-      { $sort: { totalSold: -1 } },
+      { 
+        $sort: { 
+          totalSold: -1, 
+          viewCount: -1, 
+          averageRating: -1 
+        } 
+      },
       { $limit: 5 },
       {
         $lookup: {
@@ -102,6 +109,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
           images: 1,
           totalSold: 1,
           averageRating: 1,
+          reviewCount: 1,
+          viewCount: 1,
           category: { $arrayElemAt: ['$category.name', 0] }
         }
       }

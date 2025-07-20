@@ -9,15 +9,28 @@ import Recommendations from "./Recommendations";
 
 const Home = () => {
   return (
-    <>
+    <div className="min-h-screen">
+      {/* Hero Section */}
       <Hero />
+      
+      {/* Categories Section */}
       <Categories />
+      
+      {/* New Arrivals Section */}
       <NewArrivals />
+      
+      {/* Best Seller Section */}
       <BestSeller />
+      
+      {/* Recommendations Section */}
       <Recommendations />
+      
+      {/* Recently Viewed Section */}
       <RecentlyViewed />
+      
+      {/* Newsletter Section */}
       <Newsletter />
-    </>
+    </div>
   );
 };
 

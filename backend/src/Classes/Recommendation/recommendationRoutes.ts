@@ -6,7 +6,8 @@ import {
   getViewedTogether,
   getPersonalizedRecommendations,
   getProductRecommendations,
-  calculateRecommendations
+  calculateRecommendations,
+  debugOrders
 } from './recommendationController';
 import { authenticateToken } from '../../middleware/authMiddleware';
 
@@ -17,6 +18,7 @@ router.get('/similar/:productId', getSimilarProducts);
 router.get('/frequently-bought/:productId', getFrequentlyBoughtTogether);
 router.get('/viewed-together/:productId', getViewedTogether);
 router.get('/product/:productId', getProductRecommendations);
+router.get('/debug/orders', debugOrders);
 
 router.get('/personalized/:userId', authenticateToken, getPersonalizedRecommendations);
 router.post('/calculate', authenticateToken, calculateRecommendations);

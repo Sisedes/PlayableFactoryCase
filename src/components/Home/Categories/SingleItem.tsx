@@ -6,7 +6,7 @@ import { getImageUrl } from "@/utils/apiUtils";
 
 const SingleItem = ({ item }: { item: Category }) => {
   return (
-    <Link href={`/category/${item.slug}`} className="group flex flex-col items-center w-[150px] flex-shrink-0">
+    <Link href={`/shop-with-sidebar?category=${encodeURIComponent(item.name)}`} className="group flex flex-col items-center w-[150px] flex-shrink-0">
       <div className="w-[130px] h-[130px] bg-[#F2F3F8] rounded-full flex items-center justify-center mb-4 overflow-hidden flex-shrink-0">
         <Image 
           src={item.image ? getImageUrl(item.image) : "/images/categories/categories-01.png"} 

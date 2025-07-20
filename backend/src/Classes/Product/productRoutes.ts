@@ -5,6 +5,7 @@ import {
   getProductsByCategory,
   getPopularProducts,
   getLatestProducts,
+  getSimilarProducts,
   getAllProductsForAdmin,
   createProduct,
   updateProduct,
@@ -24,6 +25,7 @@ import {
   updateVariantStock,
   incrementProductView,
   createTestVariantProduct,
+  setProductStockToZero,
 } from './productsController';
 import { authenticateToken, requireAdmin } from '../../middleware/authMiddleware';
 import { uploadMultipleWithErrorHandling, uploadVariantImages } from '../../middleware/upload';
@@ -57,6 +59,13 @@ router.get('/popular', getPopularProducts);
  * @access  
  */
 router.get('/latest', getLatestProducts);
+
+/**
+ * @route   get /api/products/similar
+ * @desc    
+ * @access  
+ */
+router.get('/similar', getSimilarProducts);
 
 /**
  * @route   get /api/products/category/:categoryId
@@ -204,5 +213,12 @@ router.get('/:id/variants/:variantId/stock-history', authenticateToken, requireA
  * @access  
  */
 router.post('/test/variant-product', authenticateToken, requireAdmin, createTestVariantProduct);
+
+/**
+ * @route   post /api/products/test/set-stock-zero
+ * @desc    
+ * @access  
+ */
+router.post('/test/set-stock-zero', authenticateToken, requireAdmin, setProductStockToZero);
 
 export default router; 

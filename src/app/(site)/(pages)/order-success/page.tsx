@@ -51,7 +51,6 @@ interface OrderDetails {
   createdAt: string;
 }
 
-// Loading Component
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
     <div className="text-center">
@@ -61,7 +60,6 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Error Component
 const ErrorDisplay = ({ error, orderNumber }: { error: string | null; orderNumber: string | null }) => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
     <div className="text-center max-w-md">
@@ -82,23 +80,8 @@ const ErrorDisplay = ({ error, orderNumber }: { error: string | null; orderNumbe
   </div>
 );
 
-// Order Item Component
 const OrderItem = ({ item, index }: { item: any; index: number }) => (
   <div key={index} className="flex items-center space-x-3 p-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-    <div className="flex-shrink-0">
-      {item.product.images && item.product.images[0] && (
-        <div className="relative w-12 h-12 rounded-lg overflow-hidden shadow-sm">
-          <Image
-            src={item.product.images[0].url}
-            alt={item.product.images[0].alt || item.product.name}
-            fill
-            className="object-cover"
-            sizes="48px"
-            loading="lazy"
-          />
-        </div>
-      )}
-    </div>
     <div className="flex-1 min-w-0">
       <h4 className="font-semibold text-gray-900 truncate text-sm">{item.product.name}</h4>
       <p className="text-xs text-gray-600 flex items-center">
@@ -113,7 +96,6 @@ const OrderItem = ({ item, index }: { item: any; index: number }) => (
   </div>
 );
 
-// Pricing Summary Component
 const PricingSummary = ({ pricing }: { pricing: any }) => (
   <div className="mt-4 pt-4 border-t border-gray-200">
     <div className="space-y-2">
@@ -143,7 +125,6 @@ const PricingSummary = ({ pricing }: { pricing: any }) => (
   </div>
 );
 
-// Utility function
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
@@ -151,7 +132,6 @@ const formatPrice = (price: number) => {
   }).format(price);
 };
 
-// Info Card Component
 const InfoCard = ({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) => (
   <div className={`bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow duration-200 ${className}`}>
     <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center">

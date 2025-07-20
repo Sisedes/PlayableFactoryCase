@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/store/authStore";
+import { updateProfile } from "@/services/userService";
 
 interface CustomerInfo {
   email: string;
@@ -14,7 +15,41 @@ interface BillingProps {
 }
 
 const Billing = ({ customerInfo, onChange }: BillingProps) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, accessToken, refreshUserData, updateUserProfile } = useAuth();
+  const [phoneEdit, setPhoneEdit] = useState(!!(isAuthenticated && (!user?.phone || user.phone === "")));
+  const [phoneValue, setPhoneValue] = useState(customerInfo.phone || "");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handlePhoneSave = async () => {
+    if (!accessToken) return;
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const result = await updateProfile({
+        firstName: user?.firstName || "",
+        lastName: user?.lastName || "",
+        phone: phoneValue
+      }, accessToken);
+      if (result.success) {
+        setSaveSuccess(true);
+        setPhoneEdit(false);
+        updateUserProfile({ phone: phoneValue });
+        await refreshUserData();
+      } else {
+        setSaveError(result.message || "Telefon kaydedilemedi");
+      }
+    } catch (err: any) {
+      setSaveError("Telefon kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const showPhoneEdit = isAuthenticated && (!user?.phone || user.phone === "" || phoneEdit);
+  const phoneReadOnly = isAuthenticated && user?.phone && !phoneEdit;
 
   return (
     <div className="mt-9">
@@ -22,7 +57,6 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
         <h2 className="font-medium text-dark text-xl sm:text-2xl">
           Müşteri Bilgileri
         </h2>
-        
         {!isAuthenticated && (
           <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -32,7 +66,6 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
           </div>
         )}
       </div>
-
       {!isAuthenticated && (
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-5">
           <div className="flex items-start gap-3">
@@ -48,14 +81,12 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
           </div>
         </div>
       )}
-
       <div className="bg-white shadow-1 rounded-[10px] p-4 sm:p-8.5">
         <div className="flex flex-col lg:flex-row gap-5 sm:gap-8 mb-5">
           <div className="w-full">
             <label htmlFor="firstName" className="block mb-2.5">
               Ad <span className="text-red">*</span>
             </label>
-
             <input
               type="text"
               name="firstName"
@@ -72,12 +103,10 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
               <p className="text-xs text-green-600 mt-1">✓ Hesap bilgilerinizden otomatik dolduruldu</p>
             )}
           </div>
-
           <div className="w-full">
             <label htmlFor="lastName" className="block mb-2.5">
               Soyad <span className="text-red">*</span>
             </label>
-
             <input
               type="text"
               name="lastName"
@@ -95,12 +124,10 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
             )}
           </div>
         </div>
-
         <div className="mb-5">
           <label htmlFor="email" className="block mb-2.5">
             E-posta Adresi <span className="text-red">*</span>
           </label>
-
           <input
             type="email"
             name="email"
@@ -117,26 +144,44 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
             <p className="text-xs text-green-600 mt-1">✓ Hesap bilgilerinizden otomatik dolduruldu</p>
           )}
         </div>
-
         <div className="mb-5.5">
           <label htmlFor="phone" className="block mb-2.5">
             Telefon <span className="text-red">*</span>
           </label>
-
-          <input
-            type="tel"
-            name="phone"
-            id="phone"
-            value={customerInfo.phone || ''}
-            onChange={(e) => onChange('phone', e.target.value)}
-            placeholder="0555 123 45 67"
-            className={`rounded-md border bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20 ${
-              isAuthenticated ? 'border-green-300 bg-green-50' : 'border-gray-3'
-            }`}
-            readOnly={isAuthenticated}
-          />
-          {isAuthenticated && (
+          <div className="flex gap-2 items-center">
+            <input
+              type="tel"
+              name="phone"
+              id="phone"
+              value={showPhoneEdit ? phoneValue : (customerInfo.phone || "")}
+              onChange={(e) => {
+                setPhoneValue(e.target.value);
+                if (showPhoneEdit) onChange('phone', e.target.value);
+              }}
+              placeholder="0555 123 45 67"
+              className={`rounded-md border bg-gray-1 placeholder:text-dark-5 w-full py-2.5 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20 ${
+                phoneReadOnly ? 'border-green-300 bg-green-50' : 'border-gray-3'
+              }`}
+              readOnly={phoneReadOnly}
+            />
+            {showPhoneEdit && (
+              <button
+                type="button"
+                onClick={handlePhoneSave}
+                disabled={saving || !phoneValue}
+                className="px-4 py-2 bg-blue text-white rounded hover:bg-blue-dark disabled:opacity-50"
+              >
+                {saving ? "Kaydediliyor..." : "Kaydet"}
+              </button>
+            )}
+          </div>
+          {saveError && <p className="text-xs text-red-600 mt-1">{saveError}</p>}
+          {saveSuccess && <p className="text-xs text-green-600 mt-1">Telefon numaranız kaydedildi!</p>}
+          {phoneReadOnly && (
             <p className="text-xs text-green-600 mt-1">✓ Hesap bilgilerinizden otomatik dolduruldu</p>
+          )}
+          {showPhoneEdit && !user?.phone && (
+            <p className="text-xs text-orange-600 mt-1">Telefon numaranız profilinize kaydedilecektir.</p>
           )}
         </div>
       </div>

@@ -11,7 +11,7 @@ export const getAllProducts = async (req: Request, res: Response) => {
   try {
     const {
       page = 1,
-      limit = 12,
+      limit = 1000, 
       category,
       search,
       sortBy = 'createdAt',
@@ -20,6 +20,8 @@ export const getAllProducts = async (req: Request, res: Response) => {
       maxPrice,
       inStock
     } = req.query;
+
+
 
     const filter: any = { status: 'active' };
 
@@ -57,7 +59,7 @@ export const getAllProducts = async (req: Request, res: Response) => {
 
 
     const pageNum = Math.max(1, Number(page));
-    const limitNum = Math.min(50, Math.max(1, Number(limit))); 
+    const limitNum = Math.min(1000, Math.max(1, Number(limit))); // Maksimum 1000 ürün
     const skip = (pageNum - 1) * limitNum;
 
     const products = await Product.find(filter)
@@ -324,7 +326,7 @@ export const getPopularProducts = async (req: Request, res: Response) => {
           }
         }
       },
-      { $sort: { totalSales: -1, viewCount: -1 } },
+      { $sort: { totalSales: -1, viewCount: -1, averageRating: -1 } },
       { $limit: Number(limit) },
       {
         $lookup: {
@@ -1310,81 +1312,38 @@ export const getLowStockAlerts = async (req: Request, res: Response): Promise<vo
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const allStockAlertProducts = await Product.find({
-      $or: [
-        {
-          $expr: {
-            $and: [
-              { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 5] }] },
-              { $gt: ['$stock', 0] }
-            ]
-          },
-          status: 'active'
-        },
-        
-        {
-          stock: 0,
-          status: 'active'
-        }
-      ]
-    })
-    .populate('category', 'name slug')
-    .select('name sku stock lowStockThreshold category status')
-    .skip(skip)
-    .limit(limitNum)
-    .sort({ stock: 1, name: 1 }); 
+    const allActiveProducts = await Product.find({ status: 'active' })
+      .populate('category', 'name slug')
+      .select('name sku stock lowStockThreshold category status variants')
+      .sort({ stock: 1, name: 1 });
 
-    const productsWithLowStockVariants = await Product.find({
-      $expr: {
-        $and: [
-          { $gt: ['$variants.stock', 0] },
-          { $lte: ['$variants.stock', { $ifNull: ['$lowStockThreshold', 5] }] }
-        ]
-      },
-      status: 'active'
-    })
-    .populate('category', 'name slug')
-    .select('name sku stock lowStockThreshold category status variants');
+    const allStockAlertProducts = allActiveProducts.filter(product => {
+      if (product.stock === 0) return true;
+      
+      if (product.stock > 0 && product.stock <= (product.lowStockThreshold || 5)) return true;
+      
+      if (product.variants && product.variants.length > 0) {
+        return product.variants.some(variant => 
+          variant.stock === 0 || 
+          (variant.stock > 0 && variant.stock <= (product.lowStockThreshold || 5))
+        );
+      }
+      
+      return false;
+    }); 
 
-    const productsWithOutOfStockVariants = await Product.find({
-      'variants.stock': 0,
-      status: 'active'
-    })
-    .populate('category', 'name slug')
-    .select('name sku stock lowStockThreshold category status variants');
+    const productsWithLowStockVariants: any[] = [];
+    const productsWithOutOfStockVariants: any[] = [];
 
-    const totalLowStock = await Product.countDocuments({
-      $expr: {
-        $and: [
-          { $lte: ['$stock', { $ifNull: ['$lowStockThreshold', 5] }] },
-          { $gt: ['$stock', 0] }
-        ]
-      },
-      status: 'active'
-    });
-
-    const totalOutOfStock = await Product.countDocuments({
-      stock: 0,
-      status: 'active'
-    });
-
-    const totalLowStockVariants = await Product.countDocuments({
-      $expr: {
-        $and: [
-          { $gt: ['$variants.stock', 0] },
-          { $lte: ['$variants.stock', { $ifNull: ['$lowStockThreshold', 5] }] }
-        ]
-      },
-      status: 'active'
-    });
-
-    const totalOutOfStockVariants = await Product.countDocuments({
-      'variants.stock': 0,
-      status: 'active'
-    });
+    const totalLowStock = allStockAlertProducts.filter(p => p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length;
+    const totalOutOfStock = allStockAlertProducts.filter(p => p.stock === 0).length;
+    const totalLowStockVariants = 0;
+    const totalOutOfStockVariants = 0;
 
     const lowStockProducts = allStockAlertProducts.filter(product => product.stock > 0);
     const outOfStockProducts = allStockAlertProducts.filter(product => product.stock === 0);
+
+
 
     res.status(200).json({
       success: true,
@@ -1394,12 +1353,12 @@ export const getLowStockAlerts = async (req: Request, res: Response): Promise<vo
         productsWithLowStockVariants,
         productsWithOutOfStockVariants,
         pagination: {
-          currentPage: pageNum,
-          totalPages: Math.ceil((totalLowStock + totalOutOfStock) / limitNum),
+          currentPage: 1,
+          totalPages: 1,
           totalLowStock: totalLowStock + totalLowStockVariants,
           totalOutOfStock: totalOutOfStock + totalOutOfStockVariants,
-          hasNextPage: pageNum * limitNum < (totalLowStock + totalOutOfStock),
-          hasPrevPage: pageNum > 1
+          hasNextPage: false,
+          hasPrevPage: false
         }
       }
     });
@@ -1976,6 +1935,136 @@ export const createTestVariantProduct = async (req: Request, res: Response): Pro
     res.status(500).json({
       success: false,
       message: 'Test ürünü oluşturulurken hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error : {}
+    });
+  }
+};
+
+/**
+ * @desc    Test için ürün stok değerini 0 yapar
+ * @route   post /api/products/test/set-stock-zero
+ * @access  
+ */
+export const setProductStockToZero = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { productId } = req.body;
+    
+    if (!productId) {
+      res.status(400).json({
+        success: false,
+        message: 'Ürün ID gerekli'
+      });
+      return;
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: 'Ürün bulunamadı'
+      });
+      return;
+    }
+
+    product.stock = 0;
+    product.status = 'active';
+    product.trackQuantity = true;
+    product.lowStockThreshold = 5;
+    
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Ürün stok değeri 0 yapıldı ve status active yapıldı',
+      data: {
+        name: product.name,
+        stock: product.stock,
+        status: product.status
+      }
+    });
+  } catch (error) {
+    console.error('Set product stock to zero error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ürün stok değeri güncellenirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    Benzer ürünleri getir
+ * @route   get /api/products/similar
+ * @access  Public
+ */
+export const getSimilarProducts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { categories, tags, exclude, limit = 4 } = req.query;
+
+    const filter: any = { status: 'active' };
+
+    if (exclude) {
+      const excludeIds = (exclude as string).split(',').map(id => id.trim());
+      filter._id = { $nin: excludeIds };
+    }
+
+    if (categories) {
+      const categoryIds = (categories as string).split(',').map(id => id.trim());
+      filter.category = { $in: categoryIds };
+    }
+
+    if (tags) {
+      const tagArray = (tags as string).split(',').map(tag => tag.trim());
+      filter.tags = { $in: tagArray };
+    }
+
+    if (categories && tags) {
+      const categoryIds = (categories as string).split(',').map(id => id.trim());
+      const tagArray = (tags as string).split(',').map(tag => tag.trim());
+      
+      filter.$or = [
+        { category: { $in: categoryIds } },
+        { tags: { $in: tagArray } }
+      ];
+      
+      delete filter.category;
+      delete filter.tags;
+    }
+
+    const limitNum = Math.min(Number(limit), 10);
+
+    const products = await Product.find(filter)
+      .populate('category', 'name slug')
+      .select('name slug shortDescription price salePrice images stock isActive createdAt tags averageRating reviewCount viewCount')
+      .sort({ viewCount: -1, createdAt: -1 }) 
+      .limit(limitNum);
+
+    const productsWithSortedImages = products.map(product => {
+      const sortedImages = [...product.images].sort((a, b) => {
+        const aIsPrimary = a.isPrimary || a.isMain;
+        const bIsPrimary = b.isPrimary || b.isMain;
+        
+        if (aIsPrimary && !bIsPrimary) return -1;
+        if (!aIsPrimary && bIsPrimary) return 1;
+        
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      
+      return {
+        ...product.toObject(),
+        images: sortedImages
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: productsWithSortedImages.length,
+      data: productsWithSortedImages
+    });
+  } catch (error) {
+    console.error('Similar products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Benzer ürünler getirilirken hata oluştu',
       error: process.env.NODE_ENV === 'development' ? error : {}
     });
   }

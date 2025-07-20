@@ -52,6 +52,12 @@ const QuickViewModal = () => {
   const handleAddToCart = async () => {
     if (!product) return;
     
+    // Stok kontrolü
+    if (product.stock === 0) {
+      alert("Bu ürün stokta bulunmamaktadır!");
+      return;
+    }
+    
     try {
       const response = await cartService.addToCart({
         productId: product._id,
@@ -78,9 +84,14 @@ const QuickViewModal = () => {
       } else {
         alert("Ürün sepete eklenirken hata oluştu!");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Add to cart error:', error);
-      alert("Ürün sepete eklenirken hata oluştu!");
+      // Hata mesajını kontrol et
+      if (error.message && error.message.includes('Yetersiz stok')) {
+        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+      } else {
+        alert("Ürün sepete eklenirken hata oluştu!");
+      }
     }
   };
 
@@ -247,9 +258,9 @@ const QuickViewModal = () => {
             {/* Fiyat */}
                   <div className="flex items-center gap-3">
               <span className="text-2xl font-bold text-dark">
-                ₺{product.salePrice || product.price}
+                ₺{product.salePrice && product.salePrice > 0 ? product.salePrice : product.price}
               </span>
-              {product.salePrice && (
+              {product.salePrice && product.salePrice > 0 && product.salePrice < product.price && (
                 <span className="text-lg text-gray-500 line-through">
                   ₺{product.price}
                     </span>
@@ -310,7 +321,7 @@ const QuickViewModal = () => {
                 <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span>Ücretsiz Kargo</span>
+                <span>1000 TL Üzeri Ücretsiz Kargo</span>
               </div>
               
               <div className="flex items-center gap-2">

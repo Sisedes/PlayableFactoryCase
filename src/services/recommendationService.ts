@@ -86,7 +86,7 @@ export const getFrequentlyBoughtTogether = async (productId: string, limit: numb
     const data = await response.json();
     return data;
   } catch (error) {
-    const errorMessage = handleApiError(error, 'Sıkça birlikte alınan ürünler yüklenirken hata oluştu');
+    const errorMessage = handleApiError(error, 'Birlikte alınan ürünler yüklenirken hata oluştu');
     throw new Error(errorMessage);
   }
 };

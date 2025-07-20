@@ -1,12 +1,8 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Breadcrumb from "../Common/Breadcrumb";
 import CustomSelect from "./CustomSelect";
-import CategoryDropdown from "./CategoryDropdown";
-import GenderDropdown from "./GenderDropdown";
-import SizeDropdown from "./SizeDropdown";
-import ColorsDropdwon from "./ColorsDropdwon";
-import PriceDropdown from "./PriceDropdown";
 import SingleGridItem from "../Shop/SingleGridItem";
 import SingleListItem from "../Shop/SingleListItem";
 import { useStore } from "@/store/useStore";
@@ -21,6 +17,7 @@ const transformApiProductToComponent = (apiProduct: any): Product => {
     salePrice: apiProduct.salePrice,
     pricing: apiProduct.pricing,
     images: apiProduct.images,
+    viewCount: apiProduct.viewCount,
     fullProduct: apiProduct
   });
 
@@ -32,7 +29,7 @@ const transformApiProductToComponent = (apiProduct: any): Product => {
     shortDescription: apiProduct.shortDescription || '',
     category: apiProduct.category || { _id: '', name: '', slug: '' },
     price: apiProduct.price || 0,
-    salePrice: apiProduct.salePrice || 0,
+    salePrice: apiProduct.salePrice && apiProduct.salePrice > 0 ? apiProduct.salePrice : undefined,
     currency: apiProduct.currency || 'TRY',
     sku: apiProduct.sku || '',
     stock: apiProduct.stock || 0,
@@ -50,6 +47,7 @@ const transformApiProductToComponent = (apiProduct: any): Product => {
     isFeatured: apiProduct.isFeatured || false,
     averageRating: apiProduct.averageRating || 0,
     reviewCount: apiProduct.reviewCount || 0,
+    viewCount: apiProduct.viewCount || 0,
     createdAt: apiProduct.createdAt || new Date().toISOString(),
     updatedAt: apiProduct.updatedAt || new Date().toISOString()
   };
@@ -63,6 +61,18 @@ const ShopWithSidebar = () => {
   const [productSidebar, setProductSidebar] = useState(false);
   const [stickyMenu, setStickyMenu] = useState(false);
   const [transformedProducts, setTransformedProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchParams = useSearchParams();
+
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100000 });
+  const [ratingFilter, setRatingFilter] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<string>("createdAt-desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15; 
+
+  const [shouldUpdateUrl, setShouldUpdateUrl] = useState(false);
+  const [urlUpdateData, setUrlUpdateData] = useState<{ categories: string[]; search?: string } | null>(null);
 
   // Zustand store'dan veri ve fonksiyonları al
   const { 
@@ -72,7 +82,6 @@ const ShopWithSidebar = () => {
     categoriesLoading,
     error, 
     totalProducts,
-    currentPage,
     totalPages,
     fetchProducts,
     fetchCategories,
@@ -90,15 +99,29 @@ const ShopWithSidebar = () => {
   };
 
   useEffect(() => {
-    fetchProducts();
+    const search = searchParams.get('search');
+    const category = searchParams.get('category');
+    
+    if (search) {
+      setSearchTerm(search);
+      updateFilters({ search: search, page: 1 });
+    } else {
+      setSearchTerm("");
+      fetchProducts();
+    }
+    
+    if (category) {
+      setSelectedCategories([category]);
+    } else {
+      setSelectedCategories([]);
+    }
+    
     fetchCategories();
-  }, [fetchProducts, fetchCategories]);
+  }, [searchParams, fetchProducts, fetchCategories, updateFilters]);
 
   useEffect(() => {
-    console.log('🔍 API Products:', products);
     if (products && products.length > 0) {
       const transformed = products.map(transformApiProductToComponent);
-      console.log('✅ Transformed Products:', transformed);
       setTransformedProducts(transformed);
     } else {
       setTransformedProducts([]);
@@ -125,40 +148,163 @@ const ShopWithSidebar = () => {
     };
   }, [productSidebar]);
 
+  useEffect(() => {
+    if (shouldUpdateUrl && urlUpdateData && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      
+      if (urlUpdateData.categories.length === 0) {
+        url.searchParams.delete('category');
+      } else {
+        url.searchParams.set('category', urlUpdateData.categories[0]);
+      }
+      
+      if (urlUpdateData.search) {
+        url.searchParams.set('search', urlUpdateData.search);
+      } else {
+        url.searchParams.delete('search');
+      }
+      
+      window.history.pushState({}, '', url.toString());
+      
+      setShouldUpdateUrl(false);
+      setUrlUpdateData(null);
+    }
+  }, [shouldUpdateUrl, urlUpdateData]);
+
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...transformedProducts];
+
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product => 
+        selectedCategories.includes(product.category?.name || '')
+      );
+    }
+
+    filtered = filtered.filter(product => {
+      const price = product.salePrice > 0 ? product.salePrice : product.price;
+      return price >= priceRange.min && price <= priceRange.max;
+    });
+
+    if (ratingFilter > 0) {
+      filtered = filtered.filter(product => 
+        product.averageRating >= ratingFilter
+      );
+    }
+
+    filtered.sort((a, b) => {
+      const [sortField, sortOrder] = sortBy.split('-');
+      const isDesc = sortOrder === 'desc';
+
+      switch (sortField) {
+        case 'price':
+          const priceA = a.salePrice > 0 ? a.salePrice : a.price;
+          const priceB = b.salePrice > 0 ? b.salePrice : b.price;
+          return isDesc ? priceB - priceA : priceA - priceB;
+        
+        case 'rating':
+          return isDesc ? b.averageRating - a.averageRating : a.averageRating - b.averageRating;
+        
+        case 'createdAt':
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return isDesc ? dateB - dateA : dateA - dateB;
+        
+        case 'popular':
+          return isDesc ? (b.reviewCount || 0) - (a.reviewCount || 0) : (a.reviewCount || 0) - (b.reviewCount || 0);
+        
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [transformedProducts, selectedCategories, priceRange, ratingFilter, sortBy]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAndSortedProducts, currentPage]);
+
+  const totalFilteredPages = Math.ceil(filteredAndSortedProducts.length / itemsPerPage);
+
   const sortOptions = [
     { label: "En Yeni Ürünler", value: "createdAt-desc" },
-    { label: "En Çok Satan", value: "popular" },
+    { label: "En Çok Satan", value: "popular-desc" },
     { label: "Fiyat (Düşük-Yüksek)", value: "price-asc" },
     { label: "Fiyat (Yüksek-Düşük)", value: "price-desc" },
+    { label: "Puan (Yüksek-Düşük)", value: "rating-desc" },
+    { label: "Puan (Düşük-Yüksek)", value: "rating-asc" },
   ];
 
   const categoryOptions = categories.map(category => ({
     name: category.name,
-    products: 0, 
-    isRefined: false,
+    products: transformedProducts.filter(p => p.category?.name === category.name).length,
+    isRefined: selectedCategories.includes(category.name),
   }));
 
-  const genderOptions = [
-    { name: "Erkek", products: 0 },
-    { name: "Kadın", products: 0 },
-    { name: "Unisex", products: 0 },
+  const ratingOptions = [
+    { label: "Tüm Puanlar", value: 0 },
+    { label: "4+ Yıldız", value: 4 },
+    { label: "3+ Yıldız", value: 3 },
+    { label: "2+ Yıldız", value: 2 },
+    { label: "1+ Yıldız", value: 1 },
+  ];
+
+  const priceRanges = [
+    { label: "Tüm Fiyatlar", min: 0, max: 100000 },
+    { label: "0₺ - 100₺", min: 0, max: 100 },
+    { label: "100₺ - 500₺", min: 100, max: 500 },
+    { label: "500₺ - 1000₺", min: 500, max: 1000 },
+    { label: "1000₺ - 5000₺", min: 1000, max: 5000 },
+    { label: "5000₺ - 10000₺", min: 5000, max: 10000 },
+    { label: "10000₺ - 50000₺", min: 10000, max: 50000 },
+    { label: "50000₺+", min: 50000, max: 100000 },
   ];
 
   const handleSortChange = (value: string) => {
-    const [sortBy, sortOrder] = value.split('-');
-    if (sortOrder === "asc" || sortOrder === "desc") {
-      updateFilters({ sortBy, sortOrder });
-    } else {
-      console.error("Invalid sort order:", sortOrder);
-    }
+    setSortBy(value);
+    setCurrentPage(1); 
+  };
+
+  const handleCategoryChange = (categoryName: string) => {
+    setSelectedCategories(prev => {
+      const newCategories = prev.includes(categoryName) 
+        ? prev.filter(cat => cat !== categoryName)
+        : [...prev, categoryName];
+      
+      setUrlUpdateData({ categories: newCategories });
+      setShouldUpdateUrl(true);
+      
+      return newCategories;
+    });
+    setCurrentPage(1);
+  };
+
+  const handlePriceRangeChange = (range: { min: number; max: number }) => {
+    setPriceRange(range);
+    setCurrentPage(1);
+  };
+
+  const handleRatingChange = (rating: number) => {
+    setRatingFilter(rating);
+    setCurrentPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedCategories([]);
+    setPriceRange({ min: 0, max: 100000 });
+    setRatingFilter(0);
+    setCurrentPage(1);
+    setUrlUpdateData({ categories: [] });
+    setShouldUpdateUrl(true);
   };
 
   if (productsLoading || categoriesLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue"></div>
-          <p className="mt-4 text-gray-600">Ürünler yükleniyor...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Ürünler yükleniyor...</p>
         </div>
       </div>
     );
@@ -166,19 +312,24 @@ const ShopWithSidebar = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 text-lg mb-4">Hata: {error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 mb-4">
+            <svg className="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <p className="text-lg font-semibold">Hata: {error}</p>
+          </div>
           <div className="flex gap-4 justify-center">
             <button 
               onClick={() => fetchProducts()}
-              className="px-4 py-2 bg-blue text-white rounded hover:bg-blue-dark transition-colors"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               Tekrar Dene
             </button>
             <button 
               onClick={clearError}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+              className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
             >
               Hatayı Temizle
             </button>
@@ -191,35 +342,44 @@ const ShopWithSidebar = () => {
   return (
     <>
       <Breadcrumb
-        title={"Tüm Ürünleri Keşfet"}
+        title={
+          searchTerm 
+            ? `"${searchTerm}" için arama sonuçları` 
+            : selectedCategories.length > 0 
+              ? `${selectedCategories[0]} Kategorisi` 
+              : "Ürün Mağazası"
+        }
         pages={[
-          { name: "Ürünler", href: "/products" }
+          { name: "Ürünler", href: "/products" },
+          ...(searchTerm ? [{ name: `"${searchTerm}" araması`, href: `/shop-with-sidebar?search=${encodeURIComponent(searchTerm)}` }] : []),
+          ...(selectedCategories.length > 0 && !searchTerm ? [{ name: selectedCategories[0], href: `/shop-with-sidebar?category=${encodeURIComponent(selectedCategories[0])}` }] : [])
         ]}
       />
-      <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-[#f3f4f6]">
-        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-          <div className="flex gap-7.5">
+      
+      <section className="overflow-hidden relative pb-12 lg:pb-20 pt-8 lg:pt-16 xl:pt-20 bg-gray-50">
+        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
+          <div className="flex gap-6 lg:gap-8">
             {/* <!-- Sidebar Start --> */}
             <div
-              className={`sidebar-content fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[270px] w-full ease-out duration-200 ${
+              className={`sidebar-content fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[280px] w-full ease-out duration-200 ${
                 productSidebar
-                  ? "translate-x-0 bg-white p-5 h-screen overflow-y-auto"
+                  ? "translate-x-0 bg-white p-6 h-screen overflow-y-auto shadow-xl"
                   : "-translate-x-full"
               }`}
             >
               <button
                 onClick={() => setProductSidebar(!productSidebar)}
                 aria-label="ürün sidebar toggle butonu"
-                className={`xl:hidden absolute -right-12.5 sm:-right-8 flex items-center justify-center w-8 h-8 rounded-md bg-white shadow-1 ${
+                className={`xl:hidden absolute -right-12 flex items-center justify-center w-10 h-10 rounded-lg bg-white shadow-lg border border-gray-200 ${
                   stickyMenu
-                    ? "lg:top-20 sm:top-34.5 top-35"
-                    : "lg:top-24 sm:top-39 top-37"
+                    ? "lg:top-20 sm:top-16 top-16"
+                    : "lg:top-24 sm:top-20 top-20"
                 }`}
               >
                 <svg
-                  className="fill-current"
-                  width="24"
-                  height="24"
+                  className="fill-current text-gray-600"
+                  width="20"
+                  height="20"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -241,34 +401,102 @@ const ShopWithSidebar = () => {
 
               <form onSubmit={(e) => e.preventDefault()}>
                 <div className="flex flex-col gap-6">
-                  {/* <!-- filter box --> */}
-                  <div className="bg-white shadow-1 rounded-lg py-4 px-5">
+                  {/* <!-- Filtreler Başlığı --> */}
+                  <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
                     <div className="flex items-center justify-between">
-                      <p>Filtreler:</p>
+                      <h2 className="font-semibold text-gray-900 text-lg">Filtreler</h2>
                       <button 
                         type="button"
-                        onClick={clearFilters}
-                        className="text-blue hover:text-blue-dark transition-colors"
+                        onClick={clearAllFilters}
+                        className="text-blue-600 hover:text-blue-700 transition-colors text-sm font-medium"
                       >
                         Tümünü Temizle
                       </button>
                     </div>
                   </div>
 
-                  {/* <!-- category box --> */}
-                  <CategoryDropdown categories={categoryOptions} />
+                  {/* <!-- Kategori Filtresi --> */}
+                  <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
+                    <h3 className="font-semibold text-gray-900 mb-4">Kategoriler</h3>
+                    
+                    {/* Seçili Kategoriler */}
+                    {selectedCategories.length > 0 && (
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <p className="text-sm text-blue-800 font-medium mb-2">Seçili Kategoriler:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCategories.map((categoryName, index) => (
+                            <span 
+                              key={index}
+                              className="inline-flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-full border border-blue-200"
+                            >
+                              {categoryName}
+                              <button
+                                onClick={() => handleCategoryChange(categoryName)}
+                                className="ml-2 text-blue-500 hover:text-blue-700 font-bold"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-3">
+                      {categoryOptions.map((category, index) => (
+                        <label key={index} className="flex items-center cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category.name)}
+                            onChange={() => handleCategoryChange(category.name)}
+                            className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                          <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">
+                            {category.name} 
+                            <span className="text-gray-500 ml-1">({category.products})</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
-                  {/* <!-- gender box --> */}
-                  <GenderDropdown genders={genderOptions} />
+                  {/* <!-- Fiyat Aralığı Filtresi --> */}
+                  <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
+                    <h3 className="font-semibold text-gray-900 mb-4">Fiyat Aralığı</h3>
+                    <div className="space-y-3">
+                      {priceRanges.map((range, index) => (
+                        <label key={index} className="flex items-center cursor-pointer group">
+                          <input
+                            type="radio"
+                            name="priceRange"
+                            checked={priceRange.min === range.min && priceRange.max === range.max}
+                            onChange={() => handlePriceRangeChange(range)}
+                            className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"
+                          />
+                          <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{range.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
-                  {/* <!-- size box --> */}
-                  <SizeDropdown />
-
-                  {/* <!-- color box --> */}
-                  <ColorsDropdwon />
-
-                  {/* <!-- price range box --> */}
-                  <PriceDropdown />
+                  {/* <!-- Puan Filtresi --> */}
+                  <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
+                    <h3 className="font-semibold text-gray-900 mb-4">Puan</h3>
+                    <div className="space-y-3">
+                      {ratingOptions.map((option, index) => (
+                        <label key={index} className="flex items-center cursor-pointer group">
+                          <input
+                            type="radio"
+                            name="rating"
+                            checked={ratingFilter === option.value}
+                            onChange={() => handleRatingChange(option.value)}
+                            className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"
+                          />
+                          <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </form>
             </div>
@@ -276,40 +504,98 @@ const ShopWithSidebar = () => {
 
             {/* <!-- Content Start --> */}
             <div className="xl:max-w-[870px] w-full">
-              <div className="rounded-lg bg-white shadow-1 pl-3 pr-2.5 py-2.5 mb-6">
+              {/* <!-- Arama Sonuçları ve Kategori Başlığı --> */}
+              {(searchTerm || selectedCategories.length > 0) && (
+                <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                        {searchTerm 
+                          ? `"${searchTerm}" için arama sonuçları`
+                          : `${selectedCategories[0]} kategorisindeki ürünler`
+                        }
+                      </h2>
+                      <p className="text-gray-600">
+                        {filteredAndSortedProducts.length} ürün bulundu
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedCategories([]);
+                        clearFilters();
+                        setUrlUpdateData({ categories: [] });
+                        setShouldUpdateUrl(true);
+                      }}
+                      className="text-blue-600 hover:text-blue-700 transition-colors font-medium"
+                    >
+                      {searchTerm ? 'Aramayı Temizle' : 'Kategoriyi Temizle'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* <!-- Üst Bar --> */}
+              <div className="rounded-xl bg-white shadow-lg pl-4 pr-4 py-4 mb-6 border border-gray-100">
                 <div className="flex items-center justify-between">
-                  {/* <!-- top bar left --> */}
+                  {/* <!-- Sol Taraf --> */}
                   <div className="flex flex-wrap items-center gap-4">
                     <CustomSelect 
                       options={sortOptions} 
                       onChange={handleSortChange}
+                      value={sortBy}
                     />
 
-                    <p>
-                      Gösterilen <span className="text-dark">{transformedProducts.length}</span>{" "}
-                      / <span className="text-dark">{totalProducts}</span> Ürün
-                      {totalPages > 1 && (
-                        <span className="text-gray-500 ml-2">
-                          (Sayfa {currentPage}/{totalPages})
-                        </span>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-gray-600">
+                        Gösterilen <span className="text-gray-900 font-semibold">{paginatedProducts.length}</span>{" "}
+                        / <span className="text-gray-900 font-semibold">{filteredAndSortedProducts.length}</span> Ürün
+                        {totalFilteredPages > 1 && (
+                          <span className="text-gray-500 ml-2">
+                            (Sayfa {currentPage}/{totalFilteredPages})
+                          </span>
+                        )}
+                      </p>
+                      
+                      {/* Seçili Kategoriler */}
+                      {selectedCategories.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">Kategoriler:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedCategories.map((categoryName, index) => (
+                              <span 
+                                key={index}
+                                className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full border border-blue-200"
+                              >
+                                {categoryName}
+                                <button
+                                  onClick={() => handleCategoryChange(categoryName)}
+                                  className="ml-1 text-blue-500 hover:text-blue-700 font-bold"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                    </p>
+                    </div>
                   </div>
 
-                  {/* <!-- top bar right --> */}
-                  <div className="flex items-center gap-2.5">
+                  {/* <!-- Sağ Taraf - Görünüm Seçenekleri --> */}
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setProductStyle("grid")}
-                      aria-label="grid görünümü butonu"
+                      aria-label="ızgara görünümü butonu"
                       className={`${
                         productStyle === "grid"
-                          ? "bg-blue border-blue text-white"
-                          : "text-dark bg-gray-1 border-gray-3"
-                      } flex items-center justify-center w-10.5 h-9 rounded-[5px] border ease-out duration-200 hover:bg-blue hover:border-blue hover:text-white`}
+                          ? "bg-blue-600 border-blue-600 text-white"
+                          : "text-gray-600 bg-white border-gray-300 hover:border-blue-500 hover:text-blue-600"
+                      } flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 hover:shadow-md`}
                     >
                       {/* Grid SVG */}
                       <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M4.836 1.3125C4.16215 1.31248 3.60022 1.31246 3.15414 1.37244C2.6833 1.43574 2.2582 1.57499 1.91659 1.91659C1.57499 2.2582 1.43574 2.6833 1.37244 3.15414C1.31246 3.60022 1.31248 4.16213 1.3125 4.83598V4.914C1.31248 5.58785 1.31246 6.14978 1.37244 6.59586C1.43574 7.06671 1.57499 7.49181 1.91659 7.83341C2.2582 8.17501 2.6833 8.31427 3.15414 8.37757C3.60022 8.43754 4.16213 8.43752 4.83598 8.4375H4.914C5.58785 8.43752 6.14978 8.43754 6.59586 8.37757C7.06671 8.31427 7.49181 8.17501 7.83341 7.83341C8.17501 7.49181 8.31427 7.06671 8.37757 6.59586C8.43754 6.14978 8.43752 5.58787 8.4375 4.91402V4.83601C8.43752 4.16216 8.43754 3.60022 8.37757 3.15414C8.31427 2.6833 8.17501 2.2582 7.83341 1.91659C7.49181 1.57499 7.06671 1.43574 6.59586 1.37244C6.14978 1.31246 5.58787 1.31248 4.91402 1.3125H4.836ZM2.71209 2.71209C2.80983 2.61435 2.95795 2.53394 3.30405 2.4874C3.66632 2.4387 4.15199 2.4375 4.875 2.4375C5.59801 2.4375 6.08368 2.4387 6.44596 2.4874C6.79205 2.53394 6.94018 2.61435 7.03791 2.71209C7.13565 2.80983 7.21607 2.95795 7.2626 3.30405C7.31131 3.66632 7.3125 4.15199 7.3125 4.875C7.3125 5.59801 7.31131 6.08368 7.2626 6.44596C7.21607 6.79205 7.13565 6.94018 7.03791 7.03791C6.94018 7.13565 6.79205 7.21607 6.44596 7.2626C6.08368 7.31131 5.59801 7.3125 4.875 7.3125C4.15199 7.3125 3.66632 7.31131 3.30405 7.2626C2.95795 7.21607 2.80983 7.13565 2.71209 7.03791C2.61435 6.94018 2.53394 6.79205 2.4874 6.44596C2.4387 6.08368 2.4375 5.59801 2.4375 4.875C2.4375 4.15199 2.4387 3.66632 2.4874 3.30405C2.53394 2.95795 2.61435 2.80983 2.71209 2.71209Z" fill=""/>
+                        <path d="M2 2h5v5H2V2zM11 2h5v5h-5V2zM2 11h5v5H2v-5zM11 11h5v5h-5v-5z" fill="currentColor"/>
                       </svg>
                     </button>
 
@@ -318,90 +604,132 @@ const ShopWithSidebar = () => {
                       aria-label="liste görünümü butonu"
                       className={`${
                         productStyle === "list"
-                          ? "bg-blue border-blue text-white"
-                          : "text-dark bg-gray-1 border-gray-3"
-                      } flex items-center justify-center w-10.5 h-9 rounded-[5px] border ease-out duration-200 hover:bg-blue hover:border-blue hover:text-white`}
+                          ? "bg-blue-600 border-blue-600 text-white"
+                          : "text-gray-600 bg-white border-gray-300 hover:border-blue-500 hover:text-blue-600"
+                      } flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 hover:shadow-md`}
                     >
                       {/* List SVG */}
                       <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M4.4234 0.899903C3.74955 0.899882 3.18763 0.899864 2.74155 0.959838C2.2707 1.02314 1.8456 1.16239 1.504 1.504C1.16239 1.8456 1.02314 2.2707 0.959838 2.74155C0.899864 3.18763 0.899882 3.74953 0.899903 4.42338V4.5014C0.899882 5.17525 0.899864 5.73718 0.959838 6.18326C1.02314 6.65411 1.16239 7.07921 1.504 7.42081C1.8456 7.76241 2.2707 7.90167 2.74155 7.96497C3.18763 8.02495 3.74953 8.02493 4.42339 8.02491H4.5014C5.17525 8.02493 14.7372 8.02495 15.1833 7.96497C15.6541 7.90167 16.0792 7.76241 16.4208 7.42081C16.7624 7.07921 16.9017 6.65411 16.965 6.18326C17.0249 5.73718 17.0249 5.17527 17.0249 4.50142V4.42341C17.0249 3.74956 17.0249 3.18763 16.965 2.74155C16.9017 2.2707 16.7624 1.8456 16.4208 1.504C16.0792 1.16239 15.6541 1.02314 15.1833 0.959838C14.7372 0.899864 5.17528 0.899882 4.50142 0.899903H4.4234ZM2.29949 2.29949C2.39723 2.20175 2.54535 2.12134 2.89145 2.07481C3.25373 2.0261 3.7394 2.0249 4.4624 2.0249C5.18541 2.0249 14.6711 2.0261 15.0334 2.07481C15.3795 2.12134 15.5276 2.20175 15.6253 2.29949C15.7231 2.39723 15.8035 2.54535 15.85 2.89145C15.8987 3.25373 15.8999 3.7394 15.8999 4.4624C15.8999 5.18541 15.8987 5.67108 15.85 6.03336C15.8035 6.37946 15.7231 6.52758 15.6253 6.62532C15.5276 6.72305 15.3795 6.80347 15.0334 6.85C14.6711 6.89871 5.18541 6.8999 4.4624 6.8999C3.7394 6.8999 3.25373 6.89871 2.89145 6.85C2.54535 6.80347 2.39723 6.72305 2.29949 6.62532C2.20175 6.52758 2.12134 6.37946 2.07481 6.03336C2.0261 5.67108 2.0249 5.18541 2.0249 4.4624C2.0249 3.7394 2.0261 3.25373 2.07481 2.89145C2.12134 2.54535 2.20175 2.39723 2.29949 2.29949Z" fill=""/>
+                        <path d="M2 2h14v2H2V2zM2 7h14v2H2V7zM2 12h14v2H2v-2zM2 17h14v2H2v-2z" fill="currentColor"/>
                       </svg>
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* <!-- Products Grid/List Content Start --> */}
-              {transformedProducts.length > 0 ? (
-              <div
-                className={`${
-                  productStyle === "grid"
-                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-7.5 gap-y-9"
-                    : "flex flex-col gap-7.5"
-                }`}
-              >
-                  {transformedProducts.map((item, key) =>
-                  productStyle === "grid" ? (
-                    <SingleGridItem item={item} key={key} />
-                  ) : (
-                    <SingleListItem item={item} key={key} />
-                  )
-                )}
-              </div>
+              {/* <!-- Ürünler Grid/Liste İçeriği --> */}
+              {paginatedProducts.length > 0 ? (
+                <div
+                  className={`${
+                    productStyle === "grid"
+                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                      : "flex flex-col gap-6"
+                  }`}
+                >
+                  {paginatedProducts.map((item, key) =>
+                    productStyle === "grid" ? (
+                      <SingleGridItem item={item} key={key} />
+                    ) : (
+                      <SingleListItem item={item} key={key} />
+                    )
+                  )}
+                </div>
               ) : (
-                <div className="text-center py-20">
-                  <p className="text-gray-500 text-lg">Henüz ürün bulunamadı.</p>
-                  <button 
-                    onClick={() => fetchProducts()}
-                    className="mt-4 px-6 py-3 bg-blue text-white rounded-lg hover:bg-blue-dark transition-colors"
-                  >
-                    Ürünleri Yenile
-                  </button>
+                <div className="text-center py-20 bg-white rounded-xl shadow-lg border border-gray-100">
+                  {searchTerm ? (
+                    <>
+                      <div className="text-gray-400 mb-6">
+                        <svg className="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <p className="text-xl text-gray-500 mb-2">
+                          "{searchTerm}" için ürün bulunamadı.
+                        </p>
+                        <p className="text-gray-400">
+                          Farklı anahtar kelimeler deneyebilir veya kategorileri keşfedebilirsiniz.
+                        </p>
+                      </div>
+                      <div className="flex gap-4 justify-center">
+                        <button 
+                          onClick={() => {
+                            setSearchTerm("");
+                            clearFilters();
+                            setUrlUpdateData({ categories: [] });
+                            setShouldUpdateUrl(true);
+                          }}
+                          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                          Tüm Ürünleri Gör
+                        </button>
+                        <button 
+                          onClick={() => fetchProducts()}
+                          className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                        >
+                          Tekrar Dene
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-gray-400 mb-6">
+                        <svg className="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <p className="text-xl text-gray-500">Henüz ürün bulunamadı.</p>
+                      </div>
+                      <button 
+                        onClick={() => fetchProducts()}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Ürünleri Yenile
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
-              {/* <!-- Products Content End --> */}
+              {/* <!-- Ürünler İçeriği Sonu --> */}
 
-              {/* <!-- Products Pagination Start --> */}
-              {transformedProducts.length > 0 && totalPages > 1 && (
-              <div className="flex justify-center mt-15">
-                <div className="bg-white shadow-1 rounded-md p-2">
-                  <ul className="flex items-center">
-                    <li>
-                      <button
-                          onClick={() => updateFilters({ page: currentPage - 1 })}
+              {/* <!-- Sayfalama --> */}
+              {paginatedProducts.length > 0 && totalFilteredPages > 1 && (
+                <div className="flex justify-center mt-12">
+                  <div className="bg-white shadow-lg rounded-xl p-3 border border-gray-100">
+                    <ul className="flex items-center gap-2">
+                      <li>
+                        <button
+                          onClick={() => setCurrentPage(currentPage - 1)}
                           disabled={currentPage === 1}
                           aria-label="önceki sayfa butonu"
-                          className="flex items-center justify-center w-8 h-9 ease-out duration-200 rounded-[3px] disabled:text-gray-4 hover:bg-blue hover:text-white disabled:hover:bg-transparent disabled:hover:text-gray-4"
+                          className="flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200 disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-blue-600 hover:text-white disabled:hover:bg-transparent"
                         >
                           <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
                             <path d="M12.1782 16.1156C12.0095 16.1156 11.8407 16.0594 11.7282 15.9187L5.37197 9.45C5.11885 9.19687 5.11885 8.80312 5.37197 8.55L11.7282 2.08125C11.9813 1.82812 12.3751 1.82812 12.6282 2.08125C12.8813 2.33437 12.8813 2.72812 12.6282 2.98125L6.72197 9L12.6563 15.0187C12.9095 15.2719 12.9095 15.6656 12.6563 15.9187C12.4876 16.0312 12.347 16.1156 12.1782 16.1156Z" fill=""/>
-                        </svg>
-                      </button>
-                    </li>
+                          </svg>
+                        </button>
+                      </li>
 
-                    <li>
-                        <span className="flex py-1.5 px-3.5 duration-200 rounded-[3px] bg-blue text-white">
-                          {currentPage}
+                      <li>
+                        <span className="flex py-2 px-4 duration-200 rounded-lg bg-blue-600 text-white font-medium">
+                          {currentPage} / {totalFilteredPages}
                         </span>
-                    </li>
+                      </li>
 
-                    <li>
-                      <button
-                          onClick={() => updateFilters({ page: currentPage + 1 })}
-                          disabled={currentPage === totalPages}
+                      <li>
+                        <button
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          disabled={currentPage === totalFilteredPages}
                           aria-label="sonraki sayfa butonu"
-                          className="flex items-center justify-center w-8 h-9 ease-out duration-200 rounded-[3px] hover:text-white hover:bg-blue disabled:text-gray-4 disabled:hover:bg-transparent disabled:hover:text-gray-4"
+                          className="flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-200 disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-blue-600 hover:text-white disabled:hover:bg-transparent"
                         >
                           <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
                             <path d="M5.82197 16.1156C5.65322 16.1156 5.5126 16.0594 5.37197 15.9469C5.11885 15.6937 5.11885 15.3 5.37197 15.0469L11.2782 9L5.37197 2.98125C5.11885 2.72812 5.11885 2.33437 5.37197 2.08125C5.6251 1.82812 6.01885 1.82812 6.27197 2.08125L12.6282 8.55C12.8813 8.80312 12.8813 9.19687 12.6282 9.45L6.27197 15.9187C6.15947 16.0312 5.99072 16.1156 5.82197 16.1156Z" fill=""/>
-                        </svg>
-                      </button>
-                    </li>
-                  </ul>
+                          </svg>
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
-              </div>
               )}
-              {/* <!-- Products Pagination End --> */}
+              {/* <!-- Sayfalama Sonu --> */}
             </div>
             {/* <!-- Content End --> */}
           </div>

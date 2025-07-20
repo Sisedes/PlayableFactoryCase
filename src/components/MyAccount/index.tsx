@@ -344,6 +344,8 @@ const MyAccount = () => {
       if (isAdmin) {
         loadDashboardStats();
         setActiveTab("dashboard");
+      } else {
+        setActiveTab("orders");
       }
       
       setProfileForm({
@@ -518,11 +520,13 @@ const MyAccount = () => {
         setApplyDiscount(false);
         setProductImages(null);
         
-        if (activeTab === 'manage-products') {
-          const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
-          if (productsResponse.success) {
-            setProducts(productsResponse.data as unknown as LocalProduct[]);
-          }
+        const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
         }
         
         setActiveTab('manage-products');
@@ -988,6 +992,10 @@ const MyAccount = () => {
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
         }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
       } else {
         alert(response.message || 'İşlem başarısız');
       }
@@ -1033,6 +1041,10 @@ const MyAccount = () => {
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
         }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
       } else {
         alert(response.message || 'Ürün güncellenirken hata oluştu');
       }
@@ -1055,6 +1067,10 @@ const MyAccount = () => {
         const productsResponse = await getAllProductsForAdmin({}, accessToken || '');
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
         }
       } else {
         alert(response.message || 'Ürün silinirken hata oluştu');
@@ -1110,6 +1126,10 @@ const MyAccount = () => {
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
         }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
       } else {
         alert(response.message || 'Varyasyonlar kaydedilirken hata oluştu');
       }
@@ -1154,6 +1174,10 @@ const MyAccount = () => {
           }
         }
         
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
+        
         alert('Resim başarıyla silindi');
       } else {
         alert(response.message || 'Resim silinirken hata oluştu');
@@ -1180,6 +1204,10 @@ const MyAccount = () => {
               setEditProduct(updatedProduct as LocalProduct);
             }
           }
+        }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
         }
         
         alert('Ana resim başarıyla ayarlandı');
@@ -1266,7 +1294,6 @@ const MyAccount = () => {
 
     setCategoryImage(file);
     
-    // Performans için FileReader yerine URL.createObjectURL 
     const imageUrl = URL.createObjectURL(file);
     setCategoryImagePreview(imageUrl);
   };
@@ -1326,6 +1353,10 @@ const MyAccount = () => {
         if (categoriesResponse.success) {
           setCategories(categoriesResponse.data as unknown as LocalCategory[]);
         }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
       } else {
         alert('Hata: ' + result.message);
       }
@@ -1362,6 +1393,10 @@ const MyAccount = () => {
         if (categoriesResponse.success) {
           setCategories(categoriesResponse.data as unknown as LocalCategory[]);
         }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
       } else {
         alert(result.message || 'Kategori silinirken hata oluştu');
       }
@@ -1388,6 +1423,10 @@ const MyAccount = () => {
         const categoriesResponse = await getAllCategoriesForAdmin(accessToken);
         if (categoriesResponse.success) {
           setCategories(categoriesResponse.data as unknown as LocalCategory[]);
+        }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
         }
       } else {
         alert('Hata: ' + result.message);
@@ -1538,6 +1577,10 @@ const MyAccount = () => {
       if (productsResponse.success) {
         setProducts(productsResponse.data as unknown as LocalProduct[]);
       }
+      
+      if (activeTab === 'stock-management') {
+        await loadStockStatistics();
+      }
     }
   };
 
@@ -1561,12 +1604,56 @@ const MyAccount = () => {
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
         }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
       } else {
         alert(result.message || 'Test ürünü oluşturulurken hata oluştu');
       }
     } catch (error) {
       console.error('Test ürünü oluşturma hatası:', error);
       alert('Test ürünü oluşturulurken hata oluştu');
+    }
+  };
+
+  const setFirstProductStockToZero = async () => {
+    if (!accessToken || products.length === 0) {
+      alert('Ürün bulunamadı');
+      return;
+    }
+    
+    try {
+      const firstProduct = products[0];
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/products/test/set-stock-zero`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          productId: firstProduct._id
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert(`"${firstProduct.name}" ürününün stok değeri 0 yapıldı!`);
+
+        const productsResponse = await getAllProductsForAdmin({}, accessToken);
+        if (productsResponse.success) {
+          setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
+        }
+      } else {
+        alert(result.message || 'Ürün stok değeri güncellenirken hata oluştu');
+      }
+    } catch (error) {
+      console.error('Ürün stok değeri güncelleme hatası:', error);
+      alert('Ürün stok değeri güncellenirken hata oluştu');
     }
   };
 
@@ -1618,6 +1705,10 @@ const MyAccount = () => {
           if (productsResponse.success) {
             setProducts(productsResponse.data as unknown as LocalProduct[]);
           }
+          
+          if (activeTab === 'stock-management') {
+            await loadStockStatistics();
+          }
         }
       } else {
         alert(response.message || 'Toplu kategori atama başarısız');
@@ -1654,6 +1745,10 @@ const MyAccount = () => {
           if (productsResponse.success) {
             setProducts(productsResponse.data as unknown as LocalProduct[]);
           }
+          
+          if (activeTab === 'stock-management') {
+            await loadStockStatistics();
+          }
         }
       } else {
         alert(response.message || 'Toplu fiyat güncelleme başarısız');
@@ -1681,6 +1776,10 @@ const MyAccount = () => {
         const productsResponse = await getAllProductsForAdmin({}, accessToken);
         if (productsResponse.success) {
           setProducts(productsResponse.data as unknown as LocalProduct[]);
+        }
+        
+        if (activeTab === 'stock-management') {
+          await loadStockStatistics();
         }
       }
     } catch (error) {
@@ -1760,149 +1859,136 @@ const MyAccount = () => {
               <div className="flex lg:flex-col">
                 <div className="p-4 sm:p-6 lg:p-8 xl:p-9">
                   <div className="flex flex-wrap lg:flex-nowrap lg:flex-col gap-2 sm:gap-3 lg:gap-4">
-                    <button
-                      onClick={() => setActiveTab("favorites")}
-                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
-                        activeTab === "favorites"
-                          ? "text-white bg-blue"
-                          : "text-dark-2 bg-gray-1"
-                      }`}
-                    >
-                      <svg
-                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
-                        viewBox="0 0 22 22"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M11 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L11 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L11 2Z"
-                          fill=""
-                        />
-                      </svg>
-                      <span className="hidden sm:inline">Favorilerim</span>
-                      <span className="sm:hidden">Favoriler</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("orders")}
-                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
-                        activeTab === "orders"
-                          ? "text-white bg-blue"
-                          : "text-dark-2 bg-gray-1"
-                      }`}
-                    >
-                      <svg
-                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
-                        viewBox="0 0 22 22"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M8.0203 11.9167C8.0203 11.537 7.71249 11.2292 7.3328 11.2292C6.9531 11.2292 6.6453 11.537 6.6453 11.9167V15.5833C6.6453 15.963 6.9531 16.2708 7.3328 16.2708C7.71249 16.2708 8.0203 15.963 8.0203 15.5833V11.9167Z"
-                          fill=""
-                        />
-                        <path
-                          d="M14.6661 11.2292C15.0458 11.2292 15.3536 11.537 15.3536 11.9167V15.5833C15.3536 15.963 15.0458 16.2708 14.6661 16.2708C14.2864 16.2708 13.9786 15.963 13.9786 15.5833V11.9167C13.9786 11.537 14.2864 11.2292 14.6661 11.2292Z"
-                          fill=""
-                        />
-                        <path
-                          d="M11.687 11.9167C11.687 11.537 11.3792 11.2292 10.9995 11.2292C10.6198 11.2292 10.312 11.537 10.312 11.9167V15.5833C10.312 15.963 10.6198 16.2708 10.9995 16.2708C11.3792 16.2708 11.687 15.963 11.687 15.5833V11.9167Z"
-                          fill=""
-                        />
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M15.8338 3.18356C15.3979 3.01319 14.9095 2.98443 14.2829 2.97987C14.0256 2.43753 13.473 2.0625 12.8328 2.0625H9.16613C8.52593 2.0625 7.97332 2.43753 7.716 2.97987C7.08942 2.98443 6.60107 3.01319 6.16515 3.18356C5.64432 3.38713 5.19129 3.73317 4.85788 4.18211C4.52153 4.63502 4.36363 5.21554 4.14631 6.01456L3.57076 8.12557C3.21555 8.30747 2.90473 8.55242 2.64544 8.88452C2.07527 9.61477 1.9743 10.4845 2.07573 11.4822C2.17415 12.4504 2.47894 13.6695 2.86047 15.1955L2.88467 15.2923C3.12592 16.2573 3.32179 17.0409 3.55475 17.6524C3.79764 18.2899 4.10601 18.8125 4.61441 19.2095C5.12282 19.6064 5.70456 19.7788 6.38199 19.8598C7.03174 19.9375 7.8394 19.9375 8.83415 19.9375H13.1647C14.1594 19.9375 14.9671 19.9375 15.6169 19.8598C16.2943 19.7788 16.876 19.6064 17.3844 19.2095C17.8928 18.8125 18.2012 18.2899 18.4441 17.6524C18.6771 17.0409 18.8729 16.2573 19.1142 15.2923L19.1384 15.1956C19.5199 13.6695 19.8247 12.4504 19.9231 11.4822C20.0245 10.4845 19.9236 9.61477 19.3534 8.88452C19.0941 8.55245 18.7833 8.30751 18.4282 8.12562L17.8526 6.01455C17.6353 5.21554 17.4774 4.63502 17.141 4.18211C16.8076 3.73317 16.3546 3.38713 15.8338 3.18356ZM6.66568 4.46423C6.86717 4.38548 7.11061 4.36231 7.71729 4.35618C7.97516 4.89706 8.527 5.27083 9.16613 5.27083H12.8328C13.4719 5.27083 14.0238 4.89706 14.2816 4.35618C14.8883 4.36231 15.1318 4.38548 15.3332 4.46423C15.6137 4.57384 15.8576 4.76017 16.0372 5.00191C16.1986 5.21928 16.2933 5.52299 16.56 6.50095L16.8841 7.68964C15.9328 7.56246 14.7046 7.56248 13.1787 7.5625H8.82014C7.29428 7.56248 6.06614 7.56246 5.11483 7.68963L5.43894 6.50095C5.7056 5.52299 5.80033 5.21928 5.96176 5.00191C6.14129 4.76017 6.38523 4.57384 6.66568 4.46423ZM9.16613 3.4375C9.03956 3.4375 8.93696 3.5401 8.93696 3.66667C8.93696 3.79323 9.03956 3.89583 9.16613 3.89583H12.8328C12.9594 3.89583 13.062 3.79323 13.062 3.66667C13.062 3.5401 12.9594 3.4375 12.8328 3.4375H9.16613ZM3.72922 9.73071C3.98482 9.40334 4.38904 9.18345 5.22428 9.06262C6.07737 8.93921 7.23405 8.9375 8.87703 8.9375H13.1218C14.7648 8.9375 15.9215 8.93921 16.7746 9.06262C17.6098 9.18345 18.014 9.40334 18.2696 9.73071C18.5252 10.0581 18.6405 10.5036 18.5552 11.3432C18.468 12.2007 18.1891 13.3233 17.7906 14.9172C17.5365 15.9338 17.3595 16.6372 17.1592 17.1629C16.9655 17.6713 16.7758 17.9402 16.5382 18.1257C16.3007 18.3112 15.9938 18.43 15.4536 18.4946C14.895 18.5614 14.1697 18.5625 13.1218 18.5625H8.87703C7.8291 18.5625 7.10386 18.5614 6.54525 18.4946C6.005 18.43 5.69817 18.3112 5.4606 18.1257C5.22304 17.9402 5.03337 17.6713 4.83967 17.1629C4.63938 16.6372 4.46237 15.9338 4.20822 14.9172C3.80973 13.3233 3.53086 12.2007 3.44368 11.3432C3.35832 10.5036 3.47362 10.0581 3.72922 9.73071Z"
-                          fill=""
-                        />
-                      </svg>
-                      <span className="hidden sm:inline">Siparişlerim</span>
-                      <span className="sm:hidden">Siparişler</span>
-                    </button>
+                    
+                    {/* Normal Kullanıcı Sekmeleri */}
+                    {!isAdmin && (
+                      <>
+                        <button
+                          onClick={() => setActiveTab("orders")}
+                          className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
+                            activeTab === "orders"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M8.0203 11.9167C8.0203 11.537 7.71249 11.2292 7.3328 11.2292C6.9531 11.2292 6.6453 11.537 6.6453 11.9167V15.5833C6.6453 15.963 6.9531 16.2708 7.3328 16.2708C7.71249 16.2708 8.0203 15.963 8.0203 15.5833V11.9167Z"
+                              fill=""
+                            />
+                            <path
+                              d="M14.6661 11.2292C15.0458 11.2292 15.3536 11.537 15.3536 11.9167V15.5833C15.3536 15.963 15.0458 16.2708 14.6661 16.2708C14.2864 16.2708 13.9786 15.963 13.9786 15.5833V11.9167C13.9786 11.537 14.2864 11.2292 14.6661 11.2292Z"
+                              fill=""
+                            />
+                            <path
+                              d="M11.687 11.9167C11.687 11.537 11.3792 11.2292 10.9995 11.2292C10.6198 11.2292 10.312 11.537 10.312 11.9167V15.5833C10.312 15.963 10.6198 16.2708 10.9995 16.2708C11.3792 16.2708 11.687 15.963 11.687 15.5833V11.9167Z"
+                              fill=""
+                            />
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M15.8338 3.18356C15.3979 3.01319 14.9095 2.98443 14.2829 2.97987C14.0256 2.43753 13.473 2.0625 12.8328 2.0625H9.16613C8.52593 2.0625 7.97332 2.43753 7.716 2.97987C7.08942 2.98443 6.60107 3.01319 6.16515 3.18356C5.64432 3.38713 5.19129 3.73317 4.85788 4.18211C4.52153 4.63502 4.36363 5.21554 4.14631 6.01456L3.57076 8.12557C3.21555 8.30747 2.90473 8.55242 2.64544 8.88452C2.07527 9.61477 1.9743 10.4845 2.07573 11.4822C2.17415 12.4504 2.47894 13.6695 2.86047 15.1955L2.88467 15.2923C3.12592 16.2573 3.32179 17.0409 3.55475 17.6524C3.79764 18.2899 4.10601 18.8125 4.61441 19.2095C5.12282 19.6064 5.70456 19.7788 6.38199 19.8598C7.03174 19.9375 7.8394 19.9375 8.83415 19.9375H13.1647C14.1594 19.9375 14.9671 19.9375 15.6169 19.8598C16.2943 19.7788 16.876 19.6064 17.3844 19.2095C17.8928 18.8125 18.2012 18.2899 18.4441 17.6524C18.6771 17.0409 18.8729 16.2573 19.1142 15.2923L19.1384 15.1956C19.5199 13.6695 19.8247 12.4504 19.9231 11.4822C20.0245 10.4845 19.9236 9.61477 19.3534 8.88452C19.0941 8.55245 18.7833 8.30751 18.4282 8.12562L17.8526 6.01455C17.6353 5.21554 17.4774 4.63502 17.141 4.18211C16.8076 3.73317 16.3546 3.38713 15.8338 3.18356ZM6.66568 4.46423C6.86717 4.38548 7.11061 4.36231 7.71729 4.35618C7.97516 4.89706 8.527 5.27083 9.16613 5.27083H12.8328C13.4719 5.27083 14.0238 4.89706 14.2816 4.35618C14.8883 4.36231 15.1318 4.38548 15.3332 4.46423C15.6137 4.57384 15.8576 4.76017 16.0372 5.00191C16.1986 5.21928 16.2933 5.52299 16.56 6.50095L16.8841 7.68964C15.9328 7.56246 14.7046 7.56248 13.1787 7.5625H8.82014C7.29428 7.56248 6.06614 7.56246 5.11483 7.68963L5.43894 6.50095C5.7056 5.52299 5.80033 5.21928 5.96176 5.00191C6.14129 4.76017 6.38523 4.57384 6.66568 4.46423ZM9.16613 3.4375C9.03956 3.4375 8.93696 3.5401 8.93696 3.66667C8.93696 3.79323 9.03956 3.89583 9.16613 3.89583H12.8328C12.9594 3.89583 13.062 3.79323 13.062 3.66667C13.062 3.5401 12.9594 3.4375 12.8328 3.4375H9.16613ZM3.72922 9.73071C3.98482 9.40334 4.38904 9.18345 5.22428 9.06262C6.07737 8.93921 7.23405 8.9375 8.87703 8.9375H13.1218C14.7648 8.9375 15.9215 8.93921 16.7746 9.06262C17.6098 9.18345 18.014 9.40334 18.2696 9.73071C18.5252 10.0581 18.6405 10.5036 18.5552 11.3432C18.468 12.2007 18.1891 13.3233 17.7906 14.9172C17.5365 15.9338 17.3595 16.6372 17.1592 17.1629C16.9655 17.6713 16.7758 17.9402 16.5382 18.1257C16.3007 18.3112 15.9938 18.43 15.4536 18.4946C14.895 18.5614 14.1697 18.5625 13.1218 18.5625H8.87703C7.8291 18.5625 7.10386 18.5614 6.54525 18.4946C6.005 18.43 5.69817 18.3112 5.4606 18.1257C5.22304 17.9402 5.03337 17.6713 4.83967 17.1629C4.63938 16.6372 4.46237 15.9338 4.20822 14.9172C3.80973 13.3233 3.53086 12.2007 3.44368 11.3432C3.35832 10.5036 3.47362 10.0581 3.72922 9.73071Z"
+                              fill=""
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">Siparişlerim</span>
+                          <span className="sm:hidden">Siparişler</span>
+                        </button>
 
-                    <button
-                      onClick={() => setActiveTab("my-reviews")}
-                      className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
-                        activeTab === "my-reviews"
-                          ? "text-white bg-blue"
-                          : "text-dark-2 bg-gray-1"
-                      }`}
-                    >
-                      <svg
-                        className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
-                        viewBox="0 0 22 22"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M11 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L11 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L11 2Z"
-                          fill=""
-                        />
-                      </svg>
-                      <span className="hidden sm:inline">Yorumlarım</span>
-                      <span className="sm:hidden">Yorumlar</span>
-                    </button>
+                        <button
+                          onClick={() => setActiveTab("my-reviews")}
+                          className={`flex items-center rounded-md gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-3 sm:px-4.5 ease-out duration-200 hover:bg-blue hover:text-white text-sm sm:text-base ${
+                            activeTab === "my-reviews"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current w-5 h-5 sm:w-[22px] sm:h-[22px]"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M11 2L13.09 8.26L20 9.27L15 14.14L16.18 21.02L11 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L11 2Z"
+                              fill=""
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">Yorumlarım</span>
+                          <span className="sm:hidden">Yorumlar</span>
+                        </button>
 
-                    <button
-                      onClick={() => setActiveTab("addresses")}
-                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                        activeTab === "addresses"
-                          ? "text-white bg-blue"
-                          : "text-dark-2 bg-gray-1"
-                      }`}
-                    >
-                      <svg
-                        className="fill-current"
-                        width="22"
-                        height="22"
-                        viewBox="0 0 22 22"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M8.25065 15.8125C7.87096 15.8125 7.56315 16.1203 7.56315 16.5C7.56315 16.8797 7.87096 17.1875 8.25065 17.1875H13.7507C14.1303 17.1875 14.4382 16.8797 14.4382 16.5C14.4382 16.1203 14.1303 15.8125 13.7507 15.8125H8.25065Z"
-                          fill=""
-                        />
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M11.0007 1.14581C10.3515 1.14581 9.7618 1.33173 9.12199 1.64287C8.50351 1.94363 7.78904 2.38706 6.8966 2.94094L5.00225 4.11664C4.15781 4.6407 3.48164 5.06035 2.96048 5.45947C2.42079 5.87278 2.00627 6.29371 1.70685 6.84072C1.40806 7.38659 1.2735 7.96741 1.20899 8.65396C1.14647 9.31931 1.14648 10.1329 1.14648 11.1533V12.6315C1.14647 14.3767 1.14646 15.7543 1.28646 16.8315C1.43008 17.9364 1.73183 18.8284 2.41365 19.5336C3.0986 20.2421 3.97024 20.5587 5.04929 20.7087C6.0951 20.8542 7.43075 20.8542 9.11401 20.8541H12.8872C14.5705 20.8542 15.9062 20.8542 16.952 20.7087C18.0311 20.5587 18.9027 20.2421 19.5877 19.5336C20.2695 18.8284 20.5712 17.9364 20.7148 16.8315C20.8548 15.7543 20.8548 14.3768 20.8548 12.6315V11.1533C20.8548 10.1329 20.8548 9.31929 20.7923 8.65396C20.7278 7.96741 20.5932 7.38659 20.2944 6.84072C19.995 6.29371 19.5805 5.87278 19.0408 5.45947C18.5197 5.06035 17.8435 4.64071 16.9991 4.11665L15.1047 2.94093C14.2123 2.38706 13.4978 1.94363 12.8793 1.64287C12.2395 1.33173 11.6498 1.14581 11.0007 1.14581ZM7.59022 4.12875C8.52133 3.55088 9.17602 3.14555 9.72332 2.87941C10.2565 2.62011 10.6342 2.52081 11.0007 2.52081C11.3672 2.52081 11.7448 2.62011 12.278 2.87941C12.8253 3.14555 13.48 3.55088 14.4111 4.12875L16.2444 5.26657C17.1252 5.8132 17.7436 6.19788 18.2048 6.55112C18.6536 6.89482 18.9118 7.17845 19.0883 7.50093C19.2655 7.82455 19.3689 8.20291 19.4233 8.7826C19.4791 9.37619 19.4798 10.1253 19.4798 11.1869V12.5812C19.4798 14.3879 19.4785 15.676 19.3513 16.6542C19.2264 17.6149 18.9912 18.1723 18.5991 18.5779C18.2101 18.9803 17.6805 19.2192 16.7626 19.3468C15.8225 19.4776 14.5826 19.4791 12.834 19.4791H9.16732C7.41875 19.4791 6.17883 19.4776 5.23869 19.3468C4.32077 19.2192 3.79119 18.9803 3.40221 18.5779C3.01008 18.1723 2.77486 17.6149 2.64999 16.6542C2.52285 15.676 2.52148 14.3879 2.52148 12.5812V11.1869C2.52148 10.1253 2.52218 9.37619 2.57796 8.7826C2.63243 8.20291 2.73584 7.82455 2.91299 7.50093C3.0895 7.17845 3.3477 6.89482 3.79649 6.55112C4.25774 6.19788 4.87612 5.8132 5.75689 5.26657L7.59022 4.12875Z"
-                          fill=""
-                        />
-                      </svg>
-                      Adreslerim
-                    </button>
+                        <button
+                          onClick={() => setActiveTab("addresses")}
+                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                            activeTab === "addresses"
+                              ? "text-white bg-blue"
+                              : "text-dark-2 bg-gray-1"
+                          }`}
+                        >
+                          <svg
+                            className="fill-current"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 22 22"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M8.25065 15.8125C7.87096 15.8125 7.56315 16.1203 7.56315 16.5C7.56315 16.8797 7.87096 17.1875 8.25065 17.1875H13.7507C14.1303 17.1875 14.4382 16.8797 14.4382 16.5C14.4382 16.1203 14.1303 15.8125 13.7507 15.8125H8.25065Z"
+                              fill=""
+                            />
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M11.0007 1.14581C10.3515 1.14581 9.7618 1.33173 9.12199 1.64287C8.50351 1.94363 7.78904 2.38706 6.8966 2.94094L5.00225 4.11664C4.15781 4.6407 3.48164 5.06035 2.96048 5.45947C2.42079 5.87278 2.00627 6.29371 1.70685 6.84072C1.40806 7.38659 1.2735 7.96741 1.20899 8.65396C1.14647 9.31931 1.14648 10.1329 1.14648 11.1533V12.6315C1.14647 14.3767 1.14646 15.7543 1.28646 16.8315C1.43008 17.9364 1.73183 18.8284 2.41365 19.5336C3.0986 20.2421 3.97024 20.5587 5.04929 20.7087C6.0951 20.8542 7.43075 20.8542 9.11401 20.8541H12.8872C14.5705 20.8542 15.9062 20.8542 16.952 20.7087C18.0311 20.5587 18.9027 20.2421 19.5877 19.5336C20.2695 18.8284 20.5712 17.9364 20.7148 16.8315C20.8548 15.7543 20.8548 14.3768 20.8548 12.6315V11.1533C20.8548 10.1329 20.8548 9.31929 20.7923 8.65396C20.7278 7.96741 20.5932 7.38659 20.2944 6.84072C19.995 6.29371 19.5805 5.87278 19.0408 5.45947C18.5197 5.06035 17.8435 4.64071 16.9991 4.11665L15.1047 2.94093C14.2123 2.38706 13.4978 1.94363 12.8793 1.64287C12.2395 1.33173 11.6498 1.14581 11.0007 1.14581ZM7.59022 4.12875C8.52133 3.55088 9.17602 3.14555 9.72332 2.87941C10.2565 2.62011 10.6342 2.52081 11.0007 2.52081C11.3672 2.52081 11.7448 2.62011 12.278 2.87941C12.8253 3.14555 13.48 3.55088 14.4111 4.12875L16.2444 5.26657C17.1252 5.8132 17.7436 6.19788 18.2048 6.55112C18.6536 6.89482 18.9118 7.17845 19.0883 7.50093C19.2655 7.82455 19.3689 8.20291 19.4233 8.7826C19.4791 9.37619 19.4798 10.1253 19.4798 11.1869V12.5812C19.4798 14.3879 19.4785 15.676 19.3513 16.6542C19.2264 17.6149 18.9912 18.1723 18.5991 18.5779C18.2101 18.9803 17.6805 19.2192 16.7626 19.3468C15.8225 19.4776 14.5826 19.4791 12.834 19.4791H9.16732C7.41875 19.4791 6.17883 19.4776 5.23869 19.3468C4.32077 19.2192 3.79119 18.9803 3.40221 18.5779C3.01008 18.1723 2.77486 17.6149 2.64999 16.6542C2.52285 15.676 2.52148 14.3879 2.52148 12.5812V11.1869C2.52148 10.1253 2.52218 9.37619 2.57796 8.7826C2.63243 8.20291 2.73584 7.82455 2.91299 7.50093C3.0895 7.17845 3.3477 6.89482 3.79649 6.55112C4.25774 6.19788 4.87612 5.8132 5.75689 5.26657L7.59022 4.12875Z"
+                              fill=""
+                            />
+                          </svg>
+                          Adreslerim
+                        </button>
 
-                    <button
-                      onClick={() => setActiveTab("account-details")}
-                      className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                        activeTab === "account-details"
-                          ? "text-white bg-blue"
-                          : "text-dark-2 bg-gray-1"
-                      }`}
-                    >
-                      <svg
-                        className="fill-current"
-                        width="22"
-                        height="22"
-                        viewBox="0 0 22 22"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
+                      </>
+                    )}
+
+                    {!isAdmin && (
+                      <button
+                        onClick={() => setActiveTab("account-details")}
+                        className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
+                          activeTab === "account-details"
+                            ? "text-white bg-blue"
+                            : "text-dark-2 bg-gray-1"
+                        }`}
                       >
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M10.9995 1.14581C8.59473 1.14581 6.64531 3.09524 6.64531 5.49998C6.64531 7.90472 8.59473 9.85415 10.9995 9.85415C13.4042 9.85415 15.3536 7.90472 15.3536 5.49998C15.3536 3.09524 13.4042 1.14581 10.9995 1.14581ZM8.02031 5.49998C8.02031 3.85463 9.35412 2.52081 10.9995 2.52081C12.6448 2.52081 13.9786 3.85463 13.9786 5.49998C13.9786 7.14533 12.6448 8.47915 10.9995 8.47915C9.35412 8.47915 8.02031 7.14533 8.02031 5.49998Z"
-                          fill=""
-                        />
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M10.9995 11.2291C8.87872 11.2291 6.92482 11.7112 5.47697 12.5256C4.05066 13.3279 2.97864 14.5439 2.97864 16.0416L2.97858 16.1351C2.97754 17.2001 2.97624 18.5368 4.14868 19.4916C4.7257 19.9614 5.53291 20.2956 6.6235 20.5163C7.71713 20.7377 9.14251 20.8541 10.9995 20.8541C12.8564 20.8541 14.2818 20.7377 15.3754 20.5163C16.466 20.2956 17.2732 19.9614 17.8503 19.4916C19.0227 18.5368 19.0214 17.2001 19.0204 16.1351L19.0203 16.0416C19.0203 14.5439 17.9483 13.3279 16.522 12.5256C15.0741 11.7112 13.1202 11.2291 10.9995 11.2291ZM4.35364 16.0416C4.35364 15.2612 4.92324 14.4147 6.15108 13.724C7.35737 13.0455 9.07014 12.6041 10.9995 12.6041C12.9288 12.6041 14.6416 13.0455 15.8479 13.724C17.0757 14.4147 17.6453 15.2612 17.6453 16.0416C17.6453 17.2405 17.6084 17.9153 16.982 18.4254C16.6424 18.702 16.0746 18.9719 15.1027 19.1686C14.1338 19.3648 12.8092 19.4791 10.9995 19.4791C9.18977 19.4791 7.86515 19.3648 6.89628 19.1686C5.92437 18.9719 5.35658 18.702 5.01693 18.4254C4.39059 17.9153 4.35364 17.2405 4.35364 16.0416Z"
-                          fill=""
-                        />
-                      </svg>
-                      Hesap Detaylarım
-                    </button>
+                        <svg
+                          className="fill-current"
+                          width="22"
+                          height="22"
+                          viewBox="0 0 22 22"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M10.9995 1.14581C8.59473 1.14581 6.64531 3.09524 6.64531 5.49998C6.64531 7.90472 8.59473 9.85415 10.9995 9.85415C13.4042 9.85415 15.3536 7.90472 15.3536 5.49998C15.3536 3.09524 13.4042 1.14581 10.9995 1.14581ZM8.02031 5.49998C8.02031 3.85463 9.35412 2.52081 10.9995 2.52081C12.6448 2.52081 13.9786 3.85463 13.9786 5.49998C13.9786 7.14533 12.6448 8.47915 10.9995 8.47915C9.35412 8.47915 8.02031 7.14533 8.02031 5.49998Z"
+                            fill=""
+                          />
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M10.9995 11.2291C8.87872 11.2291 6.92482 11.7112 5.47697 12.5256C4.05066 13.3279 2.97864 14.5439 2.97864 16.0416L2.97858 16.1351C2.97754 17.2001 2.97624 18.5368 4.14868 19.4916C4.7257 19.9614 5.53291 20.2956 6.6235 20.5163C7.71713 20.7377 9.14251 20.8541 10.9995 20.8541C12.8564 20.8541 14.2818 20.7377 15.3754 20.5163C16.466 20.2956 17.2732 19.9614 17.8503 19.4916C19.0227 18.5368 19.0214 17.2001 19.0204 16.1351L19.0203 16.0416C19.0203 14.5439 17.9483 13.3279 16.522 12.5256C15.0741 11.7112 13.1202 11.2291 10.9995 11.2291ZM4.35364 16.0416C4.35364 15.2612 4.92324 14.4147 6.15108 13.724C7.35737 13.0455 9.07014 12.6041 10.9995 12.6041C12.9288 12.6041 14.6416 13.0455 15.8479 13.724C17.0757 14.4147 17.6453 15.2612 17.6453 16.0416C17.6453 17.2405 17.6084 17.9153 16.982 18.4254C16.6424 18.702 16.0746 18.9719 15.1027 19.1686C14.1338 19.3648 12.8092 19.4791 10.9995 19.4791C9.18977 19.4791 7.86515 19.3648 6.89628 19.1686C5.92437 18.9719 5.35658 18.702 5.01693 18.4254C4.39059 17.9153 4.35364 17.2405 4.35364 16.0416Z"
+                            fill=""
+                          />
+                        </svg>
+                        Hesap Detaylarım
+                      </button>
+                    )}
 
                     {/* Admin Sekmeler */}
                     {isAdmin && (
@@ -2169,58 +2255,6 @@ const MyAccount = () => {
                           </svg>
                           Stok Yönetimi
                         </button>
-
-                        <button
-                          onClick={() => setActiveTab("bulk-operations")}
-                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                            activeTab === "bulk-operations"
-                              ? "text-white bg-blue"
-                              : "text-dark-2 bg-gray-1"
-                          }`}
-                        >
-                          <svg
-                            className="fill-current"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 22 22"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                              fill=""
-                            />
-                            <path
-                              d="M8 8h8v2H8V8zm0 4h6v2H8v-2z"
-                              fill=""
-                            />
-                          </svg>
-                          Toplu İşlemler
-                        </button>
-
-                        <button
-                          onClick={() => setActiveTab("notifications")}
-                          className={`flex items-center rounded-md gap-2.5 py-3 px-4.5 ease-out duration-200 hover:bg-blue hover:text-white ${
-                            activeTab === "notifications"
-                              ? "text-white bg-blue"
-                              : "text-dark-2 bg-gray-1"
-                          }`}
-                        >
-                          <svg
-                            className="fill-current"
-                            width="22"
-                            height="22"
-                            viewBox="0 0 22 22"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                              fill=""
-                            />
-                          </svg>
-                          Bildirimler
-                        </button>
                       </>
                     )}
 
@@ -2255,133 +2289,8 @@ const MyAccount = () => {
                 </div>
               </div>
             </div>
-            {/* <!--== user dashboard menu end ==-->
-
             
-          <!--== user dashboard content start ==--> */}
-            {/* <!-- dashboard tab content start --> */}
-
-            <div
-              className={`xl:max-w-[770px] w-full bg-white rounded-xl shadow-1 py-9.5 px-4 sm:px-7.5 xl:px-10 ${
-                activeTab === "favorites" ? "block" : "hidden"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-7">
-                <h2 className="font-medium text-xl sm:text-2xl text-dark">
-                  Favori Ürünlerim
-                </h2>
-                <span className="text-sm text-gray-500">
-                  {favoriteProducts.length} ürün
-                </span>
-              </div>
-
-              {favoritesLoading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
-                    </div>
-              ) : favoriteProducts.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {favoriteProducts.map((product) => (
-                    <div key={product._id} className="border border-gray-3 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200">
-                      <div className="relative">
-                        <Image
-                          src={product.images?.[0]?.url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}` : "/images/products/default.png"}
-                          alt={product.name}
-                          width={300}
-                          height={200}
-                          className="w-full h-48 object-cover"
-                        />
-                          <button
-                          onClick={() => handleRemoveFromFavorites(product._id)}
-                          className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors duration-200"
-                          title="Favorilerden çıkar"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          </button>
-                        </div>
-                      
-                      <div className="p-4">
-                        <div className="mb-2">
-                          <span className="text-xs text-blue bg-blue/10 px-2 py-1 rounded-full">
-                            {product.category.name}
-                          </span>
-                      </div>
-                        
-                        <h3 className="font-medium text-dark mb-2 line-clamp-2">
-                          {product.name}
-                        </h3>
-                        
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-1">
-                            {product.averageRating ? (
-                              <>
-                                <div className="flex">
-                                  {[...Array(5)].map((_, i) => (
-                                    <svg 
-                                      key={i} 
-                                      className="w-4 h-4" 
-                                      style={{
-                                        fill: i < Math.floor(product.averageRating!) ? '#fbbf24' : '#d1d5db',
-                                        color: i < Math.floor(product.averageRating!) ? '#fbbf24' : '#d1d5db'
-                                      }}
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                                    </svg>
-                                  ))}
-                                </div>
-                                <span className="text-sm text-gray-500">({product.reviewCount || 0})</span>
-                              </>
-                            ) : (
-                              <span className="text-sm text-gray-500">Henüz değerlendirme yok</span>
-                            )}
-                  </div>
-                </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            {product.salePrice ? (
-                              <>
-                                <span className="text-lg font-bold text-red">{product.salePrice}₺</span>
-                                <span className="text-sm text-gray-500 line-through">{product.price}₺</span>
-                              </>
-                            ) : (
-                              <span className="text-lg font-bold text-dark">{product.price}₺</span>
-                            )}
-                  </div>
-                          
-                          <button
-                            onClick={() => window.location.href = `/shop-details/${product.slug}`}
-                            className="text-blue hover:text-blue-dark text-sm font-medium transition-colors duration-200"
-                          >
-                            Ürünü Gör
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  <h3 className="text-lg font-medium text-dark mb-2">Henüz favori ürününüz yok</h3>
-                  <p className="text-gray-500 mb-4">Beğendiğiniz ürünleri favorilerinize ekleyerek buradan kolayca erişebilirsiniz.</p>
-                  <button
-                    onClick={() => window.location.href = '/shop-with-sidebar'}
-                    className="inline-flex items-center font-medium text-white bg-blue py-2 px-4 rounded-md ease-out duration-200 hover:bg-blue-dark"
-                  >
-                    Alışverişe Başla
-                  </button>
-                </div>
-              )}
-            </div>
-            {/* <!-- dashboard tab content end -->
-
-          <!-- orders tab content start --> */}
+            
             <div
               className={`xl:max-w-[770px] w-full bg-white rounded-xl shadow-1 ${
                 activeTab === "orders" ? "block" : "hidden"
@@ -3540,7 +3449,7 @@ const MyAccount = () => {
                                       </td>
                                       <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">
-                                          {product.salePrice ? (
+                                          {product.salePrice && product.salePrice > 0 ? (
                                             <>
                                               <span className="text-red font-medium">{product.salePrice}₺</span>
                                               <span className="text-gray-500 line-through ml-2">{product.price}₺</span>
@@ -4361,12 +4270,20 @@ const MyAccount = () => {
                     <h2 className="font-medium text-xl sm:text-2xl text-dark">
                       Stok Yönetimi
                     </h2>
-                    <button
-                      onClick={createTestVariantProduct}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                    >
-                      Test Varyasyonlu Ürün Oluştur
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={createTestVariantProduct}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      >
+                        Test Varyasyonlu Ürün Oluştur
+                      </button>
+                      <button
+                        onClick={setFirstProductStockToZero}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        İlk Ürün Stokunu 0 Yap
+                      </button>
+                    </div>
                   </div>
 
                   {/* Düşük Stok Uyarıları */}
@@ -4396,6 +4313,8 @@ const MyAccount = () => {
                       onUpdateVariantStock={handleUpdateVariantStock}
                     />
                   </div>
+
+
 
                   {/* Ürün Listesi - Stok Yönetimi */}
                   <div>
@@ -4630,101 +4549,6 @@ const MyAccount = () => {
                     </div>
                   </div>
 
-                  {/* Toplu İşlem Seçenekleri */}
-                  <div className="space-y-6">
-                    {/* Kategori Atama */}
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h4 className="text-lg font-medium text-dark mb-4">Toplu Kategori Atama</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Kategoriler</label>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
-                            {categories.map((category) => (
-                              <label key={category._id} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  checked={bulkSelectedCategories.includes(category._id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setBulkSelectedCategories(prev => [...prev, category._id]);
-                                    } else {
-                                      setBulkSelectedCategories(prev => prev.filter(id => id !== category._id));
-                                    }
-                                  }}
-                                  className="rounded border-gray-300 text-blue focus:ring-blue-500"
-                                />
-                                <span className="text-sm text-gray-700">{category.name}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleBulkCategoryAssignment}
-                          disabled={selectedProducts.length === 0 || bulkSelectedCategories.length === 0 || bulkOperationLoading}
-                          className="px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {bulkOperationLoading ? 'İşleniyor...' : 'Kategorilere Ata'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Fiyat Güncelleme */}
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h4 className="text-lg font-medium text-dark mb-4">Toplu Fiyat Güncelleme</h4>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Değişim Türü</label>
-                            <select
-                              value={bulkPriceChange.type}
-                              onChange={(e) => setBulkPriceChange(prev => ({ ...prev, type: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="percentage">Yüzde (%)</option>
-                              <option value="fixed">Sabit Tutar (₺)</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Değer</label>
-                            <input
-                              type="number"
-                              value={bulkPriceChange.value}
-                              onChange={(e) => setBulkPriceChange(prev => ({ ...prev, value: e.target.value }))}
-                              placeholder={bulkPriceChange.type === 'percentage' ? '10' : '50'}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleBulkPriceUpdate}
-                          disabled={selectedProducts.length === 0 || !bulkPriceChange.value || bulkOperationLoading}
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {bulkOperationLoading ? 'İşleniyor...' : 'Fiyatları Güncelle'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Resim Yükleme */}
-                    <div className="border border-gray-200 rounded-lg p-6">
-                      <h4 className="text-lg font-medium text-dark mb-4">Toplu Resim Yükleme</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Resimler</label>
-                          <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={(e) => e.target.files && handleBulkImageUpload(e.target.files)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Seçilen tüm ürünlere aynı resimler yüklenecektir.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -4737,120 +4561,6 @@ const MyAccount = () => {
                   activeTab === "notifications" ? "block" : "hidden"
                 }`}
               >
-                <div className="bg-white shadow-1 rounded-xl p-4 sm:p-8.5">
-                  <h2 className="font-medium text-xl sm:text-2xl text-dark mb-7">
-                    Bildirimler
-                  </h2>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Bildirim Listesi */}
-                    <div className="lg:col-span-2">
-                      <h3 className="text-lg font-medium text-dark mb-4">Bildirimler</h3>
-                      
-                      {notificationsLoading ? (
-                        <div className="flex justify-center items-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
-                        </div>
-                      ) : notifications.length > 0 ? (
-                        <div className="space-y-3">
-                          {notifications.map((notification) => (
-                            <div
-                              key={notification.id}
-                              className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                                notification.read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'
-                              }`}
-                              onClick={() => markNotificationAsRead(notification.id)}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <h4 className="font-medium text-dark">{notification.title}</h4>
-                                    {!notification.read && (
-                                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {new Date(notification.timestamp).toLocaleString('tr-TR')}
-                                  </p>
-                                </div>
-                                <div className={`w-2 h-2 rounded-full ${
-                                  notification.type === 'new_order' ? 'bg-green-500' :
-                                  notification.type === 'low_stock' ? 'bg-red-500' :
-                                  'bg-blue-500'
-                                }`}></div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                          </svg>
-                          <p className="text-gray-500">Henüz bildirim bulunmuyor.</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bildirim Ayarları */}
-                    <div>
-                      <h3 className="text-lg font-medium text-dark mb-4">Bildirim Ayarları</h3>
-                      <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                        <div>
-                          <label className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={notificationSettings.newOrders}
-                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, newOrders: e.target.checked }))}
-                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">Yeni Sipariş Bildirimleri</span>
-                          </label>
-                        </div>
-                        <div>
-                          <label className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={notificationSettings.lowStock}
-                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, lowStock: e.target.checked }))}
-                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">Düşük Stok Uyarıları</span>
-                          </label>
-                        </div>
-                        <div>
-                          <label className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={notificationSettings.systemAlerts}
-                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, systemAlerts: e.target.checked }))}
-                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">Sistem Bildirimleri</span>
-                          </label>
-                        </div>
-                        <div>
-                          <label className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={notificationSettings.emailNotifications}
-                              onChange={(e) => setNotificationSettings(prev => ({ ...prev, emailNotifications: e.target.checked }))}
-                              className="rounded border-gray-300 text-blue focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">E-posta Bildirimleri</span>
-                          </label>
-                        </div>
-                        <button
-                          onClick={handleNotificationSettingsUpdate}
-                          className="w-full px-4 py-2 bg-blue text-white rounded-md hover:bg-blue-dark"
-                        >
-                          Ayarları Kaydet
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
             {/* <!-- notifications tab content end -->
@@ -5074,11 +4784,15 @@ const MyAccount = () => {
                       
                         {/* Popüler Ürünler */}
                         <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">Popüler Ürünler</h3>
+                          <h3 className="text-base sm:text-lg font-medium text-dark mb-3 sm:mb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                              <span>Popüler Ürünler</span>
+                            </div>
+                          </h3>
                           <div className="space-y-3 sm:space-y-4">
                             {dashboardStats.popularProducts.length > 0 ? (
                               dashboardStats.popularProducts.map((product, index) => (
-                                <div key={product._id} className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <div key={product._id} className="flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                   <div className="flex-shrink-0">
                                     <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-200 rounded-lg overflow-hidden">
                                       {product.images?.[0]?.url ? (
@@ -5098,22 +4812,26 @@ const MyAccount = () => {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2 mb-1">
-                                      <span className="text-xs font-medium text-gray-500">#{index + 1}</span>
-                                      <p className="font-medium text-dark text-sm sm:text-base line-clamp-1">{product.name}</p>
+                                      <span className="text-xs font-medium text-gray-500 flex-shrink-0">#{index + 1}</span>
+                                      <p className="font-medium text-dark text-sm sm:text-base truncate">{product.name}</p>
                                     </div>
-                                    <p className="text-gray-500 text-xs sm:text-sm">{product.category}</p>
-                                    <div className="flex items-center space-x-2 mt-1">
-                                      <span className="text-xs text-gray-500">{product.totalSold || 0} satış</span>
-                                      <span className="text-xs text-gray-400">•</span>
-                                      <span className="text-xs text-gray-500">{product.averageRating || 0} ⭐</span>
+                                    <p className="text-gray-500 text-xs sm:text-sm mb-1">{product.category}</p>
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                      <span className="text-xs text-gray-500 whitespace-nowrap">{product.totalSold || 0} satış</span>
+                                      <span className="text-xs text-gray-400 hidden sm:inline">•</span>
+                                      <span className="text-xs text-gray-500 whitespace-nowrap">{product.viewCount || 0} görüntülenme</span>
+                                      <span className="text-xs text-gray-400 hidden sm:inline">•</span>
+                                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                                        {product.averageRating ? product.averageRating.toFixed(1) : '0.0'} ⭐
+                                        {product.reviewCount ? ` (${product.reviewCount})` : ''}
+                                      </span>
                                     </div>
                                   </div>
-                                  <div className="text-right flex-shrink-0">
+                                  <div className="text-right flex-shrink-0 ml-2">
                                     <p className="font-medium text-dark text-sm sm:text-base">
-                                      {product.salePrice ? (
+                                      {product.salePrice && product.salePrice > 0 ? (
                                         <span>
-                                          <span className="line-through text-gray-400 text-xs">{product.price}₺</span>
-                                          <br />
+                                          <span className="line-through text-gray-400 text-xs block">{product.price}₺</span>
                                           <span className="text-green-600">{product.salePrice}₺</span>
                                         </span>
                                       ) : (

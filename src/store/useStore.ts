@@ -5,6 +5,7 @@ import {
   getPopularProducts,
   getLatestProducts,
   getAllCategories,
+  searchProducts,
   ProductFilters 
 } from '@/services';
 import { Product, Category } from '@/types';
@@ -41,6 +42,7 @@ interface StoreState {
   fetchPopularProducts: (limit?: number) => Promise<void>;
   fetchLatestProducts: (limit?: number) => Promise<void>;
   fetchProductById: (id: string) => Promise<void>;
+  searchProducts: (searchTerm: string, filters?: Omit<ProductFilters, 'search'>) => Promise<void>;
   updateFilters: (filters: Partial<ProductFilters>) => void;
   clearFilters: () => void;
   clearError: () => void;
@@ -88,7 +90,7 @@ export const useStore = create<StoreState>((set, get) => ({
   fetchProducts: async (filters = {}) => {
     set({ productsLoading: true, error: null });
     try {
-      const currentFilters = { ...get().currentFilters, ...filters };
+      const currentFilters = { ...get().currentFilters, ...filters, limit: 1000 }; // Tüm ürünleri getir
       const response = await getAllProducts(currentFilters);
       
       if (response.success) {
@@ -105,6 +107,31 @@ export const useStore = create<StoreState>((set, get) => ({
     } catch (error) {
       console.error('Products fetch error:', error);
       set({ error: error instanceof Error ? error.message : 'Bağlantı hatası oluştu' });
+    } finally {
+      set({ productsLoading: false });
+    }
+  },
+
+  searchProducts: async (searchTerm: string, filters = {}) => {
+    set({ productsLoading: true, error: null });
+    try {
+      const currentFilters = { ...get().currentFilters, ...filters, limit: 1000 }; // Tüm ürünleri getir
+      const response = await searchProducts(searchTerm, currentFilters);
+      
+      if (response.success) {
+        set({ 
+          products: response.data as Product[],
+          currentPage: response.currentPage || 1,
+          totalPages: response.pages || 1,
+          totalProducts: response.total || 0,
+          currentFilters: { ...currentFilters, search: searchTerm }
+        });
+      } else {
+        set({ error: response.message || 'Arama sırasında hata oluştu' });
+      }
+    } catch (error) {
+      console.error('Search products error:', error);
+      set({ error: error instanceof Error ? error.message : 'Arama sırasında bağlantı hatası oluştu' });
     } finally {
       set({ productsLoading: false });
     }
@@ -171,8 +198,14 @@ export const useStore = create<StoreState>((set, get) => ({
     const currentFilters = { ...get().currentFilters, ...newFilters };
     set({ currentFilters });
     
-    // Filtreler değiştiğinde ürünleri yeniden getir
-    get().fetchProducts(currentFilters);
+    // Eğer arama filtresi varsa searchProducts kullan, yoksa fetchProducts kullan
+    if (currentFilters.search) {
+      const { search, ...otherFilters } = currentFilters;
+      get().searchProducts(search, otherFilters);
+    } else {
+      // Filtreler değiştiğinde ürünleri yeniden getir
+      get().fetchProducts(currentFilters);
+    }
   },
 
   clearFilters: () => {

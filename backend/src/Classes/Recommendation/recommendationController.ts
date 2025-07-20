@@ -106,12 +106,16 @@ export const getFrequentlyBoughtTogether = async (req: Request, res: Response): 
     const { productId } = req.params;
     const limit = parseInt(req.query.limit as string) || 4;
     
+    console.log('Frequently bought together isteniyor. Product ID:', productId, 'Limit:', limit);
+    
     let products = await RecommendationService.getRecommendations('frequently_bought', productId, limit);
+    console.log('Cache\'den gelen ürünler:', products.length);
     
     if (products.length === 0) {
-      console.log('Sıkça birlikte alınan ürünler cache\'de yok, hesaplanıyor...');
+      console.log('Birlikte alınan ürünler cache\'de yok, hesaplanıyor...');
       await RecommendationService.calculateFrequentlyBoughtTogether(productId, limit);
       products = await RecommendationService.getRecommendations('frequently_bought', productId, limit);
+      console.log('Hesaplama sonrası ürünler:', products.length);
     }
 
     if (products.length === 0) {
@@ -127,18 +131,20 @@ export const getFrequentlyBoughtTogether = async (req: Request, res: Response): 
       .select('name slug price salePrice images category averageRating reviewCount stock viewCount');
       
       products = fallbackProducts;
+      console.log('Fallback ürünler:', products.length);
     }
 
+    console.log('Gönderilen ürün sayısı:', products.length);
     res.status(200).json({
       success: true,
       data: products,
-      message: 'Sıkça birlikte alınan ürünler başarıyla getirildi'
+      message: 'Birlikte alınan ürünler başarıyla getirildi'
     });
   } catch (error) {
     console.error('Get frequently bought together error:', error);
     res.status(500).json({
       success: false,
-      message: 'Sıkça birlikte alınan ürünler getirilirken hata oluştu'
+      message: 'Birlikte alınan ürünler getirilirken hata oluştu'
     });
   }
 };
@@ -234,6 +240,45 @@ export const getProductRecommendations = async (req: Request, res: Response): Pr
     res.status(500).json({
       success: false,
       message: 'Ürün önerileri getirilirken hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    Debug endpoint - sipariş durumlarını kontrol et
+ * @route   get /api/recommendations/debug/orders
+ * @access  
+ */
+export const debugOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const Order = require('../Order/orderModel').default;
+    
+    const orders = await Order.find({})
+      .select('orderNumber fulfillment.status items.product createdAt')
+      .populate('items.product', 'name')
+      .limit(10)
+      .sort({ createdAt: -1 });
+
+    console.log('Debug - Sipariş durumları:', orders.map((o: any) => ({
+      orderNumber: o.orderNumber,
+      status: o.fulfillment.status,
+      items: o.items.map((item: any) => ({
+        productName: item.product?.name,
+        productId: item.product?._id
+      })),
+      createdAt: o.createdAt
+    })));
+
+    res.status(200).json({
+      success: true,
+      data: orders,
+      message: 'Debug bilgileri getirildi'
+    });
+  } catch (error) {
+    console.error('Debug orders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug bilgileri getirilirken hata oluştu'
     });
   }
 };

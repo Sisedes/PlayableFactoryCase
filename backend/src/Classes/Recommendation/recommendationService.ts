@@ -164,13 +164,18 @@ export class RecommendationService {
 
   static async calculateFrequentlyBoughtTogether(productId: string, limit: number = 4): Promise<void> {
     try {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      console.log('calculateFrequentlyBoughtTogether başladı. Product ID:', productId);
       
+      const thirtyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90 güne çıkar
+      console.log('90 gün öncesi tarih:', thirtyDaysAgo);
+      
+      // Bu ürünü alan tüm siparişleri bul
       const ordersWithProduct = await Order.aggregate([
         {
           $match: {
             'items.product': new Types.ObjectId(productId),
-            'fulfillment.status': { $in: ['delivered', 'shipped'] },
+            // Geçici olarak tüm siparişleri kabul et
+            // 'fulfillment.status': { $in: ['delivered', 'shipped'] },
             createdAt: { $gte: thirtyDaysAgo }
           }
         },
@@ -186,19 +191,81 @@ export class RecommendationService {
           $group: {
             _id: '$items.product',
             count: { $sum: 1 },
-            orderIds: { $addToSet: '$_id' }
+            orderIds: { $addToSet: '$_id' },
+            uniqueOrders: { $addToSet: '$_id' }
           }
         },
         {
-          $sort: { count: -1 }
+          $addFields: {
+            uniqueOrderCount: { $size: '$uniqueOrders' }
+          }
+        },
+        {
+          $sort: { count: -1, uniqueOrderCount: -1 }
         },
         {
           $limit: limit
         }
       ]);
 
+      console.log('30 günlük analiz sonucu bulunan ürün sayısı:', ordersWithProduct.length);
+
+      // Eğer yeterli veri yoksa, daha geniş bir zaman aralığında ara
+      if (ordersWithProduct.length < limit) {
+        console.log('90 günlük veri yeterli değil, 180 günlük veri aranıyor...');
+        const ninetyDaysAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+        
+        const additionalOrders = await Order.aggregate([
+          {
+            $match: {
+              'items.product': new Types.ObjectId(productId),
+              // Geçici olarak tüm siparişleri kabul et
+              // 'fulfillment.status': { $in: ['delivered', 'shipped'] },
+              createdAt: { $gte: ninetyDaysAgo, $lt: thirtyDaysAgo }
+            }
+          },
+          {
+            $unwind: '$items'
+          },
+          {
+            $match: {
+              'items.product': { $ne: new Types.ObjectId(productId) }
+            }
+          },
+          {
+            $group: {
+              _id: '$items.product',
+              count: { $sum: 1 },
+              orderIds: { $addToSet: '$_id' },
+              uniqueOrders: { $addToSet: '$_id' }
+            }
+          },
+          {
+            $addFields: {
+              uniqueOrderCount: { $size: '$uniqueOrders' }
+            }
+          },
+          {
+            $sort: { count: -1, uniqueOrderCount: -1 }
+          },
+          {
+            $limit: limit - ordersWithProduct.length
+          }
+        ]);
+
+        console.log('90 günlük analiz sonucu ek bulunan ürün sayısı:', additionalOrders.length);
+
+        // Mevcut ürünlerle birleştir ve tekrarları kaldır
+        const existingIds = new Set(ordersWithProduct.map(p => p._id.toString()));
+        const uniqueAdditional = additionalOrders.filter(p => !existingIds.has(p._id.toString()));
+        ordersWithProduct.push(...uniqueAdditional);
+        
+        console.log('Birleştirme sonrası toplam ürün sayısı:', ordersWithProduct.length);
+      }
+
       if (ordersWithProduct.length > 0) {
         const productIds = ordersWithProduct.map(p => p._id);
+        console.log('Kaydedilecek ürün ID\'leri:', productIds);
         
         await Recommendation.findOneAndUpdate(
           { type: 'frequently_bought', productId: new Types.ObjectId(productId) },
@@ -208,13 +275,18 @@ export class RecommendationService {
             recommendedProducts: productIds,
             metadata: {
               score: ordersWithProduct[0]?.count / 100 || 0, 
-              reason: 'Sıkça birlikte alınan ürünler',
-              category: 'frequently_bought'
+              reason: 'Bu ürünle birlikte alınan ürünler',
+              category: 'frequently_bought',
+              totalOrders: ordersWithProduct.length
             },
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) 
           },
           { upsert: true, new: true }
         );
+        
+        console.log('Öneriler veritabanına kaydedildi.');
+      } else {
+        console.log('Hiç birlikte alınan ürün bulunamadı.');
       }
     } catch (error) {
       console.error('Frequently bought together calculation error:', error);

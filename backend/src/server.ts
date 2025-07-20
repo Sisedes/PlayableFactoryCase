@@ -118,7 +118,6 @@ app.listen(PORT, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Graceful shutdown
 process.on('unhandledRejection', (err: Error) => {
   console.error('Unhandled Promise Rejection:', err.message);
   process.exit(1);

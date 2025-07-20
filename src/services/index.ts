@@ -1,7 +1,3 @@
-/**
- * Services Index 
- */
-
 // Authentication Services
 export * from './authService';
 

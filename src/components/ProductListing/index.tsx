@@ -487,16 +487,16 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
             {product.name}
           </h3>
           
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg font-bold text-blue">
-              {formatPrice(product.salePrice || product.price)}
-            </span>
-            {product.salePrice && product.price > product.salePrice && (
-              <span className="text-sm text-gray-500 line-through">
-                {formatPrice(product.price)}
-              </span>
-            )}
-          </div>
+                            <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg font-bold text-blue">
+                      {formatPrice(product.salePrice && product.salePrice > 0 ? product.salePrice : product.price)}
+                    </span>
+                    {product.salePrice && product.salePrice > 0 && product.price > product.salePrice && (
+                      <span className="text-sm text-gray-500 line-through">
+                        {formatPrice(product.price)}
+                      </span>
+                    )}
+                  </div>
 
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>{product.category.name}</span>
@@ -672,9 +672,9 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
               <div className="text-right">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl font-bold text-blue">
-                    {formatPrice(product.salePrice || product.price)}
+                    {formatPrice(product.salePrice && product.salePrice > 0 ? product.salePrice : product.price)}
                   </span>
-                  {product.salePrice && product.price > product.salePrice && (
+                  {product.salePrice && product.salePrice > 0 && product.price > product.salePrice && (
                     <span className="text-sm text-gray-500 line-through">
                       {formatPrice(product.price)}
                     </span>

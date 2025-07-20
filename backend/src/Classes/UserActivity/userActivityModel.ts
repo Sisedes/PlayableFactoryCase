@@ -45,7 +45,7 @@ const userActivitySchema = new Schema<IUserActivity>({
   }
 }, {
   timestamps: { createdAt: true, updatedAt: false },
-  expires: 2592000 // 30 gün
+  expires: 2592000 
 });
 
 userActivitySchema.index({ user: 1, createdAt: -1 });

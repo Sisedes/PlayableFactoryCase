@@ -6,7 +6,6 @@ import { getProductRecommendations, getPopularProducts } from "@/services/recomm
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 
-// Swiper CSS
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
@@ -35,14 +34,21 @@ const ProductRecommendations: React.FC<ProductRecommendationsProps> = ({ product
         setLoading(true);
         setError(null);
 
-        // Ürün önerilerini getir
+        console.log('Öneriler getiriliyor... Product ID:', productId);
+
         const response = await getProductRecommendations(productId);
+        console.log('Öneri yanıtı:', response);
+        
         if (response.success) {
           setRecommendations(response.data);
+          console.log('Öneriler yüklendi:', response.data);
+        } else {
+          console.log('Öneri yanıtı başarısız:', response.message);
         }
 
-        // Popüler ürünleri de getir (fallback için)
         const popularResponse = await getPopularProducts(8);
+        console.log('Popüler ürünler yanıtı:', popularResponse);
+        
         if (popularResponse.success) {
           setPopularProducts(popularResponse.data);
         }
@@ -129,15 +135,15 @@ const ProductRecommendations: React.FC<ProductRecommendationsProps> = ({ product
           </div>
         )}
 
-        {/* Sıkça Birlikte Alınanlar - Slider */}
+        {/* Birlikte Alınanlar - Slider */}
         {recommendations.frequentlyBought.length > 0 && (
           <div className="mb-16">
             <div className="text-center mb-10">
               <h3 className="font-semibold text-xl text-dark mb-2">
-                Sıkça Birlikte Alınanlar
+                Bunu Alanlar Bunu Da Aldı
               </h3>
               <p className="text-gray-600">
-                Bu ürünle birlikte sıkça satın alınan ürünler
+                Bu ürünle birlikte satın alınan ürünler
               </p>
             </div>
             <div className="relative">

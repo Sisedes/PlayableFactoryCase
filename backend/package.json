@@ -13,7 +13,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "clean": "rimraf dist",
-    "seed": "ts-node src/utils/seed.ts"
+    "seed": "ts-node src/utils/seed.ts",
+    "seed:orders": "ts-node src/utils/orderSeed.ts"
   },
   "keywords": [
     "e-commerce",

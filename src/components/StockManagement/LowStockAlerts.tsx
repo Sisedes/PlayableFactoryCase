@@ -69,11 +69,12 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
     setLoading(true);
     try {
       const [alertsResponse, statsResponse] = await Promise.all([
-        getLowStockAlerts({ page, limit: 20 }, accessToken),
+        getLowStockAlerts({ page: 1, limit: 1000 }, accessToken), // Tüm sonuçları getir
         getStockStatistics({ period: 30 }, accessToken)
       ]);
       
       if (alertsResponse.success && alertsResponse.data) {
+        
         setLowStockProducts(alertsResponse.data.lowStockProducts || []);
         setOutOfStockProducts(alertsResponse.data.outOfStockProducts || []);
         setProductsWithLowStockVariants(alertsResponse.data.productsWithLowStockVariants || []);
@@ -338,7 +339,13 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({ accessToken, onUpdateSt
           </div>
         ) : (
           <div className="px-6 py-8 text-center text-gray-500">
-            Stok uyarısı bulunmuyor
+            <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-gray-500">Stok uyarısı bulunmuyor</p>
+            <p className="text-sm text-gray-400 mt-2">
+              Stok değeri 0 olan veya düşük stok eşiği altındaki ürünler burada görünecektir
+            </p>
           </div>
         )}
       </div>
