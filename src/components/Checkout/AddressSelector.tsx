@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/store/authStore";
@@ -52,21 +52,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 
   const watchedValues = watch();
 
-  useEffect(() => {
-    if (accessToken) {
-      loadAddresses();
-    }
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (user) {
-      setValue('firstName', user.firstName || '');
-      setValue('lastName', user.lastName || '');
-      setValue('phone', user.phone || '');
-    }
-  }, [user, setValue]);
-
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
     if (!accessToken) return;
     
     setLoading(true);
@@ -85,7 +71,21 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, selectedAddress, onAddressSelect]);
+
+  useEffect(() => {
+    if (accessToken) {
+      loadAddresses();
+    }
+  }, [accessToken, loadAddresses]);
+
+  useEffect(() => {
+    if (user) {
+      setValue('firstName', user.firstName || '');
+      setValue('lastName', user.lastName || '');
+      setValue('phone', user.phone || '');
+    }
+  }, [user, setValue]);
 
   const onSubmit = async (data: AddressFormFormData) => {
     console.log('DEBUG - Adres ekleme başladı:', data);

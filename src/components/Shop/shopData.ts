@@ -1,5 +1,17 @@
-import { Product } from "@/types/product";
-const shopData: Product[] = [
+
+interface ShopProduct {
+  title: string;
+  reviews: number;
+  price: number;
+  discountedPrice: number;
+  id: number;
+  imgs: {
+    thumbnails: string[];
+    previews: string[];
+  };
+}
+
+const shopData: ShopProduct[] = [
   {
     title: "Havit HV-G69 USB Gamepad",
     reviews: 15,

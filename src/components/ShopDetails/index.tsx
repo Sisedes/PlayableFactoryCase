@@ -952,9 +952,9 @@ const ShopDetails = () => {
                         </div>
 
                         <p className="text-dark mt-6">
-                          "Lorem ipsum dolor sit amet, adipiscing elit. Donec
+                          &quot;Lorem ipsum dolor sit amet, adipiscing elit. Donec
                           malesuada justo vitaeaugue suscipit beautiful
-                          vehicula''
+                          vehicula&apos;&apos;
                         </p>
                       </div>
 
@@ -1066,9 +1066,9 @@ const ShopDetails = () => {
                         </div>
 
                         <p className="text-dark mt-6">
-                          "Lorem ipsum dolor sit amet, adipiscing elit. Donec
+                          &quot;Lorem ipsum dolor sit amet, adipiscing elit. Donec
                           malesuada justo vitaeaugue suscipit beautiful
-                          vehicula''
+                          vehicula&apos;&apos;
                         </p>
                       </div>
 
@@ -1180,9 +1180,9 @@ const ShopDetails = () => {
                         </div>
 
                         <p className="text-dark mt-6">
-                          "Lorem ipsum dolor sit amet, adipiscing elit. Donec
+                          &quot;Lorem ipsum dolor sit amet, adipiscing elit. Donec
                           malesuada justo vitaeaugue suscipit beautiful
-                          vehicula''
+                          vehicula&apos;&apos;
                         </p>
                       </div>
                     </div>

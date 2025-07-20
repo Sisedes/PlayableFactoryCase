@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Breadcrumb from "../Common/Breadcrumb";
@@ -113,6 +113,19 @@ const Checkout = () => {
   const watchedValues = watch();
   const sameAsShipping = watchedValues.sameAsShipping;
 
+  const loadCart = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await refreshCart();
+    } catch (error: any) {
+      console.error('Sepet yükleme hatası:', error);
+      setError(error.response?.data?.message || 'Sepet yüklenirken hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshCart]);
+
   useEffect(() => {
     if (sameAsShipping && watchedValues.addresses.shipping) {
       setValue('addresses.billing', watchedValues.addresses.shipping);
@@ -135,7 +148,7 @@ const Checkout = () => {
 
   useEffect(() => {
     loadCart();
-  }, []);
+  }, [loadCart]);
 
   // Cart totals hesaplama
   const displayCart = serverCart || {
@@ -260,19 +273,6 @@ const Checkout = () => {
   const handleUseCustomAddress = () => {
     setUseCustomAddress(true);
     setSelectedShippingAddress(null);
-  };
-
-  const loadCart = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await refreshCart();
-    } catch (error: any) {
-      console.error('Sepet yükleme hatası:', error);
-      setError(error.response?.data?.message || 'Sepet yüklenirken hata oluştu');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleFormChange = (field: keyof CheckoutFormData, value: any) => {

@@ -178,7 +178,7 @@ const OrderDetails = ({ orderItem, onReviewClick, isDelivered }: any) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <p className="text-xs text-green-700">
-              Siparişiniz teslim edildi! Ürünlerinizi değerlendirmek için "Yorum Yap" butonuna tıklayabilirsiniz.
+              Siparişiniz teslim edildi! Ürünlerinizi değerlendirmek için &quot;Yorum Yap&quot; butonuna tıklayabilirsiniz.
             </p>
           </div>
         </div>
