@@ -48,7 +48,7 @@ const normalizePhone = (phone: string) => {
 const Checkout = () => {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { cart: serverCart, refreshCart } = useCart();
+  const { cart: serverCart, refreshCart, clearCart } = useCart();
   const dispatch = useDispatch();
   
   const [loading, setLoading] = useState(true);
@@ -136,6 +136,37 @@ const Checkout = () => {
   useEffect(() => {
     loadCart();
   }, []);
+
+  // Cart totals hesaplama
+  const displayCart = serverCart || {
+    items: [],
+    totals: { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0 },
+  };
+  const totals = displayCart.totals || {
+    subtotal: 0,
+    discount: 0,
+    tax: 0,
+    shipping: 0,
+    total: 0,
+  };
+
+  const subtotal = totals.subtotal || 0;
+  const backendDiscount = totals.discount || 0;
+  const tax = totals.tax || 0;
+  const shipping = totals.shipping || 0;
+  const total = totals.total || 0;
+
+  const subtotalAfterDiscount = subtotal - backendDiscount;
+
+  // Debug: Cart totals
+  useEffect(() => {
+    if (serverCart) {
+      console.log('DEBUG - serverCart totals:', serverCart.totals);
+      console.log('DEBUG - subtotal value:', serverCart.totals.subtotal);
+      console.log('DEBUG - items:', serverCart.items);
+      console.log('DEBUG - subtotalAfterDiscount:', subtotalAfterDiscount);
+    }
+  }, [serverCart, subtotalAfterDiscount]);
 
   useEffect(() => {
     if (user && isAuthenticated) {
@@ -292,9 +323,19 @@ const Checkout = () => {
       const response = await orderService.createGuestOrder(orderData);
       
       if (response.success) {
-        dispatch(removeAllItemsFromCart());
+        // Önce yönlendirme 
+        router.push(`/order-success?orderNumber=${response.data.orderNumber}`);
         
-        router.push(`/order-success?orderId=${response.data.order._id}`);
+        // Sonra sepet boşalt   //reduxtan temizlem eskiden nasıl çalışıyodu bilmiyorum ama temizlemeden çalışıyordu
+        setTimeout(async () => {
+          try {
+            dispatch(removeAllItemsFromCart());
+            
+            await clearCart();
+          } catch (cartError) {
+            console.warn('Sepet temizlenirken hata:', cartError);
+          }
+        }, 100);
       } else {
         setError(response.message || 'Sipariş oluşturulurken hata oluştu');
       }
@@ -400,7 +441,7 @@ const Checkout = () => {
                 </div>
 
                 {/* Address Selection for Authenticated Users */}
-                {isAuthenticated ? (
+                {isAuthenticated && user ? (
                   <>
                     {/* Teslimat Adresi Seçimi */}
                     <div className="mt-6">
@@ -571,30 +612,63 @@ const Checkout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Ara Toplam</span>
                         <span className="font-medium text-gray-900">
-                          
+                          {subtotal > 0 ? formatPrice(subtotal) : ''}
                         </span>
                       </div>
 
-                      {serverCart?.totals.tax && serverCart.totals.tax > 0 && (
+                      {backendDiscount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">İndirim</span>
+                          <span className="font-medium text-green-600">
+                            -{formatPrice(backendDiscount)}
+                          </span>
+                        </div>
+                      )}
+
+                      {backendDiscount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">İndirimli Ara Toplam</span>
+                          <span className="font-medium text-gray-900">
+                            {subtotalAfterDiscount > 0 ? formatPrice(subtotalAfterDiscount) : ''}
+                          </span>
+                        </div>
+                      )}
+
+                      {tax > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">KDV (%18)</span>
                           <span className="font-medium text-gray-900">
-                            {formatPrice(serverCart.totals.tax)}
+                            {formatPrice(tax)}
                           </span>
                         </div>
                       )}
 
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Kargo</span>
-                        <span className="font-medium text-gray-900">
-                          {serverCart?.totals.shipping && serverCart.totals.shipping > 0 ? formatPrice(serverCart.totals.shipping) : 'Ücretsiz'}
-                        </span>
+                        <div>
+                          <span className="text-gray-600">Kargo</span>
+                          {subtotalAfterDiscount >= 1000 && (
+                            <p className="text-xs text-green-600 mt-1">
+                              1000 TL üstü ücretsiz!
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          {subtotalAfterDiscount >= 1000 ? (
+                            <span className="text-green-600 font-medium">
+                              Ücretsiz
+                            </span>
+                          ) : (
+                            <span className="font-medium text-gray-900">
+                              {shipping > 0 ? formatPrice(shipping) : ''}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex justify-between text-lg font-semibold border-t border-gray-200 pt-3">
                         <span className="text-gray-900">Toplam</span>
                         <span className="text-gray-900">
-                          {formatPrice(serverCart?.totals.total || 0)}
+                          {total > 0 ? formatPrice(total) : ''}
                         </span>
                       </div>
                     </div>

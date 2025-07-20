@@ -126,6 +126,7 @@ export const createCategory = async (req: Request, res: Response) => {
       message: 'Kategori başarıyla oluşturuldu',
       data: category
     });
+    return;
   } catch (error) {
     console.error('Category creation error:', error);
     res.status(500).json({
@@ -133,6 +134,7 @@ export const createCategory = async (req: Request, res: Response) => {
       message: 'Kategori oluşturulurken hata oluştu',
       error: process.env.NODE_ENV === 'development' ? error : {}
     });
+    return;
   }
 };
 
@@ -191,6 +193,7 @@ export const updateCategory = async (req: Request, res: Response) => {
       message: 'Kategori başarıyla güncellendi',
       data: updatedCategory
     });
+    return;
   } catch (error) {
     console.error('Category update error:', error);
     res.status(500).json({
@@ -198,6 +201,7 @@ export const updateCategory = async (req: Request, res: Response) => {
       message: 'Kategori güncellenirken hata oluştu',
       error: process.env.NODE_ENV === 'development' ? error : {}
     });
+    return;
   }
 };
 
@@ -236,6 +240,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
       success: true,
       message: 'Kategori başarıyla silindi'
     });
+    return;
   } catch (error) {
     console.error('Category deletion error:', error);
     res.status(500).json({
@@ -243,6 +248,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
       message: 'Kategori silinirken hata oluştu',
       error: process.env.NODE_ENV === 'development' ? error : {}
     });
+    return;
   }
 };
 

@@ -68,6 +68,10 @@ export const getUserAddresses = async (token: string): Promise<ApiResponse<Addre
 
 
 export const addAddress = async (addressData: AddressFormData, token: string): Promise<ApiResponse<Address>> => {
+  console.log('DEBUG - addressService.addAddress çağrıldı:', addressData);
+  console.log('DEBUG - API_URL:', API_URL);
+  console.log('DEBUG - token:', token ? 'var' : 'yok');
+  
   try {
     const response = await axios.post(`${API_URL}/api/users/addresses`, addressData, {
       headers: {
@@ -76,13 +80,15 @@ export const addAddress = async (addressData: AddressFormData, token: string): P
       }
     });
 
+    console.log('DEBUG - API yanıtı başarılı:', response.data);
     return {
       success: true,
       message: response.data.message,
       data: response.data.data
     };
   } catch (error: any) {
-    console.error('Add address error:', error);
+    console.error('DEBUG - Add address error:', error);
+    console.error('DEBUG - Error response:', error.response?.data);
     return {
       success: false,
       message: error.response?.data?.message || 'Adres eklenirken hata oluştu'

@@ -137,9 +137,20 @@ const removeLocalCart = (): void => {
 
 const calculateCartTotals = (items: CartItem[], discount: number = 0) => {
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-  const tax = subtotal * 0.18;
-  const shipping = items.length === 0 ? 0 : (subtotal >= 1000 ? 0 : 200);
-  const total = subtotal + tax + shipping - discount;
+  const subtotalAfterDiscount = subtotal - discount;
+  const tax = Math.round(subtotalAfterDiscount * 0.18 * 100) / 100;
+  
+  // Kargo hesaplaması: İndirimli ara toplam 1000 TL üstü ise ücretsiz, değilse 200 TL
+  let shipping = 0;
+  if (items.length > 0) {
+    if (subtotalAfterDiscount >= 1000) {
+      shipping = 0;
+    } else {
+      shipping = 200;
+    }
+  }
+  
+  const total = subtotalAfterDiscount + tax + shipping;
   
   return {
     subtotal,
@@ -536,12 +547,12 @@ export const cartService = {
             discountAmount = localCart.totals.subtotal * 0.10;
             discountType = 'percentage';
             break;
-          case 'indirim50tl':
-            discountAmount = Math.min(50, localCart.totals.subtotal);
-            discountType = 'fixed';
+          case 'indirim50':
+            discountAmount = localCart.totals.subtotal * 0.50;
+            discountType = 'percentage';
             break;
           default:
-            throw new Error('Geçersiz kupon kodu');
+            throw new Error('Geçersiz kupon kodu. Sadece "indirim10" (%10) ve "indirim50" (%50) kupon kodları geçerlidir.');
         }
 
         localCart.totals.discount = Math.round(discountAmount * 100) / 100;

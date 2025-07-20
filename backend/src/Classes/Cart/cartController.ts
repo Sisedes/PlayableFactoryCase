@@ -46,6 +46,9 @@ export const getCart = async (req: Request, res: Response): Promise<void> => {
         path: 'items.product',
         select: 'name images price salePrice stock sku category description shortDescription variants'
       });
+      
+      // Cart totals'ını yeniden hesapla
+      await cart.save();
     }
 
     res.status(200).json({
@@ -431,14 +434,14 @@ export const applyCoupon = async (req: Request, res: Response): Promise<void> =>
         discountAmount = cart.totals.subtotal * 0.10; 
         discountType = 'percentage';
         break;
-      case 'indirim50tl':
-        discountAmount = Math.min(50, cart.totals.subtotal);
-        discountType = 'fixed';
+      case 'indirim50':
+        discountAmount = cart.totals.subtotal * 0.50; 
+        discountType = 'percentage';
         break;
       default:
         res.status(400).json({
           success: false,
-          message: 'Geçersiz kupon kodu'
+          message: 'Geçersiz kupon kodu. Sadece "indirim10" (%10) ve "indirim50" (%50) kupon kodları geçerlidir.'
         });
         return;
     }

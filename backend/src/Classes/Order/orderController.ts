@@ -377,12 +377,10 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
         const sessionCart = await Cart.findBySession(sessionId);
         if (sessionCart) {
           await sessionCart.clearCart();
-          if (sessionCart.items.length === 0) {
-            await Cart.findByIdAndDelete(sessionCart._id);
-          }
+          await Cart.findByIdAndDelete(sessionCart._id);
         }
       } catch (cartError) {
-        // Session cart clear error
+        console.error('Session cart clear error:', cartError);
       }
     }
 
@@ -393,7 +391,7 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
         `${customerInfo.firstName} ${customerInfo.lastName}`
       );
     } catch (emailError) {
-      // Email gönderme hatası
+      // email patlarsa diye
     }
 
     res.status(201).json({

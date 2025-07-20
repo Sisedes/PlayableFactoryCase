@@ -207,7 +207,7 @@ const OrderSummary = () => {
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-gray-600">Ara Toplam</span>
               <span className="text-sm font-medium text-gray-900">
-                {formatPrice(subtotal)}
+                {subtotal && subtotal > 0 ? formatPrice(subtotal) : ''}
               </span>
             </div>
 
@@ -258,7 +258,7 @@ const OrderSummary = () => {
                   İndirimli Ara Toplam
                 </span>
                 <span className="text-sm font-medium text-gray-900">
-                  {formatPrice(subtotalAfterDiscount)}
+                  {subtotalAfterDiscount && subtotalAfterDiscount > 0 ? formatPrice(subtotalAfterDiscount) : ''}
                 </span>
               </div>
             )}
@@ -266,7 +266,7 @@ const OrderSummary = () => {
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-gray-600">KDV (%18)</span>
               <span className="text-sm font-medium text-gray-900">
-                {formatPrice(tax)}
+                {tax && tax > 0 ? formatPrice(tax) : ''}
               </span>
             </div>
 
@@ -286,7 +286,7 @@ const OrderSummary = () => {
                   </span>
                 ) : (
                   <span className="text-sm font-medium text-gray-900">
-                    {formatPrice(shipping)}
+                    {shipping && shipping > 0 ? formatPrice(shipping) : ''}
                   </span>
                 )}
               </div>
@@ -295,12 +295,24 @@ const OrderSummary = () => {
             <div className="flex items-center justify-between py-4 border-t border-gray-200 mt-4">
               <span className="text-lg font-bold text-gray-900">Toplam</span>
               <span className="text-lg font-bold text-gray-900">
-                {formatPrice(total)}
+                {total && total > 0 ? formatPrice(total) : ''}
               </span>
             </div>
           </div>
 
           <CheckoutButton />
+
+          {/* Test: Kupon Kaldırma Butonu */}
+          {totalDiscount > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={removeDiscountCode}
+                className="w-full px-4 py-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                Test: Kupon Kodunu Kaldır
+              </button>
+            </div>
+          )}
 
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-center gap-2 text-sm text-gray-600">

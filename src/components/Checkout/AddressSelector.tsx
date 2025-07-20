@@ -88,21 +88,33 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   };
 
   const onSubmit = async (data: AddressFormFormData) => {
-    if (!accessToken) return;
+    console.log('DEBUG - Adres ekleme başladı:', data);
+    console.log('DEBUG - accessToken:', accessToken);
+    
+    if (!accessToken) {
+      console.error('DEBUG - accessToken yok!');
+      toast.error('Oturum açmanız gerekiyor');
+      return;
+    }
 
     setSavingAddress(true);
     try {
+      console.log('DEBUG - API çağrısı yapılıyor...');
       const response = await addAddress(data, accessToken);
+      console.log('DEBUG - API yanıtı:', response);
+      
       if (response.success && response.data) {
         await loadAddresses();
         onAddressSelect(response.data);
         setShowNewAddressForm(false);
         reset();
+        toast.success('Adres başarıyla eklendi');
       } else {
+        console.error('DEBUG - API başarısız:', response);
         toast.error(response.message || 'Adres kaydedilemedi');
       }
     } catch (error) {
-      console.error('Adres kaydetme hatası:', error);
+      console.error('DEBUG - Adres kaydetme hatası:', error);
       toast.error('Adres kaydedilirken hata oluştu');
     } finally {
       setSavingAddress(false);
@@ -211,7 +223,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 placeholder="İstanbul"
               />
               <FormField
-                label="İl"
+                label="İlçe"
                 {...register('state')}
                 error={errors.state}
                 required

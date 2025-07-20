@@ -119,7 +119,12 @@ cartSchema.pre('save', function(next) {
   
   this.totals.tax = Math.round(subtotalAfterDiscount * 0.18 * 100) / 100;
   
-  this.totals.shipping = subtotalAfterDiscount >= 1000 ? 0 : 200;
+  // Kargo hesaplaması: İndirimli ara toplam 1000 TL üstü ise ücretsiz, değilse 200 TL
+  if (subtotalAfterDiscount >= 1000) {
+    this.totals.shipping = 0;
+  } else {
+    this.totals.shipping = 200;
+  }
   
   this.totals.total = subtotalAfterDiscount + this.totals.tax + this.totals.shipping;
   

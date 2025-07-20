@@ -94,7 +94,7 @@ const Discount = () => {
               </div>
             </div>
 
-            {/* Info Section */}
+            {/* Info (kupon page reload attırıyor düzelt) */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-900 mb-2">Örnek Kupon Kodları:</h4>
               <div className="space-y-2 text-sm text-gray-600">
@@ -106,14 +106,13 @@ const Discount = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    İNDİRİM50TL
+                    İNDİRİM50
                   </span>
-                  <span>50 TL indirim</span>
+                  <span>%50 indirim</span>
                 </div>
               </div>
             </div>
 
-            {/* Benefits */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

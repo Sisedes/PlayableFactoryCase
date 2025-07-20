@@ -1246,11 +1246,13 @@ export const updateStock = async (req: Request, res: Response) => {
         }
       }
     });
+    return;
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Stok güncellenirken hata oluştu'
     });
+    return;
   }
 };
 

@@ -815,6 +815,7 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
       };
 
       res.status(200).json(response);
+      return;
     } catch (dbError) {
       throw dbError;
     }
@@ -833,6 +834,7 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
     };
     
     res.status(500).json(errorResponse);
+    return;
   }
 };
 
@@ -859,11 +861,13 @@ export const updateCustomerStatus = async (req: Request, res: Response) => {
       message: `Müşteri ${isActive ? 'aktif' : 'pasif'} yapıldı`,
       data: customer
     });
+    return;
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Müşteri durumu güncellenirken hata oluştu',
       error: process.env.NODE_ENV === 'development' ? error : {}
     });
+    return;
   }
 }; 
