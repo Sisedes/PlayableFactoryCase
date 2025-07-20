@@ -23,6 +23,10 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
     const userId = (req as any).user?.userId;
     const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
 
+    console.log('DEBUG - createOrderFromCart - userId:', userId);
+    console.log('DEBUG - createOrderFromCart - sessionId:', sessionId);
+    console.log('DEBUG - createOrderFromCart - req.user:', (req as any).user);
+
     let cart;
     if (userId) {
       cart = await Cart.findByUser(userId);
@@ -70,6 +74,8 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
 
     const billingAddress = sameAsShipping ? addresses.shipping : addresses.billing;
 
+    console.log('DEBUG - createOrderFromCart - orderData.user:', userId);
+    
     const orderData = {
       orderNumber,
       user: userId,
@@ -257,6 +263,7 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
       sameAsShipping = true
     } = req.body;
     
+    const userId = (req as any).user?.userId;
     const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
 
     if (!items || items.length === 0) {
@@ -321,7 +328,9 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
 
     const orderData = {
       orderNumber,
+      user: userId,
       customerInfo: {
+        customerId: userId,
         email: customerInfo.email,
         phone: customerInfo.phone,
         firstName: customerInfo.firstName,
@@ -420,6 +429,9 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
     const userId = (req as any).user.userId;
     const { page = 1, limit = 10 } = req.query;
 
+    console.log('DEBUG - getMyOrders - userId:', userId);
+    console.log('DEBUG - getMyOrders - req.user:', (req as any).user);
+
     const pageNum = Math.max(1, Number(page));
     const limitNum = Math.min(50, Math.max(1, Number(limit)));
     const skip = (pageNum - 1) * limitNum;
@@ -429,6 +441,9 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum);
+
+    console.log('DEBUG - getMyOrders - found orders count:', orders.length);
+    console.log('DEBUG - getMyOrders - orders:', orders.map(o => ({ id: o._id, orderNumber: o.orderNumber, user: o.user })));
 
     const totalOrders = await Order.countDocuments({ user: userId });
     const totalPages = Math.ceil(totalOrders / limitNum);

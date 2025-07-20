@@ -2,7 +2,6 @@
 import React from "react";
 import shopData from "@/components/Shop/shopData";
 import ProductItem from "@/components/Common/ProductItem";
-import { Product } from "@/types/product";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -90,41 +89,11 @@ const RecentlyViewdItems = () => {
             spaceBetween={20}
             className="justify-between"
           >
-            {shopData.map((item, key) => {
-              // Test verisini Product tipine dönüştürüyoruz
-              const product: Product = {
-                _id: item.id.toString(),
-                name: item.title,
-                slug: item.title.toLowerCase().replace(/\s+/g, '-'),
-                description: `${item.title} ürün açıklaması`,
-                category: {
-                  _id: '1',
-                  name: 'Test Kategori',
-                  slug: 'test-kategori'
-                },
-                price: item.price,
-                salePrice: item.discountedPrice,
-                sku: `SKU-${item.id}`,
-                stock: 10,
-                images: item.imgs.thumbnails.map((url, index) => ({
-                  url,
-                  alt: item.title,
-                  isMain: index === 0
-                })),
-                status: 'active',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                averageRating: 4.5,
-                reviewCount: item.reviews,
-                viewCount: 100
-              };
-              
-              return (
-                <SwiperSlide key={key}>
-                  <ProductItem item={product} />
-                </SwiperSlide>
-              );
-            })}
+            {shopData.map((item, key) => (
+              <SwiperSlide key={key}>
+                <ProductItem item={item} />
+              </SwiperSlide>
+            ))}
           </Swiper>
         </div>
       </div>

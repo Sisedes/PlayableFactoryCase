@@ -7,7 +7,6 @@ import SingleListItem from "../Shop/SingleListItem";
 import CustomSelect from "../ShopWithSidebar/CustomSelect";
 
 import shopData from "../Shop/shopData";
-import { Product } from "@/types/product";
 
 const ShopWithoutSidebar = () => {
   const [productStyle, setProductStyle] = useState("grid");
@@ -134,41 +133,13 @@ const ShopWithoutSidebar = () => {
                     : "flex flex-col gap-7.5"
                 }`}
               >
-                {shopData.map((item, key) => {
-                  // Test verisini Product tipine dönüştürüyoruz
-                  const product: Product = {
-                    _id: item.id.toString(),
-                    name: item.title,
-                    slug: item.title.toLowerCase().replace(/\s+/g, '-'),
-                    description: `${item.title} ürün açıklaması`,
-                    category: {
-                      _id: '1',
-                      name: 'Test Kategori',
-                      slug: 'test-kategori'
-                    },
-                    price: item.price,
-                    salePrice: item.discountedPrice,
-                    sku: `SKU-${item.id}`,
-                    stock: 10,
-                    images: item.imgs.thumbnails.map((url, index) => ({
-                      url,
-                      alt: item.title,
-                      isMain: index === 0
-                    })),
-                    status: 'active',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    averageRating: 4.5,
-                    reviewCount: item.reviews,
-                    viewCount: 100
-                  };
-                  
-                  return productStyle === "grid" ? (
-                    <SingleGridItem item={product} key={key} />
+                {shopData.map((item, key) =>
+                  productStyle === "grid" ? (
+                    <SingleGridItem item={item} key={key} />
                   ) : (
-                    <SingleListItem item={product} key={key} />
-                  );
-                })}
+                    <SingleListItem item={item} key={key} />
+                  )
+                )}
               </div>
               {/* <!-- Products Grid Tab Content End --> */}
 

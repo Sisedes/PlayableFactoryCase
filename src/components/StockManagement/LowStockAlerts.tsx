@@ -154,9 +154,9 @@ const LowStockAlerts: React.FC<LowStockAlertsProps> = ({
     <div className="space-y-6">
   
       <div className="bg-gray rounded-lg shadow border">
-        <div clas-200sName="px-6 py-4 border-b border-gray">
-          <h2 cla-900ssName="text-2xl font-medium text-gray"><b>Stok Uyarıları</b></h2>
-          <h2 cla-900ssName="text-xl font-medium text-gray">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-2xl font-medium text-gray-900"><b>Stok Uyarıları</b></h2>
+          <h2 className="text-xl font-medium text-gray-600">
             Ürünlere tıklayarak stok güncelleyebilirsiniz
           </h2>
         </div>

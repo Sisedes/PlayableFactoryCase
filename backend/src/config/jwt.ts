@@ -60,5 +60,5 @@ export const generateTokenPair = (payload: JWTPayload) => {
   };
 };
 
-export type { JWTPayload, JWTConfig };
+export { JWTPayload, JWTConfig };
 export default jwtConfig; 

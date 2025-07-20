@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Breadcrumb from "../Common/Breadcrumb";
@@ -59,6 +59,9 @@ const Checkout = () => {
   const [selectedShippingAddress, setSelectedShippingAddress] = useState<UserAddress | null>(null);
   const [selectedBillingAddress, setSelectedBillingAddress] = useState<UserAddress | null>(null);
   const [useCustomAddress, setUseCustomAddress] = useState(false);
+  
+  // manuel inpu
+  const userModifiedFields = useRef<Set<string>>(new Set());
 
   const {
     register,
@@ -113,18 +116,39 @@ const Checkout = () => {
   const watchedValues = watch();
   const sameAsShipping = watchedValues.sameAsShipping;
 
-  const loadCart = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await refreshCart();
-    } catch (error: any) {
-      console.error('Sepet yükleme hatası:', error);
-      setError(error.response?.data?.message || 'Sepet yüklenirken hata oluştu');
-    } finally {
-      setLoading(false);
+  // Form validasyonunu manuel olarak kontrol et
+  const isFormValid = () => {
+    if (!watchedValues.customerInfo.email || !watchedValues.customerInfo.firstName || !watchedValues.customerInfo.lastName) {
+      return false;
     }
-  }, [refreshCart]);
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(watchedValues.customerInfo.email)) {
+      return false;
+    }
+    
+    const shipping = watchedValues.addresses.shipping;
+    if (!shipping.firstName || !shipping.lastName || !shipping.address1 || !shipping.city || !shipping.state || !shipping.postalCode) {
+      return false;
+    }
+    
+    if (!/^[0-9]+$/.test(shipping.postalCode)) {
+      return false;
+    }
+    
+    if (!sameAsShipping) {
+      const billing = watchedValues.addresses.billing;
+      if (!billing.firstName || !billing.lastName || !billing.address1 || !billing.city || !billing.state || !billing.postalCode) {
+        return false;
+      }
+      
+      if (!/^[0-9]+$/.test(billing.postalCode)) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
 
   useEffect(() => {
     if (sameAsShipping && watchedValues.addresses.shipping) {
@@ -133,24 +157,21 @@ const Checkout = () => {
   }, [sameAsShipping, watchedValues.addresses.shipping, setValue]);
 
   useEffect(() => {
-    if (sameAsShipping && watchedValues.addresses.shipping) {
-      setValue('addresses.billing', watchedValues.addresses.shipping);
-    }
-  }, [watchedValues.addresses.shipping, sameAsShipping, setValue]);
-
-  useEffect(() => {
     if (sameAsShipping && selectedShippingAddress) {
       setValue('addresses.billing', {
         ...selectedShippingAddress
       });
     }
-  }, [sameAsShipping, selectedShippingAddress, setValue]);
+  }, [selectedShippingAddress, setValue]);
 
   useEffect(() => {
     loadCart();
-  }, [loadCart]);
+  }, []);
 
-  // Cart totals hesaplama
+  useEffect(() => {
+    resetUserModifiedFields();
+  }, [isAuthenticated]);
+
   const displayCart = serverCart || {
     items: [],
     totals: { subtotal: 0, discount: 0, tax: 0, shipping: 0, total: 0 },
@@ -183,26 +204,41 @@ const Checkout = () => {
 
   useEffect(() => {
     if (user && isAuthenticated) {
-      setValue('customerInfo', {
-        email: user.email || '',
-        phone: normalizePhone(user.phone || ''),
-        firstName: user.firstName || '',
-        lastName: user.lastName || ''
-      });
-      setValue('addresses.shipping', {
-        ...watchedValues.addresses.shipping,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        phone: normalizePhone(user.phone || '')
-      });
-      setValue('addresses.billing', {
-        ...watchedValues.addresses.billing,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        phone: normalizePhone(user.phone || '')
-      });
+      if (!userModifiedFields.current.has('customerInfo.email')) {
+        setValue('customerInfo.email', user.email || '');
+      }
+      if (!userModifiedFields.current.has('customerInfo.phone')) {
+        setValue('customerInfo.phone', normalizePhone(user.phone || ''));
+      }
+      if (!userModifiedFields.current.has('customerInfo.firstName')) {
+        setValue('customerInfo.firstName', user.firstName || '');
+      }
+      if (!userModifiedFields.current.has('customerInfo.lastName')) {
+        setValue('customerInfo.lastName', user.lastName || '');
+      }
+      
+      // Adres bilgileri
+      if (!userModifiedFields.current.has('addresses.shipping.firstName')) {
+        setValue('addresses.shipping.firstName', user.firstName || '');
+      }
+      if (!userModifiedFields.current.has('addresses.shipping.lastName')) {
+        setValue('addresses.shipping.lastName', user.lastName || '');
+      }
+      if (!userModifiedFields.current.has('addresses.shipping.phone')) {
+        setValue('addresses.shipping.phone', normalizePhone(user.phone || ''));
+      }
+      
+      if (!userModifiedFields.current.has('addresses.billing.firstName')) {
+        setValue('addresses.billing.firstName', user.firstName || '');
+      }
+      if (!userModifiedFields.current.has('addresses.billing.lastName')) {
+        setValue('addresses.billing.lastName', user.lastName || '');
+      }
+      if (!userModifiedFields.current.has('addresses.billing.phone')) {
+        setValue('addresses.billing.phone', normalizePhone(user.phone || ''));
+      }
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, setValue]);
 
   useEffect(() => {
     if (selectedShippingAddress) {
@@ -219,26 +255,11 @@ const Checkout = () => {
         phone: selectedShippingAddress.phone || ''
       });
       
-      if (sameAsShipping) {
-        setValue('addresses.billing', {
-          firstName: selectedShippingAddress.firstName,
-          lastName: selectedShippingAddress.lastName,
-          company: selectedShippingAddress.company || '',
-          address1: selectedShippingAddress.address1,
-          address2: selectedShippingAddress.address2 || '',
-          city: selectedShippingAddress.city,
-          state: selectedShippingAddress.state,
-          postalCode: selectedShippingAddress.postalCode,
-          country: selectedShippingAddress.country,
-          phone: selectedShippingAddress.phone || ''
-        });
-      }
-      
       setTimeout(() => {
         trigger(['addresses.shipping', 'addresses.billing']);
       }, 100);
     }
-  }, [selectedShippingAddress, sameAsShipping, setValue, trigger]);
+  }, [selectedShippingAddress, setValue, trigger]);
 
   useEffect(() => {
     if (selectedBillingAddress) {
@@ -275,16 +296,37 @@ const Checkout = () => {
     setSelectedShippingAddress(null);
   };
 
+
+  const resetUserModifiedFields = () => {
+    userModifiedFields.current.clear();
+  };
+
+  const loadCart = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await refreshCart();
+    } catch (error: any) {
+      console.error('Sepet yükleme hatası:', error);
+      setError(error.response?.data?.message || 'Sepet yüklenirken hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFormChange = (field: keyof CheckoutFormData, value: any) => {
     setValue(field as any, value);
   };
 
   const handleCustomerInfoChange = (field: keyof CheckoutFormData['customerInfo'], value: string) => {
     setValue(`customerInfo.${field}`, value);
+    userModifiedFields.current.add(`customerInfo.${field}`);
   };
 
   const handleAddressChange = (type: 'shipping' | 'billing', field: string, value: string) => {
     setValue(`addresses.${type}.${field}` as any, value);
+
+    userModifiedFields.current.add(`addresses.${type}.${field}`);
   };
 
   const handleSameAsShippingChange = (checked: boolean) => {
@@ -304,23 +346,41 @@ const Checkout = () => {
     setError(null);
 
     try {
-      const orderData = {
-        customerInfo: data.customerInfo,
-        addresses: {
-          shipping: data.addresses.shipping,
-          billing: data.addresses.billing
-        },
-        paymentMethod: data.paymentMethod,
-        notes: data.notes,
-        sameAsShipping: data.sameAsShipping,
-        items: serverCart.items.map(item => ({
-          productId: item.product._id,
-          variantId: item.variant?._id,
-          quantity: item.quantity
-        }))
-      };
+      let response;
+      
+      if (isAuthenticated && user) {
+        const orderData = {
+          customerInfo: data.customerInfo,
+          addresses: {
+            shipping: data.addresses.shipping,
+            billing: data.addresses.billing
+          },
+          paymentMethod: data.paymentMethod,
+          notes: data.notes,
+          sameAsShipping: data.sameAsShipping
+        };
 
-      const response = await orderService.createGuestOrder(orderData);
+        response = await orderService.createOrderFromCart(orderData);
+      } else {
+        // Misafir kullanıcılar için createGuestOrder kullan
+        const orderData = {
+          customerInfo: data.customerInfo,
+          addresses: {
+            shipping: data.addresses.shipping,
+            billing: data.addresses.billing
+          },
+          paymentMethod: data.paymentMethod,
+          notes: data.notes,
+          sameAsShipping: data.sameAsShipping,
+          items: serverCart.items.map(item => ({
+            productId: item.product._id,
+            variantId: item.variant?._id,
+            quantity: item.quantity
+          }))
+        };
+
+        response = await orderService.createGuestOrder(orderData);
+      }
       
       if (response.success) {
         // Önce yönlendirme 
@@ -695,12 +755,48 @@ const Checkout = () => {
                   </div>
                 )}
 
-                
+                {/* Form Validation Errors */}
+                {Object.keys(errors).length > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-6">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div className="text-red-600 text-sm">
+                        <p className="font-medium mb-2">Lütfen aşağıdaki hataları düzeltin:</p>
+                        <ul className="space-y-1">
+                          {errors.customerInfo?.email && <li>• {errors.customerInfo.email.message}</li>}
+                          {errors.customerInfo?.phone && <li>• {errors.customerInfo.phone.message}</li>}
+                          {errors.customerInfo?.firstName && <li>• {errors.customerInfo.firstName.message}</li>}
+                          {errors.customerInfo?.lastName && <li>• {errors.customerInfo.lastName.message}</li>}
+                          {errors.addresses?.shipping?.firstName && <li>• Teslimat adresi: {errors.addresses.shipping.firstName.message}</li>}
+                          {errors.addresses?.shipping?.lastName && <li>• Teslimat adresi: {errors.addresses.shipping.lastName.message}</li>}
+                          {errors.addresses?.shipping?.address1 && <li>• Teslimat adresi: {errors.addresses.shipping.address1.message}</li>}
+                          {errors.addresses?.shipping?.city && <li>• Teslimat adresi: {errors.addresses.shipping.city.message}</li>}
+                          {errors.addresses?.shipping?.state && <li>• Teslimat adresi: {errors.addresses.shipping.state.message}</li>}
+                          {errors.addresses?.shipping?.postalCode && <li>• Teslimat adresi: {errors.addresses.shipping.postalCode.message}</li>}
+                          {errors.addresses?.shipping?.country && <li>• Teslimat adresi: {errors.addresses.shipping.country.message}</li>}
+                          {errors.addresses?.shipping?.phone && <li>• Teslimat adresi: {errors.addresses.shipping.phone.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.firstName && <li>• Fatura adresi: {errors.addresses.billing.firstName.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.lastName && <li>• Fatura adresi: {errors.addresses.billing.lastName.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.address1 && <li>• Fatura adresi: {errors.addresses.billing.address1.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.city && <li>• Fatura adresi: {errors.addresses.billing.city.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.state && <li>• Fatura adresi: {errors.addresses.billing.state.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.postalCode && <li>• Fatura adresi: {errors.addresses.billing.postalCode.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.country && <li>• Fatura adresi: {errors.addresses.billing.country.message}</li>}
+                          {!sameAsShipping && errors.addresses?.billing?.phone && <li>• Fatura adresi: {errors.addresses.billing.phone.message}</li>}
+                          {errors.paymentMethod && <li>• {errors.paymentMethod.message}</li>}
+                          {errors.notes && <li>• {errors.notes.message}</li>}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Checkout Button */}
                 <button
                   type="submit"
-                  disabled={submitting || !serverCart || serverCart.items.length === 0}
+                  disabled={submitting || !serverCart || serverCart.items.length === 0 || !isFormValid() || Object.keys(errors).length > 0}
                   className="w-full flex justify-center items-center gap-2 font-medium text-white bg-blue py-4 px-6 rounded-xl transition-all duration-200 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                 >
                   {submitting ? (
@@ -720,6 +816,33 @@ const Checkout = () => {
                     </>
                   )}
                 </button>
+
+                {/* Debug Information */}
+                {/* {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4 p-4 bg-gray-100 rounded-lg text-xs">
+                    <p><strong>Debug Info:</strong></p>
+                    <p>submitting: {submitting.toString()}</p>
+                    <p>serverCart exists: {!!serverCart}</p>
+                    <p>cart items length: {serverCart?.items?.length || 0}</p>
+                    <p>isValid (react-hook-form): {isValid.toString()}</p>
+                    <p>isFormValid (manual): {isFormValid().toString()}</p>
+                    <p>errors count: {Object.keys(errors).length}</p>
+                    <p>button disabled: {(submitting || !serverCart || serverCart?.items?.length === 0 || !isFormValid() || Object.keys(errors).length > 0).toString()}</p>
+                    <p><strong>Form Values:</strong></p>
+                    <p>Email: {watchedValues.customerInfo.email || 'empty'} {watchedValues.customerInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchedValues.customerInfo.email) ? '(invalid)' : ''}</p>
+                    <p>FirstName: {watchedValues.customerInfo.firstName || 'empty'}</p>
+                    <p>LastName: {watchedValues.customerInfo.lastName || 'empty'}</p>
+                    <p>Shipping Address1: {watchedValues.addresses.shipping.address1 || 'empty'}</p>
+                    <p>Shipping City: {watchedValues.addresses.shipping.city || 'empty'}</p>
+                    <p>Shipping State: {watchedValues.addresses.shipping.state || 'empty'}</p>
+                    <p>Shipping PostalCode: {watchedValues.addresses.shipping.postalCode || 'empty'} {watchedValues.addresses.shipping.postalCode && !/^[0-9]+$/.test(watchedValues.addresses.shipping.postalCode) ? '(invalid)' : ''}</p>
+                    <p><strong>Validation Checks:</strong></p>
+                    <p>Email valid: {!!(watchedValues.customerInfo.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchedValues.customerInfo.email))}</p>
+                    <p>Name valid: {!!(watchedValues.customerInfo.firstName && watchedValues.customerInfo.lastName)}</p>
+                    <p>Shipping address valid: {!!(watchedValues.addresses.shipping.firstName && watchedValues.addresses.shipping.lastName && watchedValues.addresses.shipping.address1 && watchedValues.addresses.shipping.city && watchedValues.addresses.shipping.state && watchedValues.addresses.shipping.postalCode)}</p>
+                    <p>Postal code valid: {!!(watchedValues.addresses.shipping.postalCode && /^[0-9]+$/.test(watchedValues.addresses.shipping.postalCode))}</p>
+                  </div>
+                )} */}
                 </div>
               </div>
             </div>

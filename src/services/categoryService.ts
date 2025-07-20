@@ -184,7 +184,7 @@ export const getActiveCategories = async (): Promise<ApiResponse<Category[]>> =>
   try {
     const allCategories = await getAllCategories();
     
-    const activeCategories = allCategories.data.filter(category => category.isActive);
+    const activeCategories = allCategories.data.filter(category => category.active);
     
     return {
       ...allCategories,

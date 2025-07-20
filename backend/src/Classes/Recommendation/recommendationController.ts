@@ -10,22 +10,49 @@ export const getPopularProducts = async (req: Request, res: Response): Promise<v
   try {
     const limit = parseInt(req.query.limit as string) || 8;
     
+    // Önce mevcut önerileri kontrol et
     let products = await RecommendationService.getRecommendations('popular', undefined, limit);
     
+    // Eğer öneri yoksa hesapla
     if (products.length === 0) {
-      await RecommendationService.calculatePopularProducts(limit);
-      products = await RecommendationService.getRecommendations('popular', undefined, limit);
+      try {
+        await RecommendationService.calculatePopularProducts(limit);
+        products = await RecommendationService.getRecommendations('popular', undefined, limit);
+      } catch (calcError) {
+        console.error('Popular products calculation error:', calcError);
+      }
     }
 
+    // Hala ürün yoksa fallback olarak aktif ürünlerden en popüler olanları getir
     if (products.length === 0) {
-      const Product = require('../Product/productModel').default;
-      const fallbackProducts = await Product.find({ status: 'active' })
-        .sort({ viewCount: -1, averageRating: -1 })
-        .limit(limit)
-        .populate('category', 'name slug')
-        .select('name slug price salePrice images category averageRating reviewCount stock viewCount');
-      
-      products = fallbackProducts;
+      try {
+        const Product = require('../Product/productModel').default;
+        const fallbackProducts = await Product.find({ status: 'active' })
+          .sort({ viewCount: -1, averageRating: -1, createdAt: -1 })
+          .limit(limit)
+          .populate('category', 'name slug')
+          .select('name slug price salePrice images category averageRating reviewCount stock viewCount createdAt');
+        
+        if (fallbackProducts.length > 0) {
+          products = fallbackProducts;
+        } else {
+          // Hiç ürün yoksa en son eklenen ürünleri getir
+          const latestProducts = await Product.find({ status: 'active' })
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .populate('category', 'name slug')
+            .select('name slug price salePrice images category averageRating reviewCount stock viewCount createdAt');
+          
+          products = latestProducts;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback products error:', fallbackError);
+        res.status(500).json({
+          success: false,
+          message: 'Popüler ürünler getirilirken hata oluştu'
+        });
+        return;
+      }
     }
 
     res.status(200).json({
@@ -34,6 +61,7 @@ export const getPopularProducts = async (req: Request, res: Response): Promise<v
       message: 'Popüler ürünler başarıyla getirildi'
     });
   } catch (error) {
+    console.error('getPopularProducts error:', error);
     res.status(500).json({
       success: false,
       message: 'Popüler ürünler getirilirken hata oluştu'
@@ -326,6 +354,50 @@ export const calculateRecommendations = async (req: Request, res: Response): Pro
     res.status(500).json({
       success: false,
       message: 'Öneri hesaplaması sırasında hata oluştu'
+    });
+  }
+}; 
+
+/**
+ * @desc    
+ * @route   get /api/recommendations/test
+ * @access  
+ */
+export const testRecommendations = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const UserActivity = require('../UserActivity/userActivityModel').default;
+    const Product = require('../Product/productModel').default;
+    const Recommendation = require('./recommendationModel').default;
+
+    // Check UserActivity count
+    const userActivityCount = await UserActivity.countDocuments();
+    
+    // Check Product count
+    const productCount = await Product.countDocuments({ status: 'active' });
+    
+    // Check Recommendation count
+    const recommendationCount = await Recommendation.countDocuments();
+    
+    // Check popular recommendation
+    const popularRecommendation = await Recommendation.findOne({ type: 'popular' });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userActivityCount,
+        productCount,
+        recommendationCount,
+        hasPopularRecommendation: !!popularRecommendation,
+        popularRecommendationProducts: popularRecommendation?.recommendedProducts?.length || 0,
+        timestamp: new Date().toISOString()
+      },
+      message: 'Recommendation system test completed'
+    });
+  } catch (error) {
+    console.error('testRecommendations error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test sırasında hata oluştu'
     });
   }
 }; 

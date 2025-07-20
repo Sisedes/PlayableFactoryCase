@@ -822,7 +822,7 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
   } catch (error) {
 
     
-    // Development modunda daha detaylı 
+    // Development modunda daha detaylı hata bilgisi
     const errorResponse = {
       success: false,
       message: 'Müşteri detayları getirilirken hata oluştu',

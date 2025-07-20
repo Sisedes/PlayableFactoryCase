@@ -63,7 +63,7 @@ export default function ClientLayout({
           </ReduxProvider>
           <ScrollToTop />
           <Footer />
-          <AuthDebug />
+          {/* <AuthDebug /> */}
           <Toaster 
             position="top-right"
             toastOptions={{

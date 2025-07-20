@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 
 interface RouteParams {
-  params: Promise<{
+  params: {
     slug: string;
-  }>;
+  };
 }
 
 /**
@@ -15,8 +15,7 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const resolvedParams = await params;
-    const { slug } = resolvedParams;
+    const { slug } = params;
 
     if (!slug || typeof slug !== 'string' || slug.length < 2) {
       return NextResponse.json(

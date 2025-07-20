@@ -288,7 +288,7 @@ export const checkoutSchema = z.object({
         .optional(),
       address1: z
         .string()
-        .min(10, "Adres en az 10 karakter olmalıdır")
+        .min(5, "Adres en az 5 karakter olmalıdır")
         .max(200, "Adres çok uzun"),
       address2: z
         .string()
@@ -334,7 +334,7 @@ export const checkoutSchema = z.object({
         .optional(),
       address1: z
         .string()
-        .min(10, "Adres en az 10 karakter olmalıdır")
+        .min(5, "Adres en az 5 karakter olmalıdır")
         .max(200, "Adres çok uzun"),
       address2: z
         .string()

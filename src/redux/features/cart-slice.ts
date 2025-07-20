@@ -38,7 +38,7 @@ export const cart = createSlice({
       const { id, title, price, quantity, discountedPrice, imgs, variant } =
         action.payload;
       
-      // Varyasyon varsa benzersiz ID oluştur
+      // Varyasyon varsa benzersiz ID 
       const uniqueId = variant ? `${id}-${variant.id}` : id;
       const existingItem = state.items.find((item) => {
         if (variant) {

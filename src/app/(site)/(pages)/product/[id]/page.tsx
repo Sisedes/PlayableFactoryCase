@@ -5,15 +5,14 @@ import { getProductById } from "@/services/productService";
 import ProductDetails from "@/components/ProductDetails";
 
 interface ProductPageProps {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   try {
-    const resolvedParams = await params;
-    const response = await getProductById(resolvedParams.id);
+    const response = await getProductById(params.id);
     
     if (!response.success || !response.data.product) {
       return {
@@ -94,8 +93,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 const ProductPage = async ({ params }: ProductPageProps) => {
   try {
-    const resolvedParams = await params;
-    const response = await getProductById(resolvedParams.id);
+    const response = await getProductById(params.id);
     
     if (!response.success || !response.data.product) {
       notFound();
@@ -107,6 +105,7 @@ const ProductPage = async ({ params }: ProductPageProps) => {
       </main>
     );
   } catch (error) {
+    console.error("Ürün yüklenirken hata:", error);
     notFound();
   }
 };

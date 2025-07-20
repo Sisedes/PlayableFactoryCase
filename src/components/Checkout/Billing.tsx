@@ -37,7 +37,7 @@ const Billing = ({ customerInfo, onChange }: BillingProps) => {
         setSaveSuccess(true);
         setPhoneEdit(false);
         updateUserProfile({ phone: phoneValue });
-        await refreshUserData();
+        onChange('phone', phoneValue);
       } else {
         setSaveError(result.message || "Telefon kaydedilemedi");
       }

@@ -187,7 +187,6 @@ const OrderSuccess = () => {
           setError(response.message || 'Sipariş detayları getirilemedi');
         }
       } catch (err: any) {
-        console.error('Sipariş detayları getirilirken hata:', err);
         setError('Sipariş detayları getirilirken hata oluştu');
       } finally {
         setLoading(false);
