@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
+    "start:prod": "NODE_ENV=production node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "dev:watch": "nodemon --exec ts-node src/server.ts",
     "lint": "eslint src/**/*.ts",
@@ -14,7 +15,8 @@
     "test:watch": "jest --watch",
     "clean": "rimraf dist",
     "seed": "ts-node src/utils/seed.ts",
-    "seed:orders": "ts-node src/utils/orderSeed.ts"
+    "seed:orders": "ts-node src/utils/orderSeed.ts",
+    "seed:recommendations": "ts-node src/utils/recommendationSeed.ts"
   },
   "keywords": [
     "e-commerce",

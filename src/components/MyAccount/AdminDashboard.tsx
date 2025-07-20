@@ -370,17 +370,17 @@ const AdminDashboard = () => {
                       <div key={product._id} className="flex items-center space-x-3 p-3 bg-white rounded-lg">
                         <div className="w-12 h-12 flex-shrink-0">
                           {Boolean(product.images && product.images.length > 0) ? (
-                            <Image
+                            <img
                               src={product.images[0].url.startsWith('http') 
                                 ? product.images[0].url 
                                 : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${product.images[0].url}`
                               }
                               alt={`${product.name} ürün görseli`}
-                              width={48}
-                              height={48}
                               className="w-full h-full object-cover rounded-md"
-                              loading="lazy"
-                              sizes="48px"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/images/products/default.png';
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full bg-gray-200 rounded-md flex items-center justify-center">

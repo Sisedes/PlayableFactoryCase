@@ -454,13 +454,14 @@ const ServerCartItem = ({ item, onUpdate }: {
         <div className="flex gap-4">
           <div className="flex-shrink-0">
             <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden">
-              <Image
+              <img
                 src={imageUrl}
                 alt={item.product?.name || 'Ürün'}
-                fill
-                className="object-cover"
-                sizes="80px"
-                priority={false}
+                className="object-cover w-full h-full"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/images/products/default.png';
+                }}
               />
             </div>
           </div>

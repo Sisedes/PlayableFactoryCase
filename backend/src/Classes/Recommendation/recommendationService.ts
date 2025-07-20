@@ -10,12 +10,13 @@ export class RecommendationService {
     try {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       
+      // Önce UserActivity'den popüler ürünleri hesapla
       const popularProducts = await UserActivity.aggregate([
         {
           $match: {
             type: 'view',
             createdAt: { $gte: sevenDaysAgo },
-            product: { $exists: true }
+            product: { $exists: true, $ne: null }
           }
         },
         {
@@ -40,9 +41,21 @@ export class RecommendationService {
         }
       ]);
 
+      let productIds: any[] = [];
+
       if (popularProducts.length > 0) {
-        const productIds = popularProducts.map(p => p._id);
+        productIds = popularProducts.map(p => p._id);
+      } else {
+        // UserActivity verisi yoksa Product modelinden en popüler ürünleri al
+        const fallbackProducts = await Product.find({ status: 'active' })
+          .sort({ viewCount: -1, averageRating: -1, createdAt: -1 })
+          .limit(limit)
+          .select('_id');
         
+        productIds = fallbackProducts.map(p => p._id);
+      }
+
+      if (productIds.length > 0) {
         await Recommendation.findOneAndUpdate(
           { type: 'popular' },
           {
@@ -51,8 +64,10 @@ export class RecommendationService {
             recommendedProducts: productIds,
             metadata: {
               score: 1.0,
-              reason: 'En çok görüntülenen ürünler',
-              category: 'popular'
+              reason: popularProducts.length > 0 ? 'En çok görüntülenen ürünler' : 'En popüler ürünler',
+              category: 'popular',
+              calculatedAt: new Date(),
+              source: popularProducts.length > 0 ? 'user_activity' : 'product_stats'
             },
             expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000) 
           },
@@ -60,6 +75,38 @@ export class RecommendationService {
         );
       }
     } catch (error) {
+      console.error('calculatePopularProducts error:', error);
+      // Hata durumunda bile fallback ürünleri kaydetmeye çalış
+      try {
+        const fallbackProducts = await Product.find({ status: 'active' })
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .select('_id');
+        
+        if (fallbackProducts.length > 0) {
+          const productIds = fallbackProducts.map(p => p._id);
+          
+          await Recommendation.findOneAndUpdate(
+            { type: 'popular' },
+            {
+              type: 'popular',
+              productId: new Types.ObjectId(),
+              recommendedProducts: productIds,
+              metadata: {
+                score: 0.5,
+                reason: 'Son eklenen ürünler (fallback)',
+                category: 'popular',
+                calculatedAt: new Date(),
+                source: 'fallback'
+              },
+              expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000)
+            },
+            { upsert: true, new: true }
+          );
+        }
+      } catch (fallbackError) {
+        console.error('Fallback recommendation save error:', fallbackError);
+      }
     }
   }
 
@@ -429,49 +476,65 @@ export class RecommendationService {
       switch (type) {
         case 'popular':
           recommendation = await Recommendation.findOne({ type: 'popular' })
-            .populate('recommendedProducts', 'name slug price salePrice images category averageRating reviewCount stock viewCount')
+            .populate('recommendedProducts', 'name slug price salePrice images category averageRating reviewCount stock viewCount createdAt')
             .populate('recommendedProducts.category', 'name slug')
-            .sort({ 'metadata.score': -1 })
-            .limit(limit);
+            .sort({ 'metadata.score': -1 });
+          
+          if (recommendation && recommendation.recommendedProducts) {
+            return recommendation.recommendedProducts.slice(0, limit);
+          }
           break;
         case 'similar':
           if (!productId) return [];
           recommendation = await Recommendation.findOne({ type: 'similar', productId: new Types.ObjectId(productId) })
             .populate('recommendedProducts', 'name slug price salePrice images category averageRating reviewCount stock viewCount')
             .populate('recommendedProducts.category', 'name slug')
-            .sort({ 'metadata.score': -1 })
-            .limit(limit);
+            .sort({ 'metadata.score': -1 });
+          
+          if (recommendation && recommendation.recommendedProducts) {
+            return recommendation.recommendedProducts.slice(0, limit);
+          }
           break;
         case 'frequently_bought':
           if (!productId) return [];
           recommendation = await Recommendation.findOne({ type: 'frequently_bought', productId: new Types.ObjectId(productId) })
             .populate('recommendedProducts', 'name slug price salePrice images category averageRating reviewCount stock viewCount')
             .populate('recommendedProducts.category', 'name slug')
-            .sort({ 'metadata.score': -1 })
-            .limit(limit);
+            .sort({ 'metadata.score': -1 });
+          
+          if (recommendation && recommendation.recommendedProducts) {
+            return recommendation.recommendedProducts.slice(0, limit);
+          }
           break;
         case 'viewed_together':
           if (!productId) return [];
           recommendation = await Recommendation.findOne({ type: 'viewed_together', productId: new Types.ObjectId(productId) })
             .populate('recommendedProducts', 'name slug price salePrice images category averageRating reviewCount stock viewCount')
             .populate('recommendedProducts.category', 'name slug')
-            .sort({ 'metadata.score': -1 })
-            .limit(limit);
+            .sort({ 'metadata.score': -1 });
+          
+          if (recommendation && recommendation.recommendedProducts) {
+            return recommendation.recommendedProducts.slice(0, limit);
+          }
           break;
         case 'personalized':
           if (!productId) return [];
           recommendation = await Recommendation.findOne({ type: 'personalized', productId: new Types.ObjectId(productId) })
             .populate('recommendedProducts', 'name slug price salePrice images category averageRating reviewCount stock viewCount')
             .populate('recommendedProducts.category', 'name slug')
-            .sort({ 'metadata.score': -1 })
-            .limit(limit);
+            .sort({ 'metadata.score': -1 });
+          
+          if (recommendation && recommendation.recommendedProducts) {
+            return recommendation.recommendedProducts.slice(0, limit);
+          }
           break;
         default:
           return [];
       }
 
-      return recommendation?.recommendedProducts || [];
+      return [];
     } catch (error) {
+      console.error('getRecommendations error:', error);
       return [];
     }
   }

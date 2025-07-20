@@ -184,16 +184,14 @@ const SingleListItem = ({ item }: { item: Product }) => {
               )}
             </div>
 
-            <Image 
+            <img 
               src={getImageUrl(mainImage)} 
               alt={item.name || "Ürün görseli"} 
-              fill
-              className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
-              sizes="(max-width: 1024px) 100vw, 320px"
-              loading="lazy"
-              quality={85}
-              placeholder="blur"
-              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+              className="object-contain w-full h-full p-4 transition-transform duration-300 group-hover:scale-105"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/images/products/default.png';
+              }}
             />
 
             <div className="absolute left-0 bottom-0 translate-y-full w-full flex items-center justify-center gap-2 pb-3 ease-linear duration-200 group-hover:translate-y-0">

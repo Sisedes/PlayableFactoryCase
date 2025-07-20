@@ -173,20 +173,20 @@ const HeroCarousal = () => {
             {loading ? (
               <div className="w-full h-full bg-gray-200 animate-pulse"></div>
             ) : featuredProducts.length > 0 ? (
-              <Image
+              <img
                 src={getImageUrl(featuredProducts[0].images?.[0]?.url || "/images/products/default.png")}
                 alt={featuredProducts[0].name}
-                width={351}
-                height={358}
                 className="object-contain w-full h-full"
                 style={{ objectPosition: 'center' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/images/hero/hero-01.png';
+                }}
               />
             ) : (
-              <Image
+              <img
                 src="/images/hero/hero-01.png"
                 alt="default product"
-                width={351}
-                height={358}
                 className="object-contain w-full h-full"
                 style={{ objectPosition: 'center' }}
               />

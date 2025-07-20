@@ -391,12 +391,10 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
     <Link href={`/product/${product._id}`} className="group">
       <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
         <div className="relative aspect-square overflow-hidden bg-gray-50 flex items-center justify-center">
-          <Image
+          <img
             src={getImageUrl(sortProductImages(product.images)[0]?.url || "")}
             alt={sortProductImages(product.images)[0]?.alt || product.name}
-            fill
-            className="object-contain p-2 group-hover:scale-105 transition-transform duration-200"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+            className="object-contain p-2 group-hover:scale-105 transition-transform duration-200 w-full h-full"
             style={{ 
               maxWidth: '100%', 
               maxHeight: '100%',
@@ -566,16 +564,18 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
       <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
         <div className="flex">
           <div className="relative w-32 h-32 flex-shrink-0 bg-gray-50 rounded-l-lg overflow-hidden flex items-center justify-center">
-            <Image
+            <img
               src={getImageUrl(sortProductImages(product.images)[0]?.url || "")}
               alt={sortProductImages(product.images)[0]?.alt || product.name}
-              fill
-              className="object-contain p-1"
-              sizes="128px"
+              className="object-contain p-1 w-full h-full"
               style={{ 
                 maxWidth: '100%', 
                 maxHeight: '100%',
                 objectFit: 'contain'
+              }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/images/products/default.png';
               }}
             />
             

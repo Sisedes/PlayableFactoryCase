@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 const Footer = () => {
@@ -13,11 +12,9 @@ const Footer = () => {
           {/* Şirket Bilgileri */}
           <div>
             <div className="flex items-center mb-4">
-              <Image
+              <img
                 src="/images/logo/logo.png"
                 alt="Logo"
-                width={100}
-                height={32}
                 className="h-8 w-auto"
               />
             </div>

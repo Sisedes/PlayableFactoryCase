@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { Product } from "@/types";
 import { useModalContext } from "@/app/context/QuickViewModalContext";
 import { addItemToCart } from "@/redux/features/cart-slice";
@@ -173,17 +172,15 @@ const ProductItem = ({ item }: { item: Product }) => {
         </div>
 
         {/* Product Image */}
-        <Image 
+        <img 
           src={getImageUrl(mainImage)} 
           alt={item.name || "Ürün görseli"} 
-          width={320}
-          height={320}
           className="object-contain w-full h-full p-2 transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
           loading="lazy"
-          quality={85}
-          placeholder="blur"
-          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = '/images/products/default.png';
+          }}
         />
 
         {/* Action Buttons */}

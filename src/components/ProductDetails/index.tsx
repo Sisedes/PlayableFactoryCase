@@ -383,14 +383,14 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
             <div className="lg:w-1/2">
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 relative">
                 <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
-                  <Image
+                  <img
                     src={getImageUrl(currentImage?.url || "")}
                     alt={currentImage?.alt || product.name}
-                    fill
-                    className="object-contain transition-all duration-300 ease-in-out hover:scale-105"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
-                    priority
-                    quality={90}
+                    className="object-contain w-full h-full transition-all duration-300 ease-in-out hover:scale-105"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/images/products/default.png';
+                    }}
                   />
                 </div>
 
@@ -408,13 +408,14 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                               : "border-gray-200"
                           }`}
                         >
-                          <Image
-                            fill
+                          <img
                             src={getImageUrl(image.url)}
                             alt={image.alt || product.name}
-                            className="object-cover"
-                            sizes="64px"
-                            quality={80}
+                            className="object-cover w-full h-full"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/images/products/default.png';
+                            }}
                           />
                         </button>
                       ))}

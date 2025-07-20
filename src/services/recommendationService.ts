@@ -32,12 +32,20 @@ export const getPopularProducts = async (limit: number = 8): Promise<Recommendat
     });
 
     if (!response.ok) {
+      console.error('Popular products API error:', response.status, response.statusText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
+    
+    // API'den gelen veriyi kontrol et
+    if (!data.success) {
+      throw new Error(data.message || 'Popüler ürünler getirilirken hata oluştu');
+    }
+
     return data;
   } catch (error) {
+    console.error('getPopularProducts error:', error);
     const errorMessage = handleApiError(error, 'Popüler ürünler yüklenirken hata oluştu');
     throw new Error(errorMessage);
   }

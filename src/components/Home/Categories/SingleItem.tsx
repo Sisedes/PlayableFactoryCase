@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import { Category } from "@/types";
 import Link from "next/link";
 import { getImageUrl } from "@/utils/apiUtils";
@@ -8,15 +7,17 @@ const SingleItem = ({ item }: { item: Category }) => {
   return (
     <Link href={`/shop-with-sidebar?category=${encodeURIComponent(item.name)}`} className="group flex flex-col items-center w-[150px] flex-shrink-0">
       <div className="w-[130px] h-[130px] bg-[#F2F3F8] rounded-full flex items-center justify-center mb-4 overflow-hidden flex-shrink-0">
-        <Image 
+        <img 
           src={item.image ? getImageUrl(item.image) : "/images/categories/categories-01.png"} 
           alt={item.name} 
-          width={130} 
-          height={130}
           className="object-contain w-full h-full p-3"
           style={{ 
             objectPosition: 'center',
             objectFit: 'contain'
+          }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = '/images/categories/categories-01.png';
           }}
         />
       </div>

@@ -2961,12 +2961,14 @@ const AdminManageProducts = () => {
                                   sortedImages[selectedMainImageIndex] ||
                                   sortedImages[0];
                                 return currentImage ? (
-                                  <Image
+                                  <img
                                     src={getImageUrl(currentImage.url)}
                                     alt={editProduct.name}
-                                    width={160}
-                                    height={160}
                                     className="object-cover w-full h-full"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = '/images/products/default.png';
+                                    }}
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">

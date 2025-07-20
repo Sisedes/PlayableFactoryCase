@@ -41,14 +41,10 @@ const Hero = () => {
           <div className="w-full lg:w-2/3 xl:w-[757px]">
             <div className="relative z-10 rounded-xl lg:rounded-2xl bg-white overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="absolute right-0 bottom-0 -z-10 opacity-60">
-                <Image
+                <img
                   src="/images/hero/hero-bg.png"
                   alt="Hero background shapes"
-                  width={534}
-                  height={520}
                   className="w-auto h-auto max-w-full"
-                  priority
-                  quality={85}
                 />
               </div>
 
@@ -119,16 +115,15 @@ const Hero = () => {
                       </div>
 
                       <div className="w-24 h-32 sm:w-28 sm:h-36 flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 group-hover:bg-gray-100 transition-colors">
-                        <Image
+                        <img
                           src={getImageUrl(product.images?.[0]?.url || "/images/products/default.png")}
                           alt={product.name}
-                          width={112}
-                          height={144}
                           className="object-contain w-full h-full"
                           style={{ objectPosition: 'center' }}
-                          loading="lazy"
-                          quality={80}
-                          sizes="(max-width: 640px) 96px, 112px"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/images/products/default.png';
+                          }}
                         />
                       </div>
                     </div>

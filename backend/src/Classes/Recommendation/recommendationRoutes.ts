@@ -7,13 +7,15 @@ import {
   getPersonalizedRecommendations,
   getProductRecommendations,
   calculateRecommendations,
-  debugOrders
+  debugOrders,
+  testRecommendations
 } from './recommendationController';
 import { authenticateToken } from '../../middleware/authMiddleware';
 
 const router = express.Router();
 
 router.get('/popular', getPopularProducts);
+router.get('/test', testRecommendations);
 router.get('/similar/:productId', getSimilarProducts);
 router.get('/frequently-bought/:productId', getFrequentlyBoughtTogether);
 router.get('/viewed-together/:productId', getViewedTogether);

@@ -52,12 +52,15 @@ app.use(cors({
     'http://localhost:3003',
     'http://145.223.103.156:3000',
     'https://145.223.103.156:3000',
+    'http://145.223.103.156',
+    'https://145.223.103.156',
     process.env.FRONTEND_URL || 'http://localhost:3000'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-session-id', 'X-Session-ID'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-session-id', 'X-Session-ID', 'Origin', 'Accept'],
   exposedHeaders: ['Set-Cookie', 'X-Session-ID'],
+  optionsSuccessStatus: 200,
 }));
 
 // Rate limiting
