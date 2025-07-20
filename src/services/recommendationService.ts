@@ -1,7 +1,7 @@
 import { Product } from '@/types';
 import { handleApiError } from '@/utils/apiUtils';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://145.223.103.156:5000';
 
 export interface RecommendationResponse {
   success: boolean;

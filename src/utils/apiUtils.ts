@@ -1,5 +1,5 @@
 export const getApiBaseUrl = (): string => {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  return process.env.NEXT_PUBLIC_API_URL || 'http://145.223.103.156:5000';
 };
 
 export const getImageUrl = (imagePath: string): string => {

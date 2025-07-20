@@ -2,8 +2,8 @@ import { Product } from '@/types';
 
 // API Base URL
 const API_BASE = process.env.NODE_ENV === 'production' 
-  ? '/api' 
-  : 'http://localhost:5000/api';
+  ? 'http://145.223.103.156:5000/api' 
+  : 'http://145.223.103.156:5000/api';
 
 // API Response Types
 interface ApiResponse<T> {

@@ -399,13 +399,14 @@ export const getPopularProducts = async (req: Request, res: Response) => {
  */
 export const getLatestProducts = async (req: Request, res: Response) => {
   try {
-    const { limit = 4 } = req.query;
+    const limitParam = req.query.limit;
+    const limit = limitParam ? Math.min(Math.max(1, Number(limitParam)), 20) : 4; // Max 20, min 1
 
     const products = await Product.find({ status: 'active' })
       .populate('category', 'name slug')
       .select('name slug shortDescription price salePrice images stock averageRating reviewCount viewCount')
       .sort({ createdAt: -1 })
-      .limit(Number(limit));
+      .limit(limit);
 
     const productsWithSortedImages = products.map(product => {
       const sortedImages = [...product.images].sort((a, b) => {

@@ -1,6 +1,6 @@
 import { IProductVariant } from '@/components/ProductVariations/VariationModal';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://145.223.103.156:5000';
 
 export interface VariationResponse {
   success: boolean;

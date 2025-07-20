@@ -10,7 +10,7 @@ const isLocalRequest = (req: Request): boolean => {
 
 export const rateLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), 
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '5000' : '200')), 
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || (isDevelopment ? '5000' : '1000')), // Canlı sunucu için artırıldı
   message: {
     status: 'error',
     message: 'Too many requests from this IP, please try again later.',

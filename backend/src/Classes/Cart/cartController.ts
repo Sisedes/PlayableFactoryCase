@@ -11,7 +11,7 @@ import { ICart, ICartItem } from '../../types';
 export const getCart = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     let cart: ICart | null = null;
 
@@ -73,7 +73,7 @@ export const addToCart = async (req: Request, res: Response): Promise<void> => {
   try {
     const { productId, quantity = 1, variantId } = req.body;
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     const product = await Product.findById(productId);
     if (!product) {
@@ -152,7 +152,7 @@ export const updateCartItem = async (req: Request, res: Response): Promise<void>
     const { itemId } = req.params;
     const { quantity } = req.body;
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     let cart: ICart | null = null;
 
@@ -225,7 +225,7 @@ export const removeFromCart = async (req: Request, res: Response): Promise<void>
   try {
     const { itemId } = req.params;
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     let cart: ICart | null = null;
 
@@ -285,7 +285,7 @@ export const removeFromCart = async (req: Request, res: Response): Promise<void>
 export const clearCart = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     let cart: ICart | null = null;
 
@@ -400,7 +400,7 @@ export const applyCoupon = async (req: Request, res: Response): Promise<void> =>
   try {
     const { couponCode } = req.body;
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     if (!couponCode) {
       res.status(400).json({
@@ -481,7 +481,7 @@ export const applyCoupon = async (req: Request, res: Response): Promise<void> =>
 export const removeCoupon = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user?.userId;
-    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
+    const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] || req.headers['X-Session-ID'] as string;
 
     let cart: ICart | null = null;
 

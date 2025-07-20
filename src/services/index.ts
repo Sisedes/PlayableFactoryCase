@@ -13,7 +13,7 @@ export * from './addressService';
 // User Services
 export * from './userService';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://145.223.103.156:5000/api";
 
 // Newsletter Service
 export const subscribeToNewsletter = async (email: string): Promise<{ success: boolean; message: string }> => {

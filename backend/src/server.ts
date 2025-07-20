@@ -50,11 +50,14 @@ app.use(cors({
     'http://localhost:3001', 
     'http://localhost:3002',
     'http://localhost:3003',
+    'http://145.223.103.156:3000',
+    'https://145.223.103.156:3000',
     process.env.FRONTEND_URL || 'http://localhost:3000'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-session-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-session-id', 'X-Session-ID'],
+  exposedHeaders: ['Set-Cookie', 'X-Session-ID'],
 }));
 
 // Rate limiting
@@ -72,6 +75,12 @@ app.use(compression());
 // HTTP request logging
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'unknown'}`);
+  next();
+});
+
 // Serve static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -82,6 +91,17 @@ app.get('/health', (_req, res) => {
     message: 'E-Commerce API is running!',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
+    cors: {
+      origins: [
+        'http://localhost:3000',
+        'http://localhost:3001', 
+        'http://localhost:3002',
+        'http://localhost:3003',
+        'http://145.223.103.156:3000',
+        'https://145.223.103.156:3000',
+        process.env.FRONTEND_URL || 'http://localhost:3000'
+      ]
+    }
   });
 });
 
