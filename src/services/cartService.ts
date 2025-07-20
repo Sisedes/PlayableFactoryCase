@@ -184,7 +184,6 @@ export const cartService = {
         return response;
       }
     } catch (error) {
-      console.log('API cart error, trying local storage:', error);
     }
 
     const localCart = getLocalCart();
@@ -455,7 +454,6 @@ export const cartService = {
       const backendCart = await apiRequest('/cart');
       
       if (backendCart.success && backendCart.data && backendCart.data.items.length > 0) {
-        console.log('🔄 Backend sepeti bulundu, local sepeti temizle');
         saveLocalCart(backendCart.data);
         if (typeof window !== 'undefined') {
           localStorage.removeItem(SESSION_ID_KEY);
@@ -465,7 +463,6 @@ export const cartService = {
       
       const localCart = getLocalCart();
       if (localCart && localCart.items.length > 0) {
-        console.log('🔄 Local sepet bulundu, backend\'e aktarılıyor');
         
         const response = await apiRequest('/cart/merge', {
           method: 'POST',

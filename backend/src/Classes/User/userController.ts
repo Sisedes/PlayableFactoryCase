@@ -41,7 +41,6 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       }
     });
   } catch (error) {
-    console.error('Update profile error:', error);
     res.status(500).json({
       success: false,
       message: 'Profil güncellenirken hata oluştu'
@@ -111,7 +110,6 @@ export const sendPasswordResetCode = async (req: Request, res: Response): Promis
       message: 'Parola sıfırlama kodu e-posta adresinize gönderildi'
     });
   } catch (error) {
-    console.error('Send password reset code error:', error);
     res.status(500).json({
       success: false,
       message: 'Kod gönderilirken hata oluştu'
@@ -168,7 +166,6 @@ export const resetPasswordWithCode = async (req: Request, res: Response): Promis
       message: 'Parola başarıyla güncellendi'
     });
   } catch (error) {
-    console.error('Reset password with code error:', error);
     res.status(500).json({
       success: false,
       message: 'Parola güncellenirken hata oluştu'
@@ -200,7 +197,6 @@ export const getUserAddresses = async (req: Request, res: Response): Promise<voi
       data: user.addresses
     });
   } catch (error) {
-    console.error('Get addresses error:', error);
     res.status(500).json({
       success: false,
       message: 'Adresler getirilemedi'
@@ -243,7 +239,6 @@ export const addAddress = async (req: Request, res: Response): Promise<void> => 
       data: user.addresses[user.addresses.length - 1]
     });
   } catch (error) {
-    console.error('Add address error:', error);
     res.status(500).json({
       success: false,
       message: 'Adres eklenirken hata oluştu'
@@ -309,7 +304,6 @@ export const updateAddress = async (req: Request, res: Response): Promise<void> 
       data: user.addresses[addressIndex]
     });
   } catch (error) {
-    console.error('Update address error:', error);
     res.status(500).json({
       success: false,
       message: 'Adres güncellenirken hata oluştu'
@@ -365,7 +359,6 @@ export const deleteAddress = async (req: Request, res: Response): Promise<void> 
       message: 'Adres başarıyla silindi'
     });
   } catch (error) {
-    console.error('Delete address error:', error);
     res.status(500).json({
       success: false,
       message: 'Adres silinirken hata oluştu'
@@ -426,7 +419,6 @@ export const setDefaultAddress = async (req: Request, res: Response): Promise<vo
       data: user.addresses[addressIndex]
     });
   } catch (error) {
-    console.error('Set default address error:', error);
     res.status(500).json({
       success: false,
       message: 'Varsayılan adres güncellenirken hata oluştu'
@@ -466,7 +458,6 @@ export const getFavoriteProducts = async (req: Request, res: Response): Promise<
       data: user.preferences.favoriteProducts || []
     });
   } catch (error) {
-    console.error('Get favorite products error:', error);
     res.status(500).json({
       success: false,
       message: 'Favori ürünler getirilemedi'
@@ -518,7 +509,6 @@ export const addToFavorites = async (req: Request, res: Response): Promise<void>
       message: 'Ürün favorilere eklendi'
     });
   } catch (error) {
-    console.error('Add to favorites error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün favorilere eklenirken hata oluştu'
@@ -573,7 +563,6 @@ export const removeFromFavorites = async (req: Request, res: Response): Promise<
       message: 'Ürün favorilerden çıkarıldı'
     });
   } catch (error) {
-    console.error('Remove from favorites error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün favorilerden çıkarılırken hata oluştu'
@@ -620,7 +609,6 @@ export const checkFavoriteStatus = async (req: Request, res: Response): Promise<
       }
     });
   } catch (error) {
-    console.error('Check favorite status error:', error);
     res.status(500).json({
       success: false,
       message: 'Favori durumu kontrol edilemedi'
@@ -630,8 +618,7 @@ export const checkFavoriteStatus = async (req: Request, res: Response): Promise<
 
 export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
   try {
-    console.log('getAllCustomersForAdmin çağrıldı');
-    console.log('Query parametreleri:', req.query);
+
     
     const { page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
     
@@ -639,7 +626,6 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
     const limitNum = Math.min(50, Math.max(1, Number(limit)));
     const skip = (pageNum - 1) * limitNum;
 
-    console.log('Hesaplanan değerler:', { pageNum, limitNum, skip });
 
     const searchFilter = search ? {
       $or: [
@@ -668,12 +654,10 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
       ]
     } : {};
 
-    console.log('Arama filtresi:', searchFilter);
 
     const sort: any = {};
     sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
 
-    console.log('Sıralama:', sort);
 
     const customers = await User.find({ 
       role: 'customer',
@@ -684,14 +668,11 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
     .skip(skip)
     .limit(limitNum);
 
-    console.log('Bulunan müşteri sayısı:', customers.length);
 
     const totalCustomers = await User.countDocuments({ 
       role: 'customer',
       ...searchFilter 
     });
-
-    console.log('Toplam müşteri sayısı:', totalCustomers);
 
     const customersWithOrderCount = await Promise.all(
       customers.map(async (customer) => {
@@ -727,7 +708,6 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Get customers error:', error);
     res.status(500).json({
       success: false,
       message: 'Müşteriler getirilirken hata oluştu',
@@ -738,42 +718,25 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
 
 export const getCustomerDetails = async (req: Request, res: Response) => {
   try {
-    console.log('=== getCustomerDetails başladı ===');
-    
-    // Model kontrollerini yap
-    console.log('User model kontrolü:', typeof User);
-    console.log('Order model kontrolü:', typeof Order);
-    console.log('mongoose kontrolü:', typeof mongoose);
-    
     const { customerId } = req.params;
-    console.log('customerId:', customerId);
-    console.log('req.params:', req.params);
-    console.log('req.user:', req.user);
 
     // ObjectId geçerliliğini kontrol et
     if (!mongoose.Types.ObjectId.isValid(customerId)) {
-      console.log('Geçersiz ObjectId:', customerId);
       return res.status(400).json({
         success: false,
         message: 'Geçersiz müşteri ID'
       });
     }
 
-    console.log('MongoDB bağlantısı kontrol ediliyor...');
-    
     // MongoDB bağlantısını kontrol et
     const dbState = mongoose.connection.readyState;
-    console.log('MongoDB bağlantı durumu:', dbState);
     
     if (dbState !== 1) {
-      console.error('MongoDB bağlantısı hazır değil. Durum:', dbState);
       return res.status(500).json({
         success: false,
         message: 'Veritabanı bağlantısı hazır değil'
       });
     }
-
-    console.log('Müşteri aranıyor...');
     
     try {
       const customer = await User.findById(customerId)
@@ -781,14 +744,11 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
         .populate('addresses');
 
       if (!customer) {
-        console.log('Müşteri bulunamadı:', customerId);
         return res.status(404).json({
           success: false,
           message: 'Müşteri bulunamadı'
         });
       }
-
-      console.log('Müşteri bulundu:', customer.email);
 
       const customerData = {
         _id: customer._id,
@@ -803,8 +763,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
         updatedAt: customer.updatedAt
       };
 
-      console.log('Siparişler aranıyor...');
-      
       // Siparişleri güvenli bir şekilde al
       let orders: any[] = [];
       let totalOrders = 0;
@@ -816,8 +774,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
         const orderCount = await Order.countDocuments({ 
           'customerInfo.customerId': customerId 
         });
-        
-        console.log('Bu müşteriye ait sipariş sayısı:', orderCount);
 
         if (orderCount > 0) {
           orders = await Order.find({ 
@@ -828,9 +784,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
           .limit(10)
           .lean(); // Virtual field'ları devre dışı bırak
 
-          console.log('Bulunan sipariş sayısı:', orders.length);
-          console.log('Siparişler:', orders);
-
           totalOrders = orderCount;
           
           const totalSpentResult = await Order.aggregate([
@@ -839,21 +792,15 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
           ]);
 
           totalSpent = totalSpentResult[0]?.total || 0;
-          console.log('Toplam harcama:', totalSpent);
 
           orderStatusStats = await Order.aggregate([
             { $match: { 'customerInfo.customerId': customerId } },
             { $group: { _id: '$fulfillment.status', count: { $sum: 1 } } }
           ]);
-
-          console.log('Sipariş durumu istatistikleri:', orderStatusStats);
         }
-      } catch (orderError) {
-        console.error('Sipariş verilerini alırken hata:', orderError);
-        // Sipariş hatası olsa bile müşteri bilgilerini döndür
-      }
-
-      console.log('Yanıt hazırlanıyor...');
+              } catch (orderError) {
+          // Sipariş hatası olsa bile müşteri bilgilerini döndür
+        }
       const response = {
         success: true,
         data: {
@@ -867,18 +814,12 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
         }
       };
 
-      console.log('Yanıt gönderiliyor:', response);
       res.status(200).json(response);
-      console.log('=== getCustomerDetails tamamlandı ===');
     } catch (dbError) {
-      console.error('Veritabanı hatası:', dbError);
       throw dbError;
     }
   } catch (error) {
-    console.error('Get customer details error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('Error name:', error instanceof Error ? error.name : 'Unknown');
-    console.error('Error message:', error instanceof Error ? error.message : 'No message');
+
     
     // Development modunda daha detaylı hata bilgisi
     const errorResponse = {
@@ -891,7 +832,6 @@ export const getCustomerDetails = async (req: Request, res: Response) => {
       } : {}
     };
     
-    console.error('Error response:', errorResponse);
     res.status(500).json(errorResponse);
   }
 };
@@ -920,7 +860,6 @@ export const updateCustomerStatus = async (req: Request, res: Response) => {
       data: customer
     });
   } catch (error) {
-    console.error('Update customer status error:', error);
     res.status(500).json({
       success: false,
       message: 'Müşteri durumu güncellenirken hata oluştu',

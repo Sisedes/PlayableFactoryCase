@@ -48,7 +48,6 @@ export const subscribeToNewsletter = async (req: Request, res: Response): Promis
         try {
           await sendNewsletterWelcomeEmail(email);
         } catch (emailError) {
-          console.error('Hoş geldin e-postası gönderme hatası:', emailError);
         }
 
         res.status(200).json({
@@ -70,7 +69,6 @@ export const subscribeToNewsletter = async (req: Request, res: Response): Promis
     try {
       await sendNewsletterWelcomeEmail(email);
     } catch (emailError) {
-      console.error('Hoş geldin e-postası gönderme hatası:', emailError);
     }
 
     res.status(201).json({
@@ -79,7 +77,6 @@ export const subscribeToNewsletter = async (req: Request, res: Response): Promis
     });
 
   } catch (error) {
-    console.error('Newsletter subscription error:', error);
     res.status(500).json({
       success: false,
       message: 'Bülten aboneliği sırasında bir hata oluştu'
@@ -132,7 +129,6 @@ export const unsubscribeFromNewsletter = async (req: Request, res: Response): Pr
     });
 
   } catch (error) {
-    console.error('Newsletter unsubscribe error:', error);
     res.status(500).json({
       success: false,
       message: 'Abonelik iptali sırasında bir hata oluştu'
@@ -158,7 +154,6 @@ export const getNewsletterSubscribers = async (req: Request, res: Response): Pro
     });
 
   } catch (error) {
-    console.error('Get newsletter subscribers error:', error);
     res.status(500).json({
       success: false,
       message: 'Abone listesi alınırken bir hata oluştu'

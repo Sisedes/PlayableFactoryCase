@@ -220,8 +220,7 @@ export const orderService = {
     sameAsShipping: boolean;
   }): Promise<ApiResponse<{ order: Order; orderNumber: string }>> {
     try {
-      console.log('createOrderFromCart çağrıldı');
-      console.log('Order data:', orderData);
+    
       
       let token = null;
       if (typeof window !== 'undefined') {
@@ -229,7 +228,6 @@ export const orderService = {
           const { useAuthStore } = await import('@/store/authStore');
           token = useAuthStore.getState().accessToken;
         } catch (error) {
-          console.log('Store token alınamadı, localStorage deneniyor');
         }
         
         if (!token) {
@@ -237,9 +235,7 @@ export const orderService = {
         }
       }
       
-      console.log('Token:', token ? 'Mevcut' : 'Yok');
-      console.log('Token length:', token ? token.length : 0);
-      console.log('Token preview:', token ? `${token.substring(0, 20)}...` : 'Yok');
+
       
       const sessionId = localStorage.getItem('pazarcik_session_id');
       
@@ -251,7 +247,6 @@ export const orderService = {
         }
       });
 
-      console.log('API response:', response.data);
       return {
         success: true,
         message: response.data.message,

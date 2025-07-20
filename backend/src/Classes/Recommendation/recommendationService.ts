@@ -60,7 +60,6 @@ export class RecommendationService {
         );
       }
     } catch (error) {
-      console.error('Popular products calculation error:', error);
     }
   }
 
@@ -158,16 +157,12 @@ export class RecommendationService {
         );
       }
     } catch (error) {
-      console.error('Similar products calculation error:', error);
     }
   }
 
   static async calculateFrequentlyBoughtTogether(productId: string, limit: number = 4): Promise<void> {
     try {
-      console.log('calculateFrequentlyBoughtTogether başladı. Product ID:', productId);
-      
       const thirtyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      console.log('90 gün öncesi tarih:', thirtyDaysAgo);
       
       const ordersWithProduct = await Order.aggregate([
         {
@@ -207,10 +202,7 @@ export class RecommendationService {
         }
       ]);
 
-      console.log('30 günlük analiz sonucu bulunan ürün sayısı:', ordersWithProduct.length);
-
       if (ordersWithProduct.length < limit) {
-        console.log('90 günlük veri yeterli değil, 180 günlük veri aranıyor...');
         const ninetyDaysAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
         
         const additionalOrders = await Order.aggregate([
@@ -250,18 +242,13 @@ export class RecommendationService {
           }
         ]);
 
-        console.log('90 günlük analiz sonucu ek bulunan ürün sayısı:', additionalOrders.length);
-
         const existingIds = new Set(ordersWithProduct.map(p => p._id.toString()));
         const uniqueAdditional = additionalOrders.filter(p => !existingIds.has(p._id.toString()));
         ordersWithProduct.push(...uniqueAdditional);
-        
-        console.log('Birleştirme sonrası toplam ürün sayısı:', ordersWithProduct.length);
       }
 
       if (ordersWithProduct.length > 0) {
         const productIds = ordersWithProduct.map(p => p._id);
-        console.log('Kaydedilecek ürün ID\'leri:', productIds);
         
         await Recommendation.findOneAndUpdate(
           { type: 'frequently_bought', productId: new Types.ObjectId(productId) },
@@ -279,13 +266,8 @@ export class RecommendationService {
           },
           { upsert: true, new: true }
         );
-        
-        console.log('Öneriler veritabanına kaydedildi.');
-      } else {
-        console.log('Hiç birlikte alınan ürün bulunamadı.');
       }
     } catch (error) {
-      console.error('Frequently bought together calculation error:', error);
     }
   }
 
@@ -363,7 +345,6 @@ export class RecommendationService {
         }
       }
     } catch (error) {
-      console.error('Viewed together calculation error:', error);
     }
   }
 
@@ -438,7 +419,6 @@ export class RecommendationService {
         );
       }
     } catch (error) {
-      console.error('Personalized recommendations calculation error:', error);
     }
   }
 
@@ -492,7 +472,6 @@ export class RecommendationService {
 
       return recommendation?.recommendedProducts || [];
     } catch (error) {
-      console.error('Get recommendations error:', error);
       return [];
     }
   }

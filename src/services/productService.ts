@@ -150,12 +150,10 @@ const setCachedData = (key: string, data: any) => {
 
 export const clearProductCache = () => {
   cache.clear();
-  console.log('Product cache cleared');
 };
 
 export const clearProductCacheByKey = (key: string) => {
   cache.delete(key);
-  console.log(`Product cache cleared for key: ${key}`);
 };
 
 export const getPopularProducts = async (limit: number = 8): Promise<ApiResponse<Product[]>> => {

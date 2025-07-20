@@ -13,13 +13,11 @@ export const getPopularProducts = async (req: Request, res: Response): Promise<v
     let products = await RecommendationService.getRecommendations('popular', undefined, limit);
     
     if (products.length === 0) {
-      console.log('Popüler ürünler cache\'de yok, hesaplanıyor...');
       await RecommendationService.calculatePopularProducts(limit);
       products = await RecommendationService.getRecommendations('popular', undefined, limit);
     }
 
     if (products.length === 0) {
-      console.log('Fallback: En çok görüntülenen ürünler getiriliyor...');
       const Product = require('../Product/productModel').default;
       const fallbackProducts = await Product.find({ status: 'active' })
         .sort({ viewCount: -1, averageRating: -1 })
@@ -36,7 +34,6 @@ export const getPopularProducts = async (req: Request, res: Response): Promise<v
       message: 'Popüler ürünler başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Get popular products error:', error);
     res.status(500).json({
       success: false,
       message: 'Popüler ürünler getirilirken hata oluştu'
@@ -57,13 +54,11 @@ export const getSimilarProducts = async (req: Request, res: Response): Promise<v
     let products = await RecommendationService.getRecommendations('similar', productId, limit);
     
     if (products.length === 0) {
-      console.log('Benzer ürünler cache\'de yok, hesaplanıyor...');
       await RecommendationService.calculateSimilarProducts(productId, limit);
       products = await RecommendationService.getRecommendations('similar', productId, limit);
     }
 
     if (products.length === 0) {
-      console.log('Fallback: Aynı kategorideki ürünler getiriliyor...');
       const Product = require('../Product/productModel').default;
       const currentProduct = await Product.findById(productId);
       
@@ -88,7 +83,6 @@ export const getSimilarProducts = async (req: Request, res: Response): Promise<v
       message: 'Benzer ürünler başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Get similar products error:', error);
     res.status(500).json({
       success: false,
       message: 'Benzer ürünler getirilirken hata oluştu'
@@ -106,20 +100,15 @@ export const getFrequentlyBoughtTogether = async (req: Request, res: Response): 
     const { productId } = req.params;
     const limit = parseInt(req.query.limit as string) || 4;
     
-    console.log('Frequently bought together isteniyor. Product ID:', productId, 'Limit:', limit);
     
     let products = await RecommendationService.getRecommendations('frequently_bought', productId, limit);
-    console.log('Cache\'den gelen ürünler:', products.length);
     
     if (products.length === 0) {
-      console.log('Birlikte alınan ürünler cache\'de yok, hesaplanıyor...');
       await RecommendationService.calculateFrequentlyBoughtTogether(productId, limit);
       products = await RecommendationService.getRecommendations('frequently_bought', productId, limit);
-      console.log('Hesaplama sonrası ürünler:', products.length);
     }
 
     if (products.length === 0) {
-      console.log('Fallback: Popüler ürünler getiriliyor...');
       const Product = require('../Product/productModel').default;
       const fallbackProducts = await Product.find({
         _id: { $ne: productId },
@@ -131,17 +120,14 @@ export const getFrequentlyBoughtTogether = async (req: Request, res: Response): 
       .select('name slug price salePrice images category averageRating reviewCount stock viewCount');
       
       products = fallbackProducts;
-      console.log('Fallback ürünler:', products.length);
     }
 
-    console.log('Gönderilen ürün sayısı:', products.length);
     res.status(200).json({
       success: true,
       data: products,
       message: 'Birlikte alınan ürünler başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Get frequently bought together error:', error);
     res.status(500).json({
       success: false,
       message: 'Birlikte alınan ürünler getirilirken hata oluştu'
@@ -172,7 +158,6 @@ export const getViewedTogether = async (req: Request, res: Response): Promise<vo
       message: 'Birlikte görüntülenen ürünler başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Get viewed together error:', error);
     res.status(500).json({
       success: false,
       message: 'Birlikte görüntülenen ürünler getirilirken hata oluştu'
@@ -203,7 +188,6 @@ export const getPersonalizedRecommendations = async (req: Request, res: Response
       message: 'Kişiselleştirilmiş öneriler başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Get personalized recommendations error:', error);
     res.status(500).json({
       success: false,
       message: 'Kişiselleştirilmiş öneriler getirilirken hata oluştu'
@@ -236,7 +220,6 @@ export const getProductRecommendations = async (req: Request, res: Response): Pr
       message: 'Ürün önerileri başarıyla getirildi'
     });
   } catch (error) {
-    console.error('Get product recommendations error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün önerileri getirilirken hata oluştu'
@@ -259,15 +242,7 @@ export const debugOrders = async (req: Request, res: Response): Promise<void> =>
       .limit(10)
       .sort({ createdAt: -1 });
 
-    console.log('Debug - Sipariş durumları:', orders.map((o: any) => ({
-      orderNumber: o.orderNumber,
-      status: o.fulfillment.status,
-      items: o.items.map((item: any) => ({
-        productName: item.product?.name,
-        productId: item.product?._id
-      })),
-      createdAt: o.createdAt
-    })));
+    
 
     res.status(200).json({
       success: true,
@@ -275,7 +250,6 @@ export const debugOrders = async (req: Request, res: Response): Promise<void> =>
       message: 'Debug bilgileri getirildi'
     });
   } catch (error) {
-    console.error('Debug orders error:', error);
     res.status(500).json({
       success: false,
       message: 'Debug bilgileri getirilirken hata oluştu'
@@ -349,7 +323,6 @@ export const calculateRecommendations = async (req: Request, res: Response): Pro
       message: `${type} önerileri başarıyla hesaplandı`
     });
   } catch (error) {
-    console.error('Calculate recommendations error:', error);
     res.status(500).json({
       success: false,
       message: 'Öneri hesaplaması sırasında hata oluştu'

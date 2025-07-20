@@ -20,23 +20,13 @@ export const authenticateToken = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    console.log('=== AUTH MIDDLEWARE START ===');
-    console.log('Request URL:', req.url);
-    console.log('Request method:', req.method);
-    
     const authHeader = req.headers.authorization;
-    console.log('Auth header:', authHeader ? 'Mevcut' : 'Yok');
     
     const token = authHeader && authHeader.startsWith('Bearer ') 
       ? authHeader.substring(7) 
       : null;
 
-    console.log('Token extracted:', token ? 'Mevcut' : 'Yok');
-    console.log('Token length:', token ? token.length : 0);
-    console.log('Token preview:', token ? `${token.substring(0, 20)}...` : 'Yok');
-
     if (!token) {
-      console.log('Token bulunamadı');
       res.status(401).json({
         success: false,
         message: 'Erişim token\'ı gereklidir'
@@ -44,9 +34,7 @@ export const authenticateToken = async (
       return;
     }
 
-    console.log('Token verification başlıyor...');
     const decoded = verifyAccessToken(token);
-    console.log('Token decoded successfully:', decoded);
     
     const user = await User.findById(decoded.userId).select('-password');
     if (!user || !user.isActive) {
@@ -65,7 +53,6 @@ export const authenticateToken = async (
 
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
     res.status(401).json({
       success: false,
       message: 'Geçersiz token'
@@ -187,7 +174,6 @@ export const requireEmailVerification = async (
 
     next();
   } catch (error) {
-    console.error('Email verification check error:', error);
     res.status(500).json({
       success: false,
       message: 'E-posta doğrulama kontrolü sırasında hata oluştu'
@@ -223,12 +209,11 @@ export const optionalAuth = async (
         };
       }
     } catch (tokenError) {
-      console.warn('Invalid optional token:', tokenError);
+      // Invalid optional token
     }
 
     next();
   } catch (error) {
-    console.error('Optional auth error:', error);
     next(); 
   }
 }; 

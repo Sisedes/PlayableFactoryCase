@@ -129,13 +129,6 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Debug için product verilerini yazdır
-  console.log('ReviewModal Product Data:', product);
-  console.log('Product Images:', product.images);
-  console.log('First Image:', product.images?.[0]);
-  console.log('Image Type:', typeof product.images?.[0]);
-  
-  // Güvenli URL oluşturma
   let debugImageUrl = '';
   if (product.images && product.images.length > 0) {
     if (Array.isArray(product.images) && product.images[0] && typeof product.images[0] === 'object' && product.images[0].url) {
@@ -146,7 +139,6 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
       debugImageUrl = product.images;
     }
   }
-  console.log('Debug Image URL:', debugImageUrl);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
@@ -192,7 +184,6 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                       alt={product.name}
                       className="w-full h-full object-cover rounded-md"
                       onError={(e) => {
-                        console.log('Image load error:', imageUrl);
                         e.currentTarget.style.display = 'none';
                       }}
                     />
@@ -226,7 +217,6 @@ const ReviewModal: React.FC<ReviewModalProps> = ({
                     key={star}
                     type="button"
                     onClick={() => {
-                      console.log('Yıldız tıklandı:', star);
                       setRating(star);
                     }}
                     onMouseEnter={() => setHoverRating(star)}

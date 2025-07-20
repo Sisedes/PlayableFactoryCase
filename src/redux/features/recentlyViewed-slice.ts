@@ -60,7 +60,6 @@ const cleanupDuplicateProducts = () => {
     
     if (uniqueProducts.length !== products.length) {
       localStorage.setItem('recentlyViewedProducts', JSON.stringify(uniqueProducts));
-      console.log(`Recently viewed products temizlendi: ${products.length} -> ${uniqueProducts.length} ürün`);
     }
   } catch (error) {
     console.error('Recently viewed products temizlenirken hata:', error);

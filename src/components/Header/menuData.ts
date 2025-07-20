@@ -20,10 +20,4 @@ export const menuData: Menu[] = [
     newTab: false,
     path: "/shop-with-sidebar",
   },
-  {
-    id: 4,
-    title: "İletişim",
-    newTab: false,
-    path: "/contact",
-  },
 ];

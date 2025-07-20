@@ -91,7 +91,6 @@ const ShopDetails = () => {
     openPreviewModal();
   };
 
-  console.log(product);
 
   return (
     <>

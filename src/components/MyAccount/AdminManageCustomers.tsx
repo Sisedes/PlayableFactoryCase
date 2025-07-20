@@ -67,7 +67,6 @@ const AdminManageCustomers = () => {
         hasNextPage: false,
         hasPrevPage: false
       });
-      console.error('Müşteriler yüklenirken hata:', error);
     } finally {
       setCustomersLoading(false);
     }
@@ -89,25 +88,14 @@ const AdminManageCustomers = () => {
 
     setCustomerDetailsLoading(true);
     try {
-      console.log('Müşteri detayları isteniyor:', customerId);
       const response = await getCustomerDetails(customerId, accessToken);
-      console.log('Müşteri detayları yanıtı:', response);
-      console.log('Response.data:', response.data);
-      console.log('Response.data.customer:', response.data?.customer);
-      console.log('Response.data.orders:', response.data?.orders);
       if (response.success) {
-        console.log('SelectedCustomer set ediliyor:', response.data);
-        console.log('Sipariş durumları:', response.data?.orders?.map(order => ({
-          orderNumber: order.orderNumber,
-          status: order.fulfillment?.status
-        })));
         setSelectedCustomer(response.data);
         setCustomerDetailsModal(true);
       } else {
         toast.error(response.message || 'Müşteri detayları yüklenemedi');
       }
     } catch (error) {
-      console.error('Müşteri detayları hatası:', error);
       let errorMessage = 'Müşteri detayları yüklenirken hata oluştu';
       
       if (error instanceof Error) {

@@ -56,18 +56,8 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/categories" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+                <Link href="/shop-with-sidebar" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
                   Kategoriler
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
-                  İletişim
-                </Link>
-              </li>
-              <li>
-                <Link href="/help" className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
-                  Yardım
                 </Link>
               </li>
             </ul>
@@ -110,12 +100,7 @@ const Footer = () => {
               &copy; {year} Pazarcık. Tüm hakları saklıdır.
             </p>
             <div className="flex space-x-4">
-              <Link href="/privacy" className="text-sm text-gray-500 hover:text-blue-600 transition-colors">
-                Gizlilik
-              </Link>
-              <Link href="/terms" className="text-sm text-gray-500 hover:text-blue-600 transition-colors">
-                Şartlar
-              </Link>
+              {/* Gizlilik ve Şartlar linkleri kaldırıldı */}
             </div>
           </div>
         </div>

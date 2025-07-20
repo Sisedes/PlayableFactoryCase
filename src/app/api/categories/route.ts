@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      console.error('Backend response error:', response.status, response.statusText);
       return NextResponse.json(
         { 
           success: false, 
@@ -45,7 +44,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Categories API route error:', error);
     
     return NextResponse.json(
       {

@@ -368,10 +368,10 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
       <Breadcrumb
         title={product.name}
         pages={[
-          { name: "Ürünler", href: "/products" },
+          { name: "Ürünler", href: "/shop-with-sidebar" },
           {
             name: product.category.name,
-            href: `/category/${product.category.slug}`,
+            href: `/shop-with-sidebar?category=${encodeURIComponent(product.category.name)}`,
           },
           { name: product.name },
         ]}

@@ -190,7 +190,6 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
       }
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Dashboard istatistikleri getirilirken hata oluştu'
@@ -393,7 +392,6 @@ export const getAdvancedReports = async (req: Request, res: Response): Promise<v
       data: reportData
     });
   } catch (error) {
-    console.error('Advanced reports error:', error);
     res.status(500).json({
       success: false,
       message: 'Raporlar getirilirken hata oluştu'
@@ -429,7 +427,6 @@ export const bulkCategoryAssignment = async (req: Request, res: Response): Promi
       data: { modifiedCount: result.modifiedCount }
     });
   } catch (error) {
-    console.error('Bulk category assignment error:', error);
     res.status(500).json({
       success: false,
       message: 'Toplu kategori atama sırasında hata oluştu'
@@ -485,7 +482,6 @@ export const bulkPriceUpdate = async (req: Request, res: Response): Promise<void
       data: { modifiedCount: result.modifiedCount }
     });
   } catch (error) {
-    console.error('Bulk price update error:', error);
     res.status(500).json({
       success: false,
       message: 'Toplu fiyat güncelleme sırasında hata oluştu'
@@ -533,7 +529,6 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       data: notifications
     });
   } catch (error) {
-    console.error('Get notifications error:', error);
     res.status(500).json({
       success: false,
       message: 'Bildirimler getirilirken hata oluştu'
@@ -556,7 +551,6 @@ export const updateNotificationSettings = async (req: Request, res: Response): P
       message: 'Bildirim ayarları başarıyla güncellendi'
     });
   } catch (error) {
-    console.error('Update notification settings error:', error);
     res.status(500).json({
       success: false,
       message: 'Bildirim ayarları güncellenirken hata oluştu'

@@ -39,8 +39,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     try {
       await sendVerificationEmail(email, verificationToken, firstName);
     } catch (emailError) {
-      console.error('Email gönderme hatası:', emailError);
-
+      // Email gönderme hatası sessizce geçiriliyor
     }
 
     // JWT token
@@ -79,7 +78,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
-    console.error('Register error:', error);
     res.status(500).json({
       success: false,
       message: 'Kayıt sırasında hata oluştu',
@@ -187,7 +185,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Giriş sırasında hata oluştu',
@@ -210,7 +207,6 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
       message: 'Çıkış başarılı'
     });
   } catch (error) {
-    console.error('Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'Çıkış sırasında hata oluştu'
@@ -260,7 +256,6 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       }
     });
   } catch (error) {
-    console.error('Refresh token error:', error);
     res.status(401).json({
       success: false,
       message: 'Geçersiz refresh token'
@@ -302,7 +297,6 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
       message: 'E-posta adresiniz başarıyla doğrulandı'
     });
   } catch (error) {
-    console.error('Email verification error:', error);
     res.status(500).json({
       success: false,
       message: 'E-posta doğrulama sırasında hata oluştu'
@@ -334,7 +328,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     try {
       await sendPasswordResetCodeEmail(email, resetCode, user.profile.firstName);
     } catch (emailError) {
-      console.error('Password reset code email error:', emailError);
       user.clearPasswordResetCode();
       await user.save();
 
@@ -350,7 +343,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       message: 'Parola sıfırlama kodu e-posta adresinize gönderildi'
     });
   } catch (error) {
-    console.error('Forgot password error:', error);
     res.status(500).json({
       success: false,
       message: 'Parola sıfırlama isteği sırasında hata oluştu'
@@ -390,7 +382,6 @@ export const verifyResetCode = async (req: Request, res: Response): Promise<void
       message: 'Doğrulama kodu başarıyla doğrulandı'
     });
   } catch (error) {
-    console.error('Verify reset code error:', error);
     res.status(500).json({
       success: false,
       message: 'Kod doğrulama sırasında hata oluştu'
@@ -435,7 +426,6 @@ export const resetPasswordWithCode = async (req: Request, res: Response): Promis
       message: 'Parolanız başarıyla güncellendi'
     });
   } catch (error) {
-    console.error('Reset password with code error:', error);
     res.status(500).json({
       success: false,
       message: 'Parola sıfırlama sırasında hata oluştu'
@@ -481,7 +471,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       message: 'Parolanız başarıyla güncellendi'
     });
   } catch (error) {
-    console.error('Reset password error:', error);
     res.status(500).json({
       success: false,
       message: 'Parola sıfırlama sırasında hata oluştu'
@@ -515,7 +504,6 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
-    console.error('Get me error:', error);
     res.status(500).json({
       success: false,
       message: 'Kullanıcı bilgileri alınamadı'
@@ -570,14 +558,12 @@ export const resendVerificationByEmail = async (req: Request, res: Response): Pr
         message: 'Doğrulama e-postası tekrar gönderildi. E-posta kutunuzu kontrol edin.'
       });
     } catch (emailError) {
-      console.error('Email gönderme hatası:', emailError);
       res.status(500).json({
         success: false,
         message: 'E-posta gönderilirken hata oluştu. Lütfen tekrar deneyin.'
       });
     }
   } catch (error) {
-    console.error('Resend verification by email error:', error);
     res.status(500).json({
       success: false,
       message: 'Doğrulama e-postası gönderilirken hata oluştu'
@@ -627,7 +613,6 @@ export const validateToken = async (req: Request, res: Response): Promise<void> 
       }
     });
   } catch (error) {
-    console.error('Token validation error:', error);
     res.status(500).json({
       success: false,
       message: 'Token doğrulama sırasında hata oluştu'

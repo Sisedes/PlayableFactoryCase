@@ -79,10 +79,8 @@ const AdminOrders = () => {
 
   useEffect(() => {
     if (accessToken && isAuthenticated) {
-      console.log('AdminOrders: Auth durumu:', { accessToken: !!accessToken, isAuthenticated, userRole: user?.role });
       loadOrders();
     } else {
-      console.log('AdminOrders: Auth eksik:', { accessToken: !!accessToken, isAuthenticated });
     }
   }, [loadOrders, accessToken, isAuthenticated]);
 

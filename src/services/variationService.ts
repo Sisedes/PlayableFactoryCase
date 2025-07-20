@@ -42,31 +42,16 @@ export const updateProductVariants = async (
   variantImages?: { [key: string]: File }
 ): Promise<VariationResponse> => {
   try {
-    console.log('=== FRONTEND VARIANT UPDATE DEBUG ===');
-    console.log('Product ID:', productId);
-    console.log('Variants count:', variants.length);
-    console.log('Variant images:', variantImages);
-    
     const formData = new FormData();
     
     formData.append('variants', JSON.stringify(variants));
     
     if (variantImages) {
-      console.log('Adding variant images to FormData...');
       Object.entries(variantImages).forEach(([variantIndex, file]) => {
         const fieldName = `variant-${variantIndex}`;
-        console.log(`Adding ${fieldName}:`, file.name, file.size, file.type);
         formData.append(fieldName, file);
       });
-    } else {
-      console.log('No variant images to add');
     }
-
-    console.log('FormData entries:');
-    const entries = Array.from(formData.entries());
-    entries.forEach(([key, value]) => {
-      console.log(`${key}:`, typeof value === 'string' ? value.substring(0, 100) + '...' : value);
-    });
 
     const response = await fetch(`${API_URL}/api/products/${productId}/variants`, {
       method: 'PUT',
@@ -77,8 +62,6 @@ export const updateProductVariants = async (
     });
 
     const data = await response.json();
-    console.log('Response:', data);
-    console.log('=== END FRONTEND VARIANT UPDATE DEBUG ===');
     return data;
   } catch (error) {
     console.error('Update product variants error:', error);

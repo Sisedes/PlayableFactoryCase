@@ -10,17 +10,6 @@ import { Product } from "@/types/product";
 import { getImageUrl } from "@/utils/apiUtils";
 
 const transformApiProductToComponent = (apiProduct: any): Product => {
-  console.log('🔧 Transforming product:', {
-    _id: apiProduct._id,
-    name: apiProduct.name,
-    price: apiProduct.price,
-    salePrice: apiProduct.salePrice,
-    pricing: apiProduct.pricing,
-    images: apiProduct.images,
-    viewCount: apiProduct.viewCount,
-    fullProduct: apiProduct
-  });
-
   const transformed: Product = {
     _id: apiProduct._id || apiProduct.id || Math.random().toString(),
     name: apiProduct.name || '',
@@ -52,7 +41,6 @@ const transformApiProductToComponent = (apiProduct: any): Product => {
     updatedAt: apiProduct.updatedAt || new Date().toISOString()
   };
 
-  console.log('✨ Transformed result:', transformed);
   return transformed;
 };
 
@@ -347,7 +335,7 @@ const ShopWithSidebar = () => {
               : "Ürün Mağazası"
         }
         pages={[
-          { name: "Ürünler", href: "/products" },
+          { name: "Ürünler", href: "/shop-with-sidebar" },
           ...(searchTerm ? [{ name: `"${searchTerm}" araması`, href: `/shop-with-sidebar?search=${encodeURIComponent(searchTerm)}` }] : []),
           ...(selectedCategories.length > 0 && !searchTerm ? [{ name: selectedCategories[0], href: `/shop-with-sidebar?category=${encodeURIComponent(selectedCategories[0])}` }] : [])
         ]}

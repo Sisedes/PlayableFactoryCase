@@ -162,7 +162,6 @@ const Checkout = () => {
 
   useEffect(() => {
     if (selectedShippingAddress) {
-      console.log('Shipping address selected:', selectedShippingAddress);
       setValue('addresses.shipping', {
         firstName: selectedShippingAddress.firstName,
         lastName: selectedShippingAddress.lastName,
@@ -177,7 +176,6 @@ const Checkout = () => {
       });
       
       if (sameAsShipping) {
-        console.log('Updating billing address to match shipping');
         setValue('addresses.billing', {
           firstName: selectedShippingAddress.firstName,
           lastName: selectedShippingAddress.lastName,
@@ -200,7 +198,6 @@ const Checkout = () => {
 
   useEffect(() => {
     if (selectedBillingAddress) {
-      console.log('Billing address selected:', selectedBillingAddress);
       setValue('addresses.billing', {
         firstName: selectedBillingAddress.firstName,
         lastName: selectedBillingAddress.lastName,
@@ -523,15 +520,16 @@ const Checkout = () => {
 
               {/* Sağ Taraf - Sipariş Özeti */}
               <div className="lg:w-96">
-                {/* Order Summary */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-8">
-                  <div className="border-b border-gray-200 px-6 py-4">
-                    <h3 className="font-semibold text-xl text-gray-900">
-                      Siparişiniz
-                    </h3>
-                  </div>
+                <div className="sticky top-8 space-y-6">
+                  {/* Order Summary */}
+                                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-h-[calc(100vh-8rem)]">
+                    <div className="border-b border-gray-200 px-6 py-4">
+                      <h3 className="font-semibold text-xl text-gray-900">
+                        Siparişiniz
+                      </h3>
+                    </div>
 
-                  <div className="p-6">
+                    <div className="p-6 overflow-y-auto max-h-[calc(100vh-12rem)]">
                     {/* Product Items */}
                     <div className="space-y-4 mb-6">
                       {serverCart?.items.map((item, key) => (
@@ -573,7 +571,7 @@ const Checkout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Ara Toplam</span>
                         <span className="font-medium text-gray-900">
-                          {formatPrice(serverCart?.totals.subtotal || 0)}
+                          
                         </span>
                       </div>
 
@@ -623,45 +621,13 @@ const Checkout = () => {
                   </div>
                 )}
 
-                {/* Validation Errors */}
-                {Object.keys(errors).length > 0 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-6">
-                    <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <div>
-                        <p className="text-yellow-800 text-sm font-medium mb-2">Form hataları:</p>
-                        <ul className="text-yellow-700 text-sm space-y-1">
-                          {Object.entries(errors).map(([field, error]) => {
-                            if (error?.message) {
-                              return (
-                                <li key={field}>
-                                  <strong>{field}:</strong> {error.message}
-                                </li>
-                              );
-                            }
-                            if (typeof error === 'object' && error !== null) {
-                              return Object.entries(error).map(([subField, subError]: [string, any]) => (
-                                <li key={`${field}.${subField}`}>
-                                  <strong>{field}.{subField}:</strong> {subError?.message}
-                                </li>
-                              ));
-                            }
-                            return null;
-                          })}
-                        </ul>
-                        <p className="text-yellow-600 text-xs mt-2">Form geçerli değil, lütfen hataları düzeltin.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                
 
                 {/* Checkout Button */}
                 <button
                   type="submit"
                   disabled={submitting || !serverCart || serverCart.items.length === 0}
-                  className="w-full flex justify-center items-center gap-2 font-medium text-white bg-blue-600 py-4 px-6 rounded-xl transition-all duration-200 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                  className="w-full flex justify-center items-center gap-2 font-medium text-white bg-blue py-4 px-6 rounded-xl transition-all duration-200 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                 >
                   {submitting ? (
                     <>
@@ -680,6 +646,7 @@ const Checkout = () => {
                     </>
                   )}
                 </button>
+                </div>
               </div>
             </div>
           </form>

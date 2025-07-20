@@ -107,7 +107,6 @@ export const getAllProducts = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Products fetch error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürünler getirilirken hata oluştu',
@@ -191,7 +190,6 @@ export const getProductById = async (req: Request, res: Response):Promise<void> 
       }
     });
   } catch (error) {
-    console.error('Product by ID error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün detayı getirilirken hata oluştu',
@@ -271,7 +269,6 @@ export const getProductsByCategory = async (req: Request, res: Response):Promise
       data: productsWithSortedImages
     });
   } catch (error) {
-    console.error('Products by category error:', error);
     res.status(500).json({
       success: false,
       message: 'Kategori ürünleri getirilirken hata oluştu',
@@ -387,7 +384,6 @@ export const getPopularProducts = async (req: Request, res: Response) => {
       data: productsWithSortedImages
     });
   } catch (error) {
-    console.error('Popular products error:', error);
     res.status(500).json({
       success: false,
       message: 'Popüler ürünler getirilirken hata oluştu',
@@ -434,7 +430,6 @@ export const getLatestProducts = async (req: Request, res: Response) => {
       data: productsWithSortedImages
     });
   } catch (error) {
-    console.error('Latest products error:', error);
     res.status(500).json({
       success: false,
       message: 'Yeni ürünler getirilirken hata oluştu',
@@ -512,13 +507,6 @@ export const getAllProductsForAdmin = async (req: Request, res: Response) => {
       };
     });
 
-    console.log('Admin ürünleri getirildi:', productsWithSortedImages.length);
-    console.log('İlk ürün örneği:', productsWithSortedImages[0] ? {
-      name: productsWithSortedImages[0].name,
-      variants: productsWithSortedImages[0].variants,
-      variantsCount: productsWithSortedImages[0].variants?.length || 0
-    } : 'Ürün yok');
-
     const totalProducts = await Product.countDocuments(filter);
     const totalPages = Math.ceil(totalProducts / limitNum);
 
@@ -538,7 +526,6 @@ export const getAllProductsForAdmin = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Admin products fetch error:', error);
     res.status(500).json({
       success: false,
       message: 'Admin ürünleri getirilirken hata oluştu',
@@ -610,7 +597,6 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       try {
         parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
       } catch (error) {
-        console.error('Tags parse error:', error);
         parsedTags = [];
       }
     }
@@ -689,8 +675,6 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       data: savedProduct
     });
   } catch (error: any) {
-    console.error('Create product error:', error);
-    
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map((err: any) => err.message);
       res.status(400).json({
@@ -796,7 +780,6 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
       data: updatedProduct
     });
   } catch (error) {
-    console.error('Update product error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün güncellenirken hata oluştu',
@@ -830,7 +813,6 @@ export const deleteProduct = async (req: Request, res: Response): Promise<void> 
       message: 'Ürün başarıyla silindi'
     });
   } catch (error) {
-    console.error('Delete product error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün silinirken hata oluştu',
@@ -854,7 +836,6 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       try {
         updateData.tags = typeof updateData.tags === 'string' ? JSON.parse(updateData.tags) : updateData.tags;
       } catch (error) {
-        console.error('Tags parse error:', error);
         updateData.tags = [];
       }
     }
@@ -863,7 +844,6 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       try {
         updateData.images = typeof updateData.images === 'string' ? JSON.parse(updateData.images) : updateData.images;
       } catch (error) {
-        console.error('Images parse error:', error);
         updateData.images = [];
       }
     }
@@ -878,16 +858,6 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       updateData.stock = parseInt(updateData.stock);
     }
 
-    console.log('=== UPDATE PRODUCT ADMIN DEBUG ===');
-    console.log('Product ID:', id);
-    console.log('Files count:', files ? files.length : 0);
-    console.log('UpdateData keys:', Object.keys(updateData));
-    console.log('UpdateData.images exists:', !!updateData.images);
-    console.log('UpdateData.images type:', typeof updateData.images);
-    if (updateData.images) {
-      console.log('UpdateData.images length:', Array.isArray(updateData.images) ? updateData.images.length : 'Not array');
-    }
-
     const existingProduct = await Product.findById(id);
     if (!existingProduct) {
       return res.status(404).json({
@@ -895,8 +865,6 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
         message: 'Ürün bulunamadı'
       });
     }
-
-    console.log('Existing product images count:', existingProduct.images ? existingProduct.images.length : 0);
 
     if (files && files.length > 0) {
       const newImages = files.map(file => ({
@@ -907,25 +875,16 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
         sortOrder: 0
       }));
 
-      console.log('New images to add:', newImages.length);
-      console.log('New images:', newImages);
-
       if (updateData.images && Array.isArray(updateData.images)) {
-        console.log('Using frontend images + new files');
         updateData.images = [...updateData.images, ...newImages];
       } else {
-        console.log('Using existing images + new files');
         updateData.images = [...(existingProduct.images || []), ...newImages];
       }
     } else {
-      console.log('No new files uploaded');
       if (!updateData.images) {
         updateData.images = existingProduct.images || [];
       }
     }
-
-    console.log('Final images count:', updateData.images ? updateData.images.length : 0);
-    console.log('=== END DEBUG ===');
 
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
@@ -940,8 +899,6 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
     });
     return;
   } catch (error: any) {
-    console.error('Update product admin error:', error);
-    
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map((err: any) => err.message);
       res.status(400).json({
@@ -984,7 +941,6 @@ export const deleteProductAdmin = async (req: Request, res: Response) => {
     });
     return;
   } catch (error) {
-    console.error('Delete product admin error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün silinirken hata oluştu'
@@ -1001,8 +957,6 @@ export const deleteProductAdmin = async (req: Request, res: Response) => {
 export const bulkUpdateProducts = async (req: Request, res: Response) => {
   try {
     const { productIds, action } = req.body;
-
-    console.log('Bulk update request:', { productIds, action });
 
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
       return res.status(400).json({
@@ -1023,12 +977,9 @@ export const bulkUpdateProducts = async (req: Request, res: Response) => {
       try {
         return new mongoose.Types.ObjectId(id);
       } catch (error) {
-        console.error('Invalid ObjectId:', id);
         throw new Error(`Geçersiz ürün ID: ${id}`);
       }
     });
-
-    console.log('Converted ObjectIds:', objectIds);
 
     let result;
     switch (action) {
@@ -1049,8 +1000,6 @@ export const bulkUpdateProducts = async (req: Request, res: Response) => {
         break;
     }
 
-    console.log('Bulk update result:', result);
-
     res.status(200).json({
       success: true,
       message: `${productIds.length} ürün başarıyla ${action === 'delete' ? 'silindi' : action === 'activate' ? 'aktif yapıldı' : 'pasif yapıldı'}`,
@@ -1058,7 +1007,6 @@ export const bulkUpdateProducts = async (req: Request, res: Response) => {
     });
     return;
   } catch (error: any) {
-    console.error('Bulk update products error:', error);
     res.status(500).json({
       success: false,
       message: `Toplu işlem sırasında hata oluştu: ${error.message || 'Bilinmeyen hata'}`
@@ -1088,7 +1036,6 @@ export const testProductImages = async (req: Request, res: Response) => {
       data: productsWithImages
     });
   } catch (error) {
-    console.error('Test product images error:', error);
     res.status(500).json({
       success: false,
       message: 'Test sırasında hata oluştu'
@@ -1138,7 +1085,6 @@ export const deleteProductImage = async (req: Request, res: Response) => {
     });
     return;
   } catch (error) {
-    console.error('Delete product image error:', error);
     res.status(500).json({
       success: false,
       message: 'Resim silinirken hata oluştu'
@@ -1188,7 +1134,6 @@ export const setMainImage = async (req: Request, res: Response) => {
     });
     return;
   } catch (error) {
-    console.error('Set main image error:', error);
     res.status(500).json({
       success: false,
       message: 'Ana resim ayarlanırken hata oluştu'
@@ -1238,7 +1183,6 @@ export const getStockHistory = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Get stock history error:', error);
     res.status(500).json({
       success: false,
       message: 'Stok geçmişi getirilirken hata oluştu'
@@ -1303,7 +1247,6 @@ export const updateStock = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Update stock error:', error);
     res.status(500).json({
       success: false,
       message: 'Stok güncellenirken hata oluştu'
@@ -1374,7 +1317,6 @@ export const getLowStockAlerts = async (req: Request, res: Response): Promise<vo
       }
     });
   } catch (error) {
-    console.error('Get low stock alerts error:', error);
     res.status(500).json({
       success: false,
       message: 'Düşük stok uyarıları getirilirken hata oluştu'
@@ -1497,7 +1439,6 @@ export const getStockStatistics = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Get stock statistics error:', error);
     res.status(500).json({
       success: false,
       message: 'Stok istatistikleri getirilirken hata oluştu'
@@ -1640,31 +1581,22 @@ export const updateProductVariants = async (req: Request, res: Response): Promis
     if (req.files) {
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
-      console.log('=== VARIANT IMAGES DEBUG ===');
-      console.log('Files object keys:', Object.keys(files));
       
       Object.entries(files).forEach(([fieldname, fileArray]) => {
         if (fileArray && fileArray.length > 0) {
           const file = fileArray[0]; 
-          console.log(`Processing file for field: ${fieldname}`, {
-            filename: file.filename,
-            originalname: file.originalname
-          });
+          
           
           if (fieldname.startsWith('variant-')) {
             const variantIndex = parseInt(fieldname.split('-')[1]);
-            console.log('Parsed variant index:', variantIndex);
             
             if (variants[variantIndex]) {
               variants[variantIndex].image = `/uploads/products/${file.filename}`;
-              console.log(`Variant ${variantIndex} image set to:`, variants[variantIndex].image);
             } else {
-              console.log(`Variant ${variantIndex} not found in variants array`);
             }
           }
         }
       });
-      console.log('=== END VARIANT IMAGES DEBUG ===');
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -1679,8 +1611,6 @@ export const updateProductVariants = async (req: Request, res: Response): Promis
       data: updatedProduct
     });
   } catch (error: any) {
-    console.error('Update product variants error:', error);
-    
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map((err: any) => err.message);
       res.status(400).json({
@@ -1724,7 +1654,6 @@ export const getProductVariants = async (req: Request, res: Response): Promise<v
       }
     });
   } catch (error) {
-    console.error('Get product variants error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün varyasyonları getirilirken hata oluştu'
@@ -1802,7 +1731,6 @@ export const updateVariantStock = async (req: Request, res: Response): Promise<v
       }
     });
   } catch (error) {
-    console.error('Update variant stock error:', error);
     res.status(500).json({
       success: false,
       message: 'Varyasyon stoku güncellenirken hata oluştu'
@@ -1841,7 +1769,6 @@ export const incrementProductView = async (req: Request, res: Response): Promise
       }
     });
   } catch (error) {
-    console.error('Increment product view error:', error);
     res.status(500).json({
       success: false,
       message: 'Görüntüleme sayısı artırılırken hata oluştu',
@@ -1932,8 +1859,6 @@ export const createTestVariantProduct = async (req: Request, res: Response): Pro
       data: savedProduct
     });
   } catch (error: any) {
-    console.error('Create test variant product error:', error);
-    
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map((err: any) => err.message);
       res.status(400).json({
@@ -1994,7 +1919,6 @@ export const setProductStockToZero = async (req: Request, res: Response): Promis
       }
     });
   } catch (error) {
-    console.error('Set product stock to zero error:', error);
     res.status(500).json({
       success: false,
       message: 'Ürün stok değeri güncellenirken hata oluştu'
@@ -2072,7 +1996,6 @@ export const getSimilarProducts = async (req: Request, res: Response): Promise<v
       data: productsWithSortedImages
     });
   } catch (error) {
-    console.error('Similar products error:', error);
     res.status(500).json({
       success: false,
       message: 'Benzer ürünler getirilirken hata oluştu',

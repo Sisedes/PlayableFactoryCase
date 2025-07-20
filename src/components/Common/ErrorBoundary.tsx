@@ -48,7 +48,6 @@ class ErrorBoundary extends Component<Props, State> {
     // Otomatik retry mekanizması
     if (this.state.hasError && !prevState.hasError && this.state.retryCount < 3) {
       this.retryTimeout = setTimeout(() => {
-        console.log(`Error boundary retry attempt ${this.state.retryCount + 1}`);
         this.setState({ 
           hasError: false, 
           error: undefined, 
@@ -75,14 +74,11 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   handleReload = () => {
-    // Auth durumunu korumak için localStorage'ı kontrol et
     if (this.props.preserveAuth) {
       const token = localStorage.getItem('authToken');
       const user = localStorage.getItem('authUser');
       
-      if (token && user) {
-        console.log('Auth korunarak sayfa yenileniyor...');
-      }
+      
     }
     
     window.location.reload();

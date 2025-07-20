@@ -154,10 +154,11 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
       <Breadcrumb
         title={categorySlug ? categories.find(cat => cat.slug === categorySlug)?.name || "Kategori" : "Tüm Ürünler"}
         pages={[
-          { name: "Ürünler", href: "/products" },
+          { name: "Ürünler", href: "/shop-with-sidebar" },
           ...(categorySlug ? [
             { 
-              name: categories.find(cat => cat.slug === categorySlug)?.name || "Kategori"
+              name: categories.find(cat => cat.slug === categorySlug)?.name || "Kategori",
+              href: `/shop-with-sidebar?category=${encodeURIComponent(categories.find(cat => cat.slug === categorySlug)?.name || "")}`
             }
           ] : [])
         ]}

@@ -138,9 +138,7 @@ const AdminAddProductForm = () => {
         formData.append('variants', JSON.stringify(data.variants));
       }
 
-      console.log('FormData içeriği:');
       Array.from(formData.entries()).forEach(([key, value]) => {
-        console.log(`${key}:`, value);
       });
 
       const result = await createProduct(formData, accessToken);

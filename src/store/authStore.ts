@@ -95,19 +95,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const storedToken = getStoredToken();
       const storedUser = getStoredUser();
       
-      console.log('Auth initialization başladı:', { 
-        hasToken: !!storedToken, 
-        hasUser: !!storedUser 
-      });
-      
       if (storedToken && isTokenValid(storedToken) && storedUser) {
         set({
           accessToken: storedToken,
           user: storedUser,
           isAuthenticated: true
         });
-        
-        console.log("Local storage'dan auth restore edildi");
         
         try {
           const validation = await validateTokenWithServer(storedToken);
@@ -117,11 +110,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               lastValidation: Date.now()
             });
             setStoredUser(validation.user);
-            console.log("Token validated ve user verileri güncellendi");
             
             get().startTokenValidation();
           } else {
-            console.warn("Token validation failed, clearing auth");
             clearStoredAuth();
             set({
               user: null,
@@ -130,7 +121,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
           }
         } catch (error) {
-          console.warn('Token validation failed during initialization:', error);
           clearStoredAuth();
           set({
             user: null,
@@ -139,7 +129,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
         }
       } else {
-        console.log('Auth verileri bulunamadı veya geçersiz, temizleniyor');
         clearStoredAuth();
         set({
           user: null,
@@ -148,13 +137,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       }
     } catch (error) {
-      console.error('Auth initialization error:', error);
       try {
         const fallbackToken = getStoredToken();
         const fallbackUser = getStoredUser();
         
         if (fallbackToken && fallbackUser) {
-          console.log('Fallback auth restore yapılıyor');
           set({
             accessToken: fallbackToken,
             user: fallbackUser,
@@ -171,7 +158,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
         }
       } catch (fallbackError) {
-        console.error('Fallback auth restore failed:', fallbackError);
         clearStoredAuth();
         set({
           user: null,
@@ -222,7 +208,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           await cartService.mergeCarts(getSessionId());
         } catch (error) {
-          console.warn('Sepet senkronizasyonu başarısız:', error);
+          // Sepet senkronizasyonu başarısız
         }
         
         return { success: true, message: response.message };
@@ -284,7 +270,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       await logoutService();
     } catch (error) {
-      console.error('Logout error:', error);
+      // Logout error
     } finally {
       cartService.clearLocalStorage();
       
@@ -330,7 +316,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         get().logout();
       }
     } catch (error) {
-      console.error('User data refresh error:', error);
       set({ error: 'Kullanıcı bilgileri güncellenemedi' });
     } finally {
       set({ isProfileLoading: false });
@@ -475,12 +460,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         setStoredUser(validation.user);
         return true;
       } else {
-        console.warn('Token validation failed, logging out');
         get().forceLogout();
         return false;
       }
     } catch (error) {
-      console.error('Token validation error:', error);
       get().forceLogout();
       return false;
     }

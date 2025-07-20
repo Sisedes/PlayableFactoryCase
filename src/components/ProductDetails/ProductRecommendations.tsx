@@ -34,26 +34,18 @@ const ProductRecommendations: React.FC<ProductRecommendationsProps> = ({ product
         setLoading(true);
         setError(null);
 
-        console.log('Öneriler getiriliyor... Product ID:', productId);
-
         const response = await getProductRecommendations(productId);
-        console.log('Öneri yanıtı:', response);
         
         if (response.success) {
           setRecommendations(response.data);
-          console.log('Öneriler yüklendi:', response.data);
-        } else {
-          console.log('Öneri yanıtı başarısız:', response.message);
         }
 
         const popularResponse = await getPopularProducts(8);
-        console.log('Popüler ürünler yanıtı:', popularResponse);
         
         if (popularResponse.success) {
           setPopularProducts(popularResponse.data);
         }
       } catch (err) {
-        console.error('Product recommendations fetch error:', err);
         setError('Öneriler yüklenirken hata oluştu');
       } finally {
         setLoading(false);

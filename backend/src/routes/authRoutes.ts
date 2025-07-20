@@ -209,7 +209,6 @@ router.post('/upload-profile-image',
         }
       });
     } catch (error) {
-      console.error('Profile image upload error:', error);
         res.status(500).json({
         success: false,
         message: 'Profil resmi yüklenirken hata oluştu'
@@ -279,14 +278,12 @@ router.post('/resend-verification',
           message: 'Doğrulama e-postası yeniden gönderildi'
         });
       } catch (emailError) {
-        console.error('Verification email error:', emailError);
         res.status(500).json({
           success: false,
           message: 'E-posta gönderilemedi'
         });
       }
     } catch (error) {
-      console.error('Resend verification error:', error);
       res.status(500).json({
         success: false,
         message: 'Doğrulama e-postası gönderilirken hata oluştu'

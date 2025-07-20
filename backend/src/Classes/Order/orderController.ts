@@ -12,11 +12,6 @@ import { sendOrderConfirmationEmail, sendOrderStatusUpdateEmail } from '../../ut
  */
 export const createOrderFromCart = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('=== CREATE ORDER FROM CART START ===');
-    console.log('Create order from cart request body:', req.body);
-    console.log('User from request:', (req as any).user);
-    console.log('Headers:', req.headers);
-    
     const {
       customerInfo,
       addresses,
@@ -27,53 +22,24 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
 
     const userId = (req as any).user?.userId;
     const sessionId = req.cookies?.sessionId || req.headers['x-session-id'] as string;
-    
-    console.log('=== CART LOOKUP DEBUG ===');
-    console.log('UserId:', userId);
-    console.log('SessionId:', sessionId);
-    console.log('Cookies:', req.cookies);
-    console.log('Headers x-session-id:', req.headers['x-session-id']);
-    console.log('All headers:', Object.keys(req.headers));
 
     let cart;
     if (userId) {
-      console.log('Looking for cart by userId:', userId);
       cart = await Cart.findByUser(userId);
-      console.log('Cart found by userId:', cart ? 'Yes' : 'No');
-      if (cart) {
-        console.log('Cart items:', cart.items);
-        console.log('Cart totals:', cart.totals);
-      }
       
       if (!cart && sessionId) {
-        console.log('Cart not found by userId, trying sessionId...');
         cart = await Cart.findBySession(sessionId);
-        console.log('Cart found by sessionId:', cart ? 'Yes' : 'No');
         
         if (cart) {
-          console.log('Linking cart to user...');
           cart.user = userId;
           await cart.save();
-          console.log('Cart linked to user successfully');
         }
       }
     } else if (sessionId) {
-      console.log('Looking for cart by sessionId:', sessionId);
       cart = await Cart.findBySession(sessionId);
-      console.log('Cart found by sessionId:', cart ? 'Yes' : 'No');
-      if (cart) {
-        console.log('Cart items:', cart.items);
-        console.log('Cart totals:', cart.totals);
-      }
     }
-    
-    console.log('Final cart:', cart);
-    console.log('Cart items length:', cart?.items?.length);
 
     if (!cart || cart.items.length === 0) {
-      console.log('Cart is empty or not found');
-      console.log('Cart:', cart);
-      console.log('Cart items:', cart?.items);
       res.status(400).json({
         success: false,
         message: 'Sepet boş'
@@ -115,13 +81,6 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
         lastName: customerInfo.lastName
       },
       items: cart.items.map((item: any) => {
-        console.log('Processing cart item:', {
-          productName: item.product.name,
-          productImages: item.product.images,
-          variantImage: item.variant?.image,
-          finalImage: item.variant?.image || item.product.images?.[0]?.url
-        });
-        
         return {
           product: item.product,
           variant: item.variant,
@@ -180,7 +139,6 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
     
     if (cart.items.length === 0) {
       await Cart.findByIdAndDelete(cart._id);
-      console.log('Cart cleared and deleted from database');
     }
 
     await order.populate('items.product', 'name images price salePrice');
@@ -192,7 +150,7 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
         `${customerInfo.firstName} ${customerInfo.lastName}`
       );
     } catch (emailError) {
-      console.error('Email gönderme hatası:', emailError);
+      // Email gönderme hatası
     }
 
     res.status(201).json({
@@ -204,12 +162,6 @@ export const createOrderFromCart = async (req: Request, res: Response): Promise<
       }
     });
   } catch (error: any) {
-    console.error('=== CREATE ORDER ERROR ===');
-    console.error('Error type:', typeof error);
-    console.error('Error message:', error?.message || 'Unknown error');
-    console.error('Error stack:', error?.stack || 'No stack trace');
-    console.error('Full error object:', JSON.stringify(error, null, 2));
-    
     res.status(500).json({
       success: false,
       message: 'Sipariş oluşturulurken hata oluştu',
@@ -282,7 +234,6 @@ export const processPayment = async (req: Request, res: Response): Promise<void>
       });
     }
   } catch (error) {
-    console.error('Process payment error:', error);
     res.status(500).json({
       success: false,
       message: 'Ödeme işlenirken hata oluştu'
@@ -428,11 +379,10 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
           await sessionCart.clearCart();
           if (sessionCart.items.length === 0) {
             await Cart.findByIdAndDelete(sessionCart._id);
-            console.log('Session cart cleared and deleted from database');
           }
         }
       } catch (cartError) {
-        console.error('Session cart clear error:', cartError);
+        // Session cart clear error
       }
     }
 
@@ -443,7 +393,7 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
         `${customerInfo.firstName} ${customerInfo.lastName}`
       );
     } catch (emailError) {
-      console.error('Email gönderme hatası:', emailError);
+      // Email gönderme hatası
     }
 
     res.status(201).json({
@@ -455,7 +405,6 @@ export const createGuestOrder = async (req: Request, res: Response): Promise<voi
       }
     });
   } catch (error) {
-    console.error('Create guest order error:', error);
     res.status(500).json({
       success: false,
       message: 'Sipariş oluşturulurken hata oluştu'
@@ -495,7 +444,6 @@ export const getMyOrders = async (req: Request, res: Response): Promise<void> =>
       data: orders
     });
   } catch (error) {
-    console.error('Get my orders error:', error);
     res.status(500).json({
       success: false,
       message: 'Siparişler getirilirken hata oluştu'
@@ -529,7 +477,6 @@ export const getOrderByNumber = async (req: Request, res: Response): Promise<voi
       data: order
     });
   } catch (error) {
-    console.error('Get order by number error:', error);
     res.status(500).json({
       success: false,
       message: 'Sipariş getirilirken hata oluştu'
@@ -563,7 +510,6 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       data: order
     });
   } catch (error) {
-    console.error('Get order by ID error:', error);
     res.status(500).json({
       success: false,
       message: 'Sipariş detayı getirilirken hata oluştu'
@@ -594,7 +540,6 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       data: order
     });
   } catch (error) {
-    console.error('Create order error:', error);
     res.status(500).json({
       success: false,
       message: 'Sipariş oluşturulurken hata oluştu'
@@ -653,7 +598,6 @@ export const getAllOrdersAdmin = async (req: Request, res: Response): Promise<vo
       data: orders
     });
   } catch (error) {
-    console.error('Get all orders admin error:', error);
     res.status(500).json({
       success: false,
       message: 'Siparişler getirilirken hata oluştu'
@@ -687,7 +631,6 @@ export const getOrderByIdAdmin = async (req: Request, res: Response): Promise<vo
       data: order
     });
   } catch (error) {
-    console.error('Get order by ID admin error:', error);
     res.status(500).json({
       success: false,
       message: 'Sipariş detayı getirilirken hata oluştu'
@@ -752,7 +695,7 @@ export const updateOrderStatusAdmin = async (req: Request, res: Response): Promi
           notes
         );
       } catch (emailError) {
-        console.error('Durum güncelleme e-postası gönderme hatası:', emailError);
+        // Durum güncelleme e-postası gönderme hatası
       }
     }
 
@@ -762,7 +705,6 @@ export const updateOrderStatusAdmin = async (req: Request, res: Response): Promi
       data: order
     });
   } catch (error) {
-    console.error('Update order status admin error:', error);
     res.status(500).json({
       success: false,
       message: 'Sipariş durumu güncellenirken hata oluştu'

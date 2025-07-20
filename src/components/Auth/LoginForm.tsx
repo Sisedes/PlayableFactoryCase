@@ -53,23 +53,14 @@ const LoginForm = () => {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    console.log('Login işlemi başlıyor...');
     
     const result = await login({
       email: data.email,
       password: data.password
     });
 
-    console.log('Login sonucu:', result);
-    console.log('Auth state sonrası:', {
-      user,
-      isAuthenticated,
-      accessToken: accessToken ? 'exists' : 'null'
-    });
 
     if (result.success) {
-      console.log('Login başarılı, ana sayfaya yönlendiriliyor...');
-      // Login başarılı - ana sayfaya yönlendir
       router.push('/');
     } else {
       console.error('Login başarısız:', result.message);

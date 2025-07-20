@@ -100,7 +100,7 @@ const CartSidebarModal = () => {
             <div className="flex items-center justify-between gap-5 mb-6">
               <p className="font-medium text-xl text-dark">Toplam:</p>
 
-              <p className="font-medium text-xl text-dark">{formatPrice(cartTotal)}</p>
+              <p className="font-medium text-xl text-dark">{formatPrice(serverCart?.totals?.subtotal || 0)}</p>
             </div>
 
             <div className="flex items-center gap-4">

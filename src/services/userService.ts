@@ -143,9 +143,6 @@ export const getAllCustomersForAdmin = async (
 export const getCustomerDetails = async (customerId: string, accessToken: string): Promise<ApiResponse<CustomerDetails>> => {
   try {
     const url = `${API_BASE}/users/admin/customers/${customerId}`;
-    console.log('getCustomerDetails API çağrısı:', url);
-    console.log('Access Token:', accessToken ? 'Mevcut' : 'Yok');
-    console.log('API_BASE:', API_BASE);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); 
@@ -161,23 +158,18 @@ export const getCustomerDetails = async (customerId: string, accessToken: string
 
     clearTimeout(timeoutId);
 
-    console.log('API yanıt durumu:', response.status, response.statusText);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
     if (!response.ok) {
       let errorText = '';
       try {
         errorText = await response.text();
-        console.error('API hata yanıtı (text):', errorText);
       } catch (e) {
-        console.error('Hata yanıtı okunamadı:', e);
+        // Hata yanıtı okunamadı
       }
       
       throw new Error(`HTTP error! status: ${response.status} - ${errorText || response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('API başarılı yanıt:', data);
     return data;
   } catch (error) {
     console.error('getCustomerDetails error:', error);

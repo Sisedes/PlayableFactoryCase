@@ -382,7 +382,7 @@ const Header = () => {
                       Sepet
                     </span>
                     <p className="font-medium text-custom-sm text-dark">
-                      {formatPrice(cartTotal)}
+                      {formatPrice(serverCart?.totals?.subtotal || 0)}
                     </p>
                   </div>
                 </button>
