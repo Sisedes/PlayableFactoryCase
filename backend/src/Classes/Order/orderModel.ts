@@ -216,19 +216,23 @@ orderSchema.index({ createdAt: -1 });
 orderSchema.index({ 'payment.paidAt': -1 });
 
 orderSchema.virtual('customerName').get(function(this: IOrder) {
-  return `${this.customerInfo.firstName} ${this.customerInfo.lastName}`;
+  return this.customerInfo && this.customerInfo.firstName && this.customerInfo.lastName
+    ? `${this.customerInfo.firstName} ${this.customerInfo.lastName}`
+    : 'Bilinmeyen Müşteri';
 });
 
 orderSchema.virtual('itemCount').get(function(this: IOrder) {
-  return this.items.reduce((total: number, item: IOrderItem) => total + item.quantity, 0);
+  return this.items && this.items.length > 0 
+    ? this.items.reduce((total: number, item: IOrderItem) => total + item.quantity, 0)
+    : 0;
 });
 
 orderSchema.virtual('isCompleted').get(function(this: IOrder) {
-  return this.fulfillment.status === 'delivered';
+  return this.fulfillment && this.fulfillment.status === 'delivered';
 });
 
 orderSchema.virtual('isCancelled').get(function(this: IOrder) {
-  return this.fulfillment.status === 'cancelled';
+  return this.fulfillment && this.fulfillment.status === 'cancelled';
 });
 
 orderSchema.pre('save', async function(next) {

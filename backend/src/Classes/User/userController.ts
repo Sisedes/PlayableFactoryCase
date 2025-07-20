@@ -738,72 +738,161 @@ export const getAllCustomersForAdmin = async (req: Request, res: Response) => {
 
 export const getCustomerDetails = async (req: Request, res: Response) => {
   try {
+    console.log('=== getCustomerDetails başladı ===');
+    
+    // Model kontrollerini yap
+    console.log('User model kontrolü:', typeof User);
+    console.log('Order model kontrolü:', typeof Order);
+    console.log('mongoose kontrolü:', typeof mongoose);
+    
     const { customerId } = req.params;
+    console.log('customerId:', customerId);
+    console.log('req.params:', req.params);
+    console.log('req.user:', req.user);
 
-    const customer = await User.findById(customerId)
-      .select('-password')
-      .populate('addresses');
-
-    if (!customer) {
-      return res.status(404).json({
+    // ObjectId geçerliliğini kontrol et
+    if (!mongoose.Types.ObjectId.isValid(customerId)) {
+      console.log('Geçersiz ObjectId:', customerId);
+      return res.status(400).json({
         success: false,
-        message: 'Müşteri bulunamadı'
+        message: 'Geçersiz müşteri ID'
       });
     }
 
-    const customerData = {
-      _id: customer._id,
-      firstName: customer.profile.firstName,
-      lastName: customer.profile.lastName,
-      email: customer.email,
-      phone: customer.profile.phone,
-      isActive: customer.isActive,
-      authentication: customer.authentication,
-      addresses: customer.addresses,
-      createdAt: customer.createdAt,
-      updatedAt: customer.updatedAt
-    };
-
-    const orders = await Order.find({ 
-      'customerInfo.customerId': customerId 
-    })
-    .select('orderNumber createdAt pricing.total fulfillment.status')
-    .sort({ createdAt: -1 })
-    .limit(10);
-
-    const totalOrders = await Order.countDocuments({ 
-      'customerInfo.customerId': customer._id 
-    });
+    console.log('MongoDB bağlantısı kontrol ediliyor...');
     
-    const totalSpent = await Order.aggregate([
-      { $match: { 'customerInfo.customerId': customer._id } },
-      { $group: { _id: null, total: { $sum: '$pricing.total' } } }
-    ]);
+    // MongoDB bağlantısını kontrol et
+    const dbState = mongoose.connection.readyState;
+    console.log('MongoDB bağlantı durumu:', dbState);
+    
+    if (dbState !== 1) {
+      console.error('MongoDB bağlantısı hazır değil. Durum:', dbState);
+      return res.status(500).json({
+        success: false,
+        message: 'Veritabanı bağlantısı hazır değil'
+      });
+    }
 
-    const orderStatusStats = await Order.aggregate([
-      { $match: { 'customerInfo.customerId': customer._id } },
-      { $group: { _id: '$fulfillment.status', count: { $sum: 1 } } }
-    ]);
+    console.log('Müşteri aranıyor...');
+    
+    try {
+      const customer = await User.findById(customerId)
+        .select('-password')
+        .populate('addresses');
 
-    res.status(200).json({
-      success: true,
-      data: {
-        customer: customerData,
-        orders,
-        stats: {
-          totalOrders,
-          totalSpent: totalSpent[0]?.total || 0,
-          orderStatusStats
-        }
+      if (!customer) {
+        console.log('Müşteri bulunamadı:', customerId);
+        return res.status(404).json({
+          success: false,
+          message: 'Müşteri bulunamadı'
+        });
       }
-    });
+
+      console.log('Müşteri bulundu:', customer.email);
+
+      const customerData = {
+        _id: customer._id,
+        firstName: customer.profile.firstName,
+        lastName: customer.profile.lastName,
+        email: customer.email,
+        phone: customer.profile.phone,
+        isActive: customer.isActive,
+        authentication: customer.authentication,
+        addresses: customer.addresses,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt
+      };
+
+      console.log('Siparişler aranıyor...');
+      
+      // Siparişleri güvenli bir şekilde al
+      let orders: any[] = [];
+      let totalOrders = 0;
+      let totalSpent = 0;
+      let orderStatusStats: any[] = [];
+
+      try {
+        // Önce siparişlerin var olup olmadığını kontrol et
+        const orderCount = await Order.countDocuments({ 
+          'customerInfo.customerId': customerId 
+        });
+        
+        console.log('Bu müşteriye ait sipariş sayısı:', orderCount);
+
+        if (orderCount > 0) {
+          orders = await Order.find({ 
+            'customerInfo.customerId': customerId 
+          })
+          .select('orderNumber createdAt pricing.total fulfillment.status')
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .lean(); // Virtual field'ları devre dışı bırak
+
+          console.log('Bulunan sipariş sayısı:', orders.length);
+          console.log('Siparişler:', orders);
+
+          totalOrders = orderCount;
+          
+          const totalSpentResult = await Order.aggregate([
+            { $match: { 'customerInfo.customerId': customerId } },
+            { $group: { _id: null, total: { $sum: '$pricing.total' } } }
+          ]);
+
+          totalSpent = totalSpentResult[0]?.total || 0;
+          console.log('Toplam harcama:', totalSpent);
+
+          orderStatusStats = await Order.aggregate([
+            { $match: { 'customerInfo.customerId': customerId } },
+            { $group: { _id: '$fulfillment.status', count: { $sum: 1 } } }
+          ]);
+
+          console.log('Sipariş durumu istatistikleri:', orderStatusStats);
+        }
+      } catch (orderError) {
+        console.error('Sipariş verilerini alırken hata:', orderError);
+        // Sipariş hatası olsa bile müşteri bilgilerini döndür
+      }
+
+      console.log('Yanıt hazırlanıyor...');
+      const response = {
+        success: true,
+        data: {
+          customer: customerData,
+          orders,
+          stats: {
+            totalOrders,
+            totalSpent,
+            orderStatusStats
+          }
+        }
+      };
+
+      console.log('Yanıt gönderiliyor:', response);
+      res.status(200).json(response);
+      console.log('=== getCustomerDetails tamamlandı ===');
+    } catch (dbError) {
+      console.error('Veritabanı hatası:', dbError);
+      throw dbError;
+    }
   } catch (error) {
     console.error('Get customer details error:', error);
-    res.status(500).json({
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error name:', error instanceof Error ? error.name : 'Unknown');
+    console.error('Error message:', error instanceof Error ? error.message : 'No message');
+    
+    // Development modunda daha detaylı hata bilgisi
+    const errorResponse = {
       success: false,
       message: 'Müşteri detayları getirilirken hata oluştu',
-      error: process.env.NODE_ENV === 'development' ? error : {}
-    });
+      error: process.env.NODE_ENV === 'development' ? {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'No message',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      } : {}
+    };
+    
+    console.error('Error response:', errorResponse);
+    res.status(500).json(errorResponse);
   }
 };
 

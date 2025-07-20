@@ -123,7 +123,7 @@ const retryWithDelay = async <T>(
     } catch (error: any) {
       if (error.message?.includes('429') && i < maxRetries - 1) {
         console.warn(`Rate limit hit, retrying in ${delay}ms... (attempt ${i + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); 
         continue;
       }
       throw error;
@@ -134,7 +134,7 @@ const retryWithDelay = async <T>(
 
 // Cache mekanizması
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 2 * 60 * 1000; // 2 dakika (daha kısa süre)
+const CACHE_DURATION = 2 * 60 * 1000; // 2 dakika
 
 const getCachedData = (key: string) => {
   const cached = cache.get(key);
@@ -148,13 +148,11 @@ const setCachedData = (key: string, data: any) => {
   cache.set(key, { data, timestamp: Date.now() });
 };
 
-// Cache'i temizleme fonksiyonu
 export const clearProductCache = () => {
   cache.clear();
   console.log('Product cache cleared');
 };
 
-// Belirli bir cache key'ini temizleme
 export const clearProductCacheByKey = (key: string) => {
   cache.delete(key);
   console.log(`Product cache cleared for key: ${key}`);
@@ -455,7 +453,6 @@ export const setMainImage = async (productId: string, imageId: string, accessTok
   }
 };
 
-// Stok Yönetimi Fonksiyonları
 
 export const getStockHistory = async (
   productId: string,
@@ -555,15 +552,17 @@ export const getStockStatistics = async (
   }
 };
 
-export const createProduct = async (productData: any, accessToken: string): Promise<ApiResponse<Product>> => {
+export const createProduct = async (productData: FormData | any, accessToken: string): Promise<ApiResponse<Product>> => {
   try {
+    const isFormData = productData instanceof FormData;
+    
     const response = await fetch(`${API_BASE}/products`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' })
       },
-      body: JSON.stringify(productData),
+      body: isFormData ? productData : JSON.stringify(productData),
     });
 
     if (!response.ok) {

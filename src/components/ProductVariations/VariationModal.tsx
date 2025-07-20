@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
 
 export interface IVariantOption {
   name: string;
@@ -121,12 +122,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
   const handleImageChange = (variantIndex: number, file: File) => {
     if (file.size > 5 * 1024 * 1024) {
-      alert('Dosya boyutu 5MB\'dan büyük olamaz');
+      toast.error('Dosya boyutu 5MB\'dan büyük olamaz');
       return;
     }
     
     if (!file.type.startsWith('image/')) {
-      alert('Sadece resim dosyaları kabul edilir');
+      toast.error('Sadece resim dosyaları kabul edilir');
       return;
     }
     
@@ -182,7 +183,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
     });
 
     if (errors.length > 0) {
-      alert('Lütfen aşağıdaki hataları düzeltin:\n' + errors.join('\n'));
+      toast.error('Lütfen aşağıdaki hataları düzeltin:\n' + errors.join('\n'));
       return;
     }
 
@@ -273,7 +274,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Varyasyon Özellikleri */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Varyasyon Özelliği</label>
@@ -297,7 +297,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Fiyat ve Stok */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Normal Fiyat (₺)</label>
@@ -364,7 +363,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Varyasyon Görseli */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Varyasyon Görseli</label>
                       <div 
@@ -404,7 +402,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Varyasyon Seçenekleri */}
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-3">
                         <label className="block text-sm font-medium text-gray-700">Varyasyon Seçenekleri</label>

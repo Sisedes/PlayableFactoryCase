@@ -166,15 +166,14 @@ export class RecommendationService {
     try {
       console.log('calculateFrequentlyBoughtTogether başladı. Product ID:', productId);
       
-      const thirtyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90 güne çıkar
+      const thirtyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       console.log('90 gün öncesi tarih:', thirtyDaysAgo);
       
-      // Bu ürünü alan tüm siparişleri bul
       const ordersWithProduct = await Order.aggregate([
         {
           $match: {
             'items.product': new Types.ObjectId(productId),
-            // Geçici olarak tüm siparişleri kabul et
+            
             // 'fulfillment.status': { $in: ['delivered', 'shipped'] },
             createdAt: { $gte: thirtyDaysAgo }
           }
@@ -210,7 +209,6 @@ export class RecommendationService {
 
       console.log('30 günlük analiz sonucu bulunan ürün sayısı:', ordersWithProduct.length);
 
-      // Eğer yeterli veri yoksa, daha geniş bir zaman aralığında ara
       if (ordersWithProduct.length < limit) {
         console.log('90 günlük veri yeterli değil, 180 günlük veri aranıyor...');
         const ninetyDaysAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
@@ -219,7 +217,6 @@ export class RecommendationService {
           {
             $match: {
               'items.product': new Types.ObjectId(productId),
-              // Geçici olarak tüm siparişleri kabul et
               // 'fulfillment.status': { $in: ['delivered', 'shipped'] },
               createdAt: { $gte: ninetyDaysAgo, $lt: thirtyDaysAgo }
             }
@@ -255,7 +252,6 @@ export class RecommendationService {
 
         console.log('90 günlük analiz sonucu ek bulunan ürün sayısı:', additionalOrders.length);
 
-        // Mevcut ürünlerle birleştir ve tekrarları kaldır
         const existingIds = new Set(ordersWithProduct.map(p => p._id.toString()));
         const uniqueAdditional = additionalOrders.filter(p => !existingIds.has(p._id.toString()));
         ordersWithProduct.push(...uniqueAdditional);

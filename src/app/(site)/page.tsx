@@ -36,8 +36,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pazarcık | Alışverişin Modern Hali",
-    description: "En yeni ürünler, en iyi fırsatlar ve kaliteli hizmet için Pazarcık'a hoş geldiniz",
+  title: "Pazarcık | Alışverişin Modern Hali",
+  description: "En yeni ürünler, en iyi fırsatlar ve kaliteli hizmet için Pazarcık'a hoş geldiniz",
     images: ["/images/hero/hero-01.png"],
   },
   alternates: {

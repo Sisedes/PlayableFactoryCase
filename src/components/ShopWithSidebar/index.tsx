@@ -74,15 +74,12 @@ const ShopWithSidebar = () => {
   const [shouldUpdateUrl, setShouldUpdateUrl] = useState(false);
   const [urlUpdateData, setUrlUpdateData] = useState<{ categories: string[]; search?: string } | null>(null);
 
-  // Zustand store'dan veri ve fonksiyonları al
   const { 
     products, 
     categories,
     productsLoading, 
     categoriesLoading,
     error, 
-    totalProducts,
-    totalPages,
     fetchProducts,
     fetchCategories,
     updateFilters,
@@ -359,7 +356,6 @@ const ShopWithSidebar = () => {
       <section className="overflow-hidden relative pb-12 lg:pb-20 pt-8 lg:pt-16 xl:pt-20 bg-gray-50">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
           <div className="flex gap-6 lg:gap-8">
-            {/* <!-- Sidebar Start --> */}
             <div
               className={`sidebar-content fixed xl:z-1 z-9999 left-0 top-0 xl:translate-x-0 xl:static max-w-[310px] xl:max-w-[280px] w-full ease-out duration-200 ${
                 productSidebar
@@ -401,7 +397,6 @@ const ShopWithSidebar = () => {
 
               <form onSubmit={(e) => e.preventDefault()}>
                 <div className="flex flex-col gap-6">
-                  {/* <!-- Filtreler Başlığı --> */}
                   <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
                     <div className="flex items-center justify-between">
                       <h2 className="font-semibold text-gray-900 text-lg">Filtreler</h2>
@@ -415,11 +410,9 @@ const ShopWithSidebar = () => {
                     </div>
                   </div>
 
-                  {/* <!-- Kategori Filtresi --> */}
                   <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
                     <h3 className="font-semibold text-gray-900 mb-4">Kategoriler</h3>
                     
-                    {/* Seçili Kategoriler */}
                     {selectedCategories.length > 0 && (
                       <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <p className="text-sm text-blue-800 font-medium mb-2">Seçili Kategoriler:</p>
@@ -460,7 +453,6 @@ const ShopWithSidebar = () => {
                     </div>
                   </div>
 
-                  {/* <!-- Fiyat Aralığı Filtresi --> */}
                   <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
                     <h3 className="font-semibold text-gray-900 mb-4">Fiyat Aralığı</h3>
                     <div className="space-y-3">
@@ -479,7 +471,6 @@ const ShopWithSidebar = () => {
                     </div>
                   </div>
 
-                  {/* <!-- Puan Filtresi --> */}
                   <div className="bg-white rounded-xl shadow-lg py-5 px-6 border border-gray-100">
                     <h3 className="font-semibold text-gray-900 mb-4">Puan</h3>
                     <div className="space-y-3">
@@ -500,11 +491,8 @@ const ShopWithSidebar = () => {
                 </div>
               </form>
             </div>
-            {/* <!-- Sidebar End --> */}
 
-            {/* <!-- Content Start --> */}
             <div className="xl:max-w-[870px] w-full">
-              {/* <!-- Arama Sonuçları ve Kategori Başlığı --> */}
               {(searchTerm || selectedCategories.length > 0) && (
                 <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-100">
                   <div className="flex items-center justify-between">
@@ -535,10 +523,8 @@ const ShopWithSidebar = () => {
                 </div>
               )}
 
-              {/* <!-- Üst Bar --> */}
               <div className="rounded-xl bg-white shadow-lg pl-4 pr-4 py-4 mb-6 border border-gray-100">
                 <div className="flex items-center justify-between">
-                  {/* <!-- Sol Taraf --> */}
                   <div className="flex flex-wrap items-center gap-4">
                     <CustomSelect 
                       options={sortOptions} 
@@ -557,7 +543,6 @@ const ShopWithSidebar = () => {
                         )}
                       </p>
                       
-                      {/* Seçili Kategoriler */}
                       {selectedCategories.length > 0 && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500">Kategoriler:</span>
@@ -582,7 +567,6 @@ const ShopWithSidebar = () => {
                     </div>
                   </div>
 
-                  {/* <!-- Sağ Taraf - Görünüm Seçenekleri --> */}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setProductStyle("grid")}
@@ -593,7 +577,6 @@ const ShopWithSidebar = () => {
                           : "text-gray-600 bg-white border-gray-300 hover:border-blue-500 hover:text-blue-600"
                       } flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 hover:shadow-md`}
                     >
-                      {/* Grid SVG */}
                       <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
                         <path d="M2 2h5v5H2V2zM11 2h5v5h-5V2zM2 11h5v5H2v-5zM11 11h5v5h-5v-5z" fill="currentColor"/>
                       </svg>
@@ -608,7 +591,6 @@ const ShopWithSidebar = () => {
                           : "text-gray-600 bg-white border-gray-300 hover:border-blue-500 hover:text-blue-600"
                       } flex items-center justify-center w-10 h-10 rounded-lg border-2 transition-all duration-200 hover:shadow-md`}
                     >
-                      {/* List SVG */}
                       <svg className="fill-current" width="18" height="18" viewBox="0 0 18 18" fill="none">
                         <path d="M2 2h14v2H2V2zM2 7h14v2H2V7zM2 12h14v2H2v-2zM2 17h14v2H2v-2z" fill="currentColor"/>
                       </svg>
@@ -617,7 +599,6 @@ const ShopWithSidebar = () => {
                 </div>
               </div>
 
-              {/* <!-- Ürünler Grid/Liste İçeriği --> */}
               {paginatedProducts.length > 0 ? (
                 <div
                   className={`${
@@ -643,7 +624,7 @@ const ShopWithSidebar = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <p className="text-xl text-gray-500 mb-2">
-                          "{searchTerm}" için ürün bulunamadı.
+                          &quot;{searchTerm}&quot; için ürün bulunamadı.
                         </p>
                         <p className="text-gray-400">
                           Farklı anahtar kelimeler deneyebilir veya kategorileri keşfedebilirsiniz.
@@ -687,9 +668,7 @@ const ShopWithSidebar = () => {
                   )}
                 </div>
               )}
-              {/* <!-- Ürünler İçeriği Sonu --> */}
 
-              {/* <!-- Sayfalama --> */}
               {paginatedProducts.length > 0 && totalFilteredPages > 1 && (
                 <div className="flex justify-center mt-12">
                   <div className="bg-white shadow-lg rounded-xl p-3 border border-gray-100">
@@ -729,9 +708,7 @@ const ShopWithSidebar = () => {
                   </div>
                 </div>
               )}
-              {/* <!-- Sayfalama Sonu --> */}
             </div>
-            {/* <!-- Content End --> */}
           </div>
         </div>
       </section>

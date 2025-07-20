@@ -20,6 +20,7 @@ import { incrementProductView } from "@/services/productService";
 import { useAuth } from "@/store/authStore";
 import { sortProductImages } from "@/utils/apiUtils";
 import ProductRecommendations from "./ProductRecommendations";
+import toast from "react-hot-toast";
 
 interface ProductDetailsProps {
   product: Product;
@@ -220,12 +221,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
   const handleAddToCart = async () => {
     const currentStock = getCurrentStock();
     if (currentStock === 0) {
-      alert("Bu ürün stokta bulunmamaktadır!");
+      toast.error("Bu ürün stokta bulunmamaktadır!");
       return;
     }
 
     if (quantity > currentStock) {
-      alert(
+      toast.error(
         `Bu üründen maksimum ${currentStock} adet sipariş verebilirsiniz. Stok yetersiz!`
       );
       return;
@@ -267,16 +268,16 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
           })
         );
 
-        alert("Ürün sepete eklendi!");
+        toast.success("Ürün sepete eklendi!");
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     } catch (error: any) {
       console.error("Add to cart error:", error);
       if (error.message && error.message.includes("Yetersiz stok")) {
-        alert("Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.");
+        toast.error("Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.");
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     }
   };
@@ -289,7 +290,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
 
   const handleToggleFavorite = async () => {
     if (!accessToken) {
-      alert("Favori eklemek için giriş yapmanız gerekiyor");
+      toast.error("Favori eklemek için giriş yapmanız gerekiyor");
       return;
     }
 
@@ -308,11 +309,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
         setIsFavorite(!isFavorite);
         window.dispatchEvent(new Event("favoriteUpdated"));
       } else {
-        alert(response.message || "İşlem başarısız");
+        toast.error(response.message || "İşlem başarısız");
       }
     } catch (error) {
       console.error("Favori işlemi hatası:", error);
-      alert("İşlem sırasında hata oluştu");
+      toast.error("İşlem sırasında hata oluştu");
     } finally {
       setFavoriteLoading(false);
     }
@@ -379,7 +380,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
       <section className="overflow-hidden relative pb-12 lg:pb-20 pt-8 lg:pt-16 xl:pt-20">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 xl:gap-12">
-            {/* Ürün Görselleri */}
             <div className="lg:w-1/2">
               <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 lg:p-8 relative">
                 <div className="aspect-square relative overflow-hidden rounded-lg bg-gray-50">
@@ -394,7 +394,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   />
                 </div>
 
-                {/* Küçük Görseller - Sadece ürün görselleri için göster */}
                 {!showVariantImage &&
                   product.images &&
                   product.images.length > 1 && (
@@ -424,10 +423,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
               </div>
             </div>
 
-            {/* Ürün Bilgileri */}
             <div className="lg:w-1/2">
               <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
-                {/* Başlık ve İndirim Badge */}
                 <div className="flex items-start justify-between mb-4">
                   <h1 className="font-bold text-xl sm:text-2xl lg:text-3xl text-gray-900 leading-tight">
                     {product.name}
@@ -439,7 +436,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   )}
                 </div>
 
-                {/* Yıldız Değerlendirmesi */}
                 <div className="flex items-center gap-3 mb-4">
                   <StarRating
                     rating={product.averageRating || 0}
@@ -451,7 +447,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   </span>
                 </div>
 
-                {/* Fiyat */}
                 <div className="flex items-center gap-4 mb-6">
                   <span className="text-3xl font-bold text-blue-600">
                     {formatPrice(currentPrice)}
@@ -463,7 +458,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   )}
                 </div>
 
-                {/* Varyasyon Seçenekleri */}
                 {hasVariants && (
                   <div className="mb-6 space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -506,7 +500,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                       </div>
                     </div>
 
-                    {/* Seçilen Varyasyon Bilgisi */}
                     {selectedVariant && (
                       <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="text-sm text-blue-800">
@@ -519,7 +512,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                       </div>
                     )}
 
-                    {/* Orijinal Seçili Bilgisi */}
                     {!selectedVariant && (
                       <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                         <div className="text-sm text-green-800">
@@ -534,7 +526,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   </div>
                 )}
 
-                {/* Stok Durumu ve Görüntüleme Sayısı */}
                 <div className="mb-6 flex items-center gap-4 flex-wrap">
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
@@ -563,7 +554,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   </span>
                 </div>
 
-                {/* Miktar Seçimi */}
                 <div className="flex items-center gap-4 mb-6">
                   <span className="text-sm font-medium text-gray-700">
                     Miktar:
@@ -613,7 +603,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   </div>
                 </div>
 
-                {/* Sepete Ekle Butonu */}
                 <button
                   onClick={handleAddToCart}
                   disabled={!isInStock}
@@ -636,7 +625,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   {isInStock ? "Sepete Ekle" : "Stokta Yok"}
                 </button>
 
-                {/* Favori Butonu */}
                 <button
                   onClick={handleToggleFavorite}
                   disabled={favoriteLoading}
@@ -669,7 +657,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   {isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
                 </button>
 
-                {/* Ürün Açıklaması */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-3 text-gray-900">
                     Ürün Açıklaması
@@ -679,7 +666,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
                   </p>
                 </div>
 
-                {/* Ürün Bilgileri */}
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between py-2 border-b border-gray-100">
                     <span className="text-gray-600">Kategori:</span>
@@ -706,7 +692,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
             </div>
           </div>
 
-          {/* Sekmeler */}
           <div className="mt-12">
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
               <div className="border-b border-gray-200">
@@ -944,7 +929,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ product }) => {
         </div>
       </section>
 
-      {/* Ürün Önerileri */}
       <ProductRecommendations productId={product._id} />
     </>
   );

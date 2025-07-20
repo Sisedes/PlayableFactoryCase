@@ -99,7 +99,7 @@ export const validateForgotPassword: ValidationChain[] = [
 ];
 
 /**
- * Parola sıfırlama doğrulamaları
+ * Parola sıfırlama doğrulamaları (Token ile)
  */
 export const validateResetPassword: ValidationChain[] = [
   body('password')
@@ -115,6 +115,22 @@ export const validateResetPassword: ValidationChain[] = [
       }
       return true;
     })
+];
+
+/**
+ * Kod ile parola sıfırlama doğrulamaları
+ */
+export const validateResetPasswordWithCode: ValidationChain[] = [
+  body('email')
+    .isEmail()
+    .withMessage('Geçerli bir e-posta adresi giriniz')
+    .normalizeEmail(),
+
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Parola en az 6 karakter olmalıdır')
+    .isLength({ max: 128 })
+    .withMessage('Parola 128 karakterden uzun olamaz')
 ];
 
 /**

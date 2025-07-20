@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cartService } from "@/services/cartService";
 import Image from "next/image";
-
+import toast from "react-hot-toast";
 const SingleItem = ({ item, onUpdate }) => {
   const [quantity, setQuantity] = useState(item.quantity);
   const [updating, setUpdating] = useState(false);
@@ -18,7 +18,7 @@ const SingleItem = ({ item, onUpdate }) => {
       }, 100);
     } catch (err) {
       console.error('Ürün kaldırılırken hata:', err);
-      alert('Ürün kaldırılırken hata oluştu. Lütfen tekrar deneyin.');
+      toast.error('Ürün kaldırılırken hata oluştu. Lütfen tekrar deneyin.');
     }
   }, [item._id, onUpdate]);
 
@@ -34,7 +34,7 @@ const SingleItem = ({ item, onUpdate }) => {
     }
     
     if (newQuantity > maxStock) {
-      alert(`Bu üründen maksimum ${maxStock} adet sipariş verebilirsiniz. Stok yetersiz!`);
+      toast(`Bu üründen maksimum ${maxStock} adet sipariş verebilirsiniz. Stok yetersiz!`);
       return;
     }
     
@@ -52,9 +52,9 @@ const SingleItem = ({ item, onUpdate }) => {
     } catch (err: any) {
       console.error('Miktar güncellenirken hata:', err);
       if (err.message && err.message.includes('Yetersiz stok')) {
-        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+        toast.error('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
       } else {
-        alert('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
+        toast.error('Miktar güncellenirken hata oluştu. Lütfen tekrar deneyin.');
       }
       setQuantity(item.quantity); 
     } finally {

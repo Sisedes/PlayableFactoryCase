@@ -160,6 +160,73 @@ export const sendPasswordResetEmail = async (
   await transporter.sendMail(mailOptions);
 };
 
+export const sendPasswordResetCodeEmail = async (
+  email: string, 
+  code: string, 
+  firstName: string
+): Promise<void> => {
+  const mailOptions = {
+    from: {
+      name: 'Pazarcık | Alışverişin Model Hali',
+      address: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@example.com'
+    },
+    to: email,
+    subject: 'Parola Sıfırlama Kodu',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Parola Sıfırlama Kodu</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <div style="padding: 40px 30px; text-align: center; background-color: #2563eb;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Parola Sıfırlama Kodu</h1>
+          </div>
+          <div style="padding: 40px 30px;">
+            <p style="font-size: 16px; color: #333333; margin: 0 0 20px 0;">
+              Merhaba ${firstName},
+            </p>
+            <p style="font-size: 16px; color: #333333; line-height: 1.6; margin: 0 0 30px 0;">
+              Hesabınız için parola sıfırlama talebinde bulundunuz. Aşağıdaki 6 haneli kodu kullanarak 
+              yeni parolanızı belirleyebilirsiniz.
+            </p>
+            <div style="text-align: center; margin: 30px 0;">
+              <div style="display: inline-block; padding: 20px 40px; background-color: #f8f9fa; border: 2px solid #2563eb; border-radius: 10px;">
+                <p style="font-size: 14px; color: #666666; margin: 0 0 10px 0; font-weight: bold;">Doğrulama Kodu</p>
+                <p style="font-size: 32px; color: #2563eb; margin: 0; font-weight: bold; letter-spacing: 8px; font-family: monospace;">${code}</p>
+              </div>
+            </div>
+            <p style="font-size: 14px; color: #666666; margin: 30px 0 0 0;">
+              Bu kod 5 dakika içinde geçerliliğini yitirecektir.
+            </p>
+            <div style="padding: 20px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; margin: 30px 0 0 0;">
+              <p style="font-size: 14px; color: #333333; margin: 0; font-weight: bold;">
+                Güvenlik Uyarısı
+              </p>
+              <p style="font-size: 13px; color: #666666; margin: 10px 0 0 0;">
+                Bu kodu kimseyle paylaşmayın. Eğer bu parola sıfırlama talebini siz yapmadıysanız, 
+                hesabınızın güvenliği için derhal bizimle iletişime geçin.
+              </p>
+            </div>
+          </div>
+          <div style="padding: 20px 30px; background-color: #f8f9fa; border-top: 1px solid #dee2e6;">
+            <p style="font-size: 12px; color: #6c757d; margin: 0; text-align: center;">
+              Bu e-postayı size gönderme sebebimiz parola sıfırlama talebinde bulunmanızdır.
+              Eğer bu işlemi siz yapmadıysanız, lütfen hesabınızın güvenliği için bizimle iletişime geçin.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 export const sendNotificationEmail = async (
   email: string,
   subject: string,

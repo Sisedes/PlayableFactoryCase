@@ -10,11 +10,15 @@ import { useAuth } from "@/store/authStore";
 import { useCart } from "@/hooks/useCart";
 import Image from "next/image";
 import { getFavoriteProducts } from "@/services/favoriteService";
+import { getAllCategories } from "@/services/categoryService";
+import { Category } from "@/types";
 
 const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [stickyMenu, setStickyMenu] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const { openCartModal, refreshCart: refreshCartFromContext } = useCartModalContext();
   const router = useRouter();
 
@@ -56,6 +60,27 @@ const Header = () => {
       window.removeEventListener('favoriteUpdated', handleFavoriteUpdate);
     };
   }, [accessToken]);
+
+  // Kategorileri yükle
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setCategoriesLoading(true);
+        const response = await getAllCategories();
+        if (response.success) {
+          // Sadece aktif kategorileri göster
+          const activeCategories = response.data.filter(cat => cat.isActive);
+          setCategories(activeCategories);
+        }
+      } catch (error) {
+        console.error('Kategoriler yüklenirken hata:', error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('tr-TR', {
@@ -423,8 +448,30 @@ const Header = () => {
               {/* <!-- Main Nav Start --> */}
               <nav>
                 <ul className="flex xl:items-center flex-col xl:flex-row gap-4 xl:gap-4">
-                  {menuData.map((menuItem, i) =>
-                    menuItem.submenu ? (
+                  {menuData.map((menuItem, i) => {
+                    // Kategoriler menüsü için özel işlem
+                    if (menuItem.title === "Kategoriler") {
+                      const categoriesMenu = {
+                        ...menuItem,
+                        submenu: categories.map(cat => ({
+                          id: cat._id,
+                          title: cat.name,
+                          newTab: false,
+                          path: `/shop-with-sidebar?category=${encodeURIComponent(cat.name)}`
+                        }))
+                      };
+                      
+                      return (
+                        <Dropdown
+                          key={i}
+                          menuItem={categoriesMenu}
+                          stickyMenu={stickyMenu}
+                          loading={categoriesLoading}
+                        />
+                      );
+                    }
+                    
+                    return menuItem.submenu ? (
                       <Dropdown
                         key={i}
                         menuItem={menuItem}
@@ -444,8 +491,8 @@ const Header = () => {
                           {menuItem.title}
                         </Link>
                       </li>
-                    )
-                  )}
+                    );
+                  })}
                 </ul>
               </nav>
               {/* //   <!-- Main Nav End --> */}

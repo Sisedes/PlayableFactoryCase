@@ -2,7 +2,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
-const Dropdown = ({ menuItem, stickyMenu }) => {
+const Dropdown = ({ menuItem, stickyMenu, loading = false }) => {
   const [dropdownToggler, setDropdownToggler] = useState(false);
   const pathUrl = usePathname();
 
@@ -37,7 +37,7 @@ const Dropdown = ({ menuItem, stickyMenu }) => {
         </svg>
       </a>
 
-      {/* <!-- Dropdown Start --> */}
+            {/* <!-- Dropdown Start --> */}
       <ul
         className={`dropdown ${dropdownToggler && "flex"} ${
           stickyMenu
@@ -45,18 +45,28 @@ const Dropdown = ({ menuItem, stickyMenu }) => {
             : "xl:group-hover:translate-y-0"
         }`}
       >
-        {menuItem.submenu.map((item, i) => (
-          <li key={i}>
-            <Link
-              href={item.path}
-              className={`flex text-custom-sm hover:text-blue hover:bg-gray-1 py-[7px] px-4.5 ${
-                pathUrl === item.path && "text-blue bg-gray-1"
-              } `}
-            >
-              {item.title}
-            </Link>
+        {loading ? (
+          <li className="flex text-custom-sm py-[7px] px-4.5 text-gray-500">
+            Yükleniyor...
           </li>
-        ))}
+        ) : menuItem.submenu && menuItem.submenu.length > 0 ? (
+          menuItem.submenu.map((item, i) => (
+            <li key={i}>
+              <Link
+                href={item.path}
+                className={`flex text-custom-sm hover:text-blue hover:bg-gray-1 py-[7px] px-4.5 ${
+                  pathUrl === item.path && "text-blue bg-gray-1"
+                } `}
+              >
+                {item.title}
+              </Link>
+            </li>
+          ))
+        ) : (
+          <li className="flex text-custom-sm py-[7px] px-4.5 text-gray-500">
+            Kategori bulunamadı
+          </li>
+        )}
       </ul>
     </li>
   );

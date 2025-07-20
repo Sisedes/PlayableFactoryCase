@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../Classes/User/userModel';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../config/jwt';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/emailService';
+import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordResetCodeEmail } from '../utils/emailService';
 import crypto from 'crypto';
 
 /**
@@ -323,20 +323,19 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     if (!user) {
       res.status(200).json({
         success: true,
-        message: 'Eğer bu e-posta adresi sistemimizde kayıtlıysa, parola sıfırlama linki gönderilmiştir'
+        message: 'Eğer bu e-posta adresi sistemimizde kayıtlıysa, parola sıfırlama kodu gönderilmiştir'
       });
       return;
     }
 
-    const resetToken = user.createPasswordResetToken();
+    const resetCode = user.createPasswordResetCode();
     await user.save();
 
     try {
-      await sendPasswordResetEmail(email, resetToken, user.profile.firstName);
+      await sendPasswordResetCodeEmail(email, resetCode, user.profile.firstName);
     } catch (emailError) {
-      console.error('Password reset email error:', emailError);
-      user.authentication.passwordResetToken = '';
-      user.authentication.passwordResetExpires = null;
+      console.error('Password reset code email error:', emailError);
+      user.clearPasswordResetCode();
       await user.save();
 
       res.status(500).json({
@@ -348,13 +347,98 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({
       success: true,
-      message: 'Parola sıfırlama linki e-posta adresinize gönderildi'
+      message: 'Parola sıfırlama kodu e-posta adresinize gönderildi'
     });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({
       success: false,
       message: 'Parola sıfırlama isteği sırasında hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/auth/verify-reset-code
+ * @access  
+ */
+export const verifyResetCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, code } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+authentication.passwordResetCode +authentication.passwordResetCodeExpires');
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+      return;
+    }
+
+    const isValid = user.verifyPasswordResetCode(code);
+    if (!isValid) {
+      res.status(400).json({
+        success: false,
+        message: 'Geçersiz veya süresi dolmuş doğrulama kodu'
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Doğrulama kodu başarıyla doğrulandı'
+    });
+  } catch (error) {
+    console.error('Verify reset code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Kod doğrulama sırasında hata oluştu'
+    });
+  }
+};
+
+/**
+ * @desc    
+ * @route   post /api/auth/reset-password
+ * @access  
+ */
+export const resetPasswordWithCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+authentication.passwordResetCode +authentication.passwordResetCodeExpires');
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+      return;
+    }
+
+    if (!user.authentication.passwordResetCode) {
+      res.status(400).json({
+        success: false,
+        message: 'Önce doğrulama kodunu girmelisiniz'
+      });
+      return;
+    }
+
+    user.password = password;
+    user.clearPasswordResetCode();
+    user.authentication.loginAttempts = 0;
+    user.authentication.lockUntil = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Parolanız başarıyla güncellendi'
+    });
+  } catch (error) {
+    console.error('Reset password with code error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Parola sıfırlama sırasında hata oluştu'
     });
   }
 };

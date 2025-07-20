@@ -7,9 +7,9 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
-import { getImageUrl } from "@/utils/apiUtils";
 import { cartService } from "@/services/cartService";
 import StarRating from './StarRating';
+import toast from "react-hot-toast";
 
 const QuickViewModal = () => {
   const { isOpen, closeModal, product } = useModalContext();
@@ -52,9 +52,8 @@ const QuickViewModal = () => {
   const handleAddToCart = async () => {
     if (!product) return;
     
-    // Stok kontrolü
     if (product.stock === 0) {
-      alert("Bu ürün stokta bulunmamaktadır!");
+      ("Bu ürün stokta bulunmamaktadır!");
       return;
     }
     
@@ -80,24 +79,23 @@ const QuickViewModal = () => {
           })
         );
         
-        alert("Ürün sepete eklendi!");
+        toast.success("Ürün sepete eklendi!");
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     } catch (error: any) {
       console.error('Add to cart error:', error);
-      // Hata mesajını kontrol et
       if (error.message && error.message.includes('Yetersiz stok')) {
-        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+        toast.error('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     }
   };
 
   const handleToggleFavorite = async () => {
     if (!accessToken || !product?._id) {
-      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      toast.error('Favori eklemek için giriş yapmanız gerekiyor');
       return;
     }
 
@@ -114,11 +112,11 @@ const QuickViewModal = () => {
         setIsFavorite(!isFavorite);
         window.dispatchEvent(new Event('favoriteUpdated'));
       } else {
-        alert(response.message || 'İşlem başarısız');
+        toast.error(response.message || 'İşlem başarısız');
       }
     } catch (error) {
       console.error('Favori işlemi hatası:', error);
-      alert('İşlem sırasında hata oluştu');
+      toast.error('İşlem sırasında hata oluştu');
     } finally {
       setFavoriteLoading(false);
     }

@@ -14,6 +14,7 @@ import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/serv
 import { getImageUrl, sortProductImages } from "@/utils/apiUtils";
 import { cartService } from "@/services/cartService";
 import StarRating from './StarRating';
+import toast from "react-hot-toast";
 
 const ProductItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
@@ -39,7 +40,7 @@ const ProductItem = ({ item }: { item: Product }) => {
 
   const handleAddToCart = async () => {
     if (item.stock === 0 || item.stock === undefined || item.stock === null) {
-      alert("Bu ürün stokta bulunmamaktadır!");
+      toast.error("Bu ürün stokta bulunmamaktadır!");
       return;
     }
     
@@ -65,16 +66,16 @@ const ProductItem = ({ item }: { item: Product }) => {
           })
         );
         
-        alert("Ürün sepete eklendi!");
+        toast.success("Ürün sepete eklendi!");
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     } catch (error: any) {
       console.error('Add to cart error:', error);
       if (error.message && error.message.includes('Yetersiz stok')) {
-        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+        toast.error('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     }
   };
@@ -102,7 +103,7 @@ const ProductItem = ({ item }: { item: Product }) => {
 
   const handleToggleFavorite = async () => {
     if (!accessToken) {
-      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      toast('Favori eklemek için giriş yapmanız gerekiyor');
       return;
     }
 
@@ -121,11 +122,11 @@ const ProductItem = ({ item }: { item: Product }) => {
         setIsFavorite(!isFavorite);
         window.dispatchEvent(new Event('favoriteUpdated'));
       } else {
-        alert(response.message || 'İşlem başarısız');
+        toast.error(response.message || 'İşlem başarısız');
       }
     } catch (error) {
       console.error('Favori işlemi hatası:', error);
-      alert('İşlem sırasında hata oluştu');
+      toast.error('İşlem sırasında hata oluştu');
     } finally {
       setFavoriteLoading(false);
     }
@@ -220,8 +221,8 @@ const ProductItem = ({ item }: { item: Product }) => {
             disabled={!isInStock}
             className={`inline-flex font-medium text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg ease-out duration-200 transition-colors ${
               isInStock 
-                ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                ? 'bg-blue text-white hover:bg-blue' 
+                : 'bg-red text-white cursor-not-allowed'
             }`}
           >
             {isInStock ? 'Sepete Ekle' : 'Stokta Yok'}
@@ -233,7 +234,7 @@ const ProductItem = ({ item }: { item: Product }) => {
             aria-label="Favorilere ekle"
             className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg shadow-lg ease-out duration-200 transition-colors ${
               isFavorite 
-                ? 'text-red-500 bg-red-50 hover:text-red-600 hover:bg-red-100' 
+                ? 'text-red-500 bg-white hover:text-red hover:bg-red-100' 
                 : 'text-gray-700 bg-white hover:text-blue-600 hover:bg-blue-50'
             } ${favoriteLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >

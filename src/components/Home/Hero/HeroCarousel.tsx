@@ -29,7 +29,6 @@ const HeroCarousal = () => {
       console.error('Featured products fetch error:', error);
       const errorMessage = handleApiError(error, 'Popüler ürünler yüklenirken hata oluştu');
       setError(errorMessage);
-      // Fallback olarak boş array kullan
       setFeaturedProducts([]);
     } finally {
       setLoading(false);

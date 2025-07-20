@@ -6,13 +6,13 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
 import { updateQuickView } from "@/redux/features/quickView-slice";
 import { addItemToCart } from "@/redux/features/cart-slice";
-import { updateproductDetails } from "@/redux/features/product-details";
 import Image from "next/image";
 import Link from "next/link";
 import { cartService } from "@/services/cartService";
 import StarRating from '../../Common/StarRating';
 import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
+import toast from "react-hot-toast";
 
 const SingleItem = ({ item }: { item: Product }) => {
   const { openModal } = useModalContext();
@@ -37,7 +37,7 @@ const SingleItem = ({ item }: { item: Product }) => {
 
   const handleAddToCart = async () => {
     if (item.stock === 0 || item.stock === undefined || item.stock === null) {
-      alert("Bu ürün stokta bulunmamaktadır!");
+      ("Bu ürün stokta bulunmamaktadır!");
       return;
     }
     
@@ -63,23 +63,23 @@ const SingleItem = ({ item }: { item: Product }) => {
           })
         );
         
-        alert("Ürün sepete eklendi!");
+        toast.success("Ürün sepete eklendi!");
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     } catch (error: any) {
       console.error('Add to cart error:', error);
       if (error.message && error.message.includes('Yetersiz stok')) {
-        alert('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
+        toast.error('Stok yetersiz! Bu üründen daha fazla sipariş veremezsiniz.');
       } else {
-        alert("Ürün sepete eklenirken hata oluştu!");
+        toast.error("Ürün sepete eklenirken hata oluştu!");
       }
     }
   };
 
   const handleToggleFavorite = async () => {
     if (!accessToken) {
-      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      toast('Favori eklemek için giriş yapmanız gerekiyor');
       return;
     }
 
@@ -98,11 +98,11 @@ const SingleItem = ({ item }: { item: Product }) => {
         setIsFavorite(!isFavorite);
         window.dispatchEvent(new Event('favoriteUpdated'));
       } else {
-        alert(response.message || 'İşlem başarısız');
+        toast.error(response.message || 'İşlem başarısız');
       }
     } catch (error) {
       console.error('Favori işlemi hatası:', error);
-      alert('İşlem sırasında hata oluştu');
+      toast.error('İşlem sırasında hata oluştu');
     } finally {
       setFavoriteLoading(false);
     }

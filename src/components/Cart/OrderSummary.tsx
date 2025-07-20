@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { cartService, type Cart as CartType } from "@/services/cartService";
 import Link from "next/link";
 import { useCart } from "@/hooks/useCart";
+import toast from "react-hot-toast";
 
 const OrderSummary = () => {
   const { cart: serverCart, loading, refreshCart } = useCart();
@@ -55,9 +56,10 @@ const OrderSummary = () => {
         }
         
         refreshCart();
+        toast.success('Kupon kodu başarıyla uygulandı!');
       }
     } catch (error: any) {
-      alert(error.message || 'Kupon kodu uygulanırken hata oluştu!');
+      toast.error(error.message || 'Kupon kodu uygulanırken hata oluştu!');
     } finally {
       setApplyingCoupon(false);
     }
@@ -72,9 +74,10 @@ const OrderSummary = () => {
         setDiscountPercentage(0);
         
         refreshCart();
+        toast.success('Kupon kodu kaldırıldı!');
       }
     } catch (error: any) {
-      alert(error.message || 'Kupon kaldırılırken hata oluştu!');
+      toast.error(error.message || 'Kupon kaldırılırken hata oluştu!');
     }
   };
 
@@ -92,8 +95,11 @@ const OrderSummary = () => {
       return (
         <button
           disabled
-          className="w-full flex justify-center font-medium text-white bg-gray-400 py-3 px-6 rounded-md cursor-not-allowed mt-7.5"
+          className="w-full flex justify-center items-center font-medium text-white bg-gray-400 py-3 px-6 rounded-lg cursor-not-allowed mt-6 transition-colors"
         >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
           Tükendi Ürünler Var
         </button>
       );
@@ -102,8 +108,11 @@ const OrderSummary = () => {
     return (
       <Link
         href="/checkout"
-        className="w-full flex justify-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark mt-7.5"
+        className="w-full flex justify-center items-center font-medium text-white bg-blue-600 py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors mt-6"
       >
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+        </svg>
         Ödemeye Geç
       </Link>
     );
@@ -111,10 +120,10 @@ const OrderSummary = () => {
 
   if (loading) {
     return (
-      <div className="lg:max-w-[455px] w-full">
-        <div className="bg-white shadow-1 rounded-[10px]">
+      <div className="w-full">
+        <div className="bg-white shadow-sm rounded-xl border border-gray-200">
           <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         </div>
       </div>
@@ -122,190 +131,134 @@ const OrderSummary = () => {
   }
 
   return (
-    <div className="lg:max-w-[455px] w-full">
-      {/* <!-- order list box --> */}
-      <div className="bg-white shadow-1 rounded-[10px]">
-        <div className="border-b border-gray-3 py-5 px-4 sm:px-8.5">
-          <h3 className="font-medium text-xl text-dark">Sipariş Özeti</h3>
+    <div className="w-full">
+      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+          <h3 className="font-semibold text-lg text-gray-900">Sipariş Özeti</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {items.length} ürün
+          </p>
         </div>
 
-        <div className="pt-2.5 pb-8.5 px-4 sm:px-8.5">
-          {/* <!-- title --> */}
-          <div className="flex items-center justify-between py-5 border-b border-gray-3">
-            <div>
-              <h4 className="font-medium text-dark">Ürün</h4>
-            </div>
-            <div>
-              <h4 className="font-medium text-dark text-right">Ara Toplam</h4>
-            </div>
-          </div>
-
-          {/* <!-- product items --> */}
-          {items.map((item: any, key: number) => (
-            <div key={key} className="flex items-center justify-between py-5 border-b border-gray-3">
-              <div className="flex-1">
-                <p className="text-dark text-sm">
-                  {item.product?.name || item.title || item.name}
-                </p>
-                {item.variant && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {(() => {
-                      if (item.product?.variants) {
-                        const variant = item.product.variants.find((v: any) => v._id === item.variant);
-                        return variant?.name || 'Varyasyon';
-                      }
-                      return 'Varyasyon';
-                    })()}
+        <div className="p-6">
+          <div className="space-y-4 mb-6">
+            {items.map((item: any, key: number) => (
+              <div key={key} className="flex items-start justify-between py-3 border-b border-gray-100 last:border-b-0">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {item.product?.name || item.title || item.name}
                   </p>
-                )}
-                <p className="text-xs text-gray-400">
-                  Miktar: {item.quantity}
-                </p>
+                  {item.variant && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {(() => {
+                        if (item.product?.variants) {
+                          const variant = item.product.variants.find((v: any) => v._id === item.variant);
+                          return variant?.name || 'Varyasyon';
+                        }
+                        return 'Varyasyon';
+                      })()}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Miktar: {item.quantity}
+                  </p>
+                </div>
+                <div className="ml-4 flex-shrink-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatPrice(item.total || 0)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-dark text-right font-medium">
-                  {formatPrice(item.total || 0)}
-                </p>
-              </div>
-            </div>
-          ))}
-
-          {/* <!-- subtotal --> */}
-          <div className="flex items-center justify-between py-3 border-b border-gray-3">
-            <div>
-              <p className="text-dark">Ara Toplam</p>
-            </div>
-            <div>
-              <p className="text-dark text-right">
-                {formatPrice(subtotal)}
-              </p>
-            </div>
+            ))}
           </div>
 
-          {/* <!-- discount --> */}
-          {totalDiscount > 0 && (
-            <div className="flex items-center justify-between py-3 border-b border-gray-3">
-              <div className="flex items-center gap-2">
-                <p className="text-green-600">İndirim</p>
-                {discountCode && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                    {discountCode}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">Ara Toplam</span>
+              <span className="text-sm font-medium text-gray-900">
+                {formatPrice(subtotal)}
+              </span>
+            </div>
+
+            {totalDiscount > 0 && (
+              <div className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-green-600 font-medium">İndirim</span>
+                  {discountCode && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                      {discountCode}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-green-600 font-medium">
+                    -{formatPrice(totalDiscount)}
+                  </span>
+                  {discountCode && (
+                    <button
+                      onClick={removeDiscountCode}
+                      className="text-red-500 hover:text-red-700 text-xs p-1 rounded-full hover:bg-red-50 transition-colors"
+                      title="Kuponu kaldır"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {totalDiscount > 0 && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-gray-600">İndirimli Ara Toplam</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {formatPrice(subtotalAfterDiscount)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-600">KDV (%18)</span>
+              <span className="text-sm font-medium text-gray-900">
+                {formatPrice(tax)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="text-sm text-gray-600">Kargo</span>
+                {subtotalAfterDiscount >= 1000 && (
+                  <p className="text-xs text-green-600 mt-1">1000 TL üstü ücretsiz!</p>
+                )}
+              </div>
+              <div className="text-right">
+                {subtotalAfterDiscount >= 1000 ? (
+                  <span className="text-sm text-green-600 font-medium">Ücretsiz</span>
+                ) : (
+                  <span className="text-sm font-medium text-gray-900">
+                    {formatPrice(shipping)}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <p className="text-green-600 text-right">
-                  -{formatPrice(totalDiscount)}
-                </p>
-                {discountCode && (
-                  <button
-                    onClick={removeDiscountCode}
-                    className="text-red-500 hover:text-red-700 text-xs"
-                    title="Kuponu kaldır"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
             </div>
-          )}
 
-          {/* <!-- subtotal after discount --> */}
-          {totalDiscount > 0 && (
-            <div className="flex items-center justify-between py-3 border-b border-gray-3">
-              <div>
-                <p className="text-dark">İndirimli Ara Toplam</p>
-              </div>
-              <div>
-                <p className="text-dark text-right">
-                  {formatPrice(subtotalAfterDiscount)}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* <!-- tax --> */}
-          <div className="flex items-center justify-between py-3 border-b border-gray-3">
-            <div>
-              <p className="text-dark">KDV (%18)</p>
-            </div>
-            <div>
-              <p className="text-dark text-right">
-                {formatPrice(tax)}
-              </p>
-            </div>
-          </div>
-
-          {/* <!-- shipping --> */}
-          <div className="flex items-center justify-between py-3 border-b border-gray-3">
-            <div>
-              <p className="text-dark">Kargo</p>
-              {subtotalAfterDiscount >= 1000 && (
-                <p className="text-xs text-green-600">1000 TL üstü ücretsiz!</p>
-              )}
-            </div>
-            <div>
-              <p className="text-dark text-right">
-                {shipping > 0 ? formatPrice(shipping) : 'Ücretsiz'}
-              </p>
-            </div>
-          </div>
-
-          {/* <!-- total --> */}
-          <div className="flex items-center justify-between pt-5">
-            <div>
-              <p className="font-medium text-lg text-dark">Toplam</p>
-            </div>
-            <div>
-              <p className="font-medium text-lg text-dark text-right">
+            <div className="flex items-center justify-between py-4 border-t border-gray-200 mt-4">
+              <span className="text-lg font-bold text-gray-900">Toplam</span>
+              <span className="text-lg font-bold text-gray-900">
                 {formatPrice(total)}
-              </p>
+              </span>
             </div>
           </div>
 
-          {/* <!-- discount code input --> */}
-          {!discountCode && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-md">
-              <p className="text-sm text-gray-600 mb-2">İndirim kuponunuz var mı?</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Kupon kodu"
-                  className="flex-1 text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue/20"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      applyDiscountCode(e.currentTarget.value);
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    const input = document.querySelector('input[placeholder="Kupon kodu"]') as HTMLInputElement;
-                    if (input) applyDiscountCode(input.value);
-                  }}
-                  disabled={applyingCoupon}
-                  className="text-sm bg-blue text-white px-3 py-2 rounded hover:bg-blue-dark transition-colors disabled:opacity-50"
-                >
-                  {applyingCoupon ? 'Uygulanıyor...' : 'Uygula'}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Test: indirim10 (%10), indirim50tl (50 TL)
-              </p>
-            </div>
-          )}
+          <CheckoutButton />
 
-          {/* <!-- checkout button --> */}
-          {CheckoutButton()}
-
-          {/* Bilgi mesajları */}
-          <div className="mt-4 space-y-2">
-            <div className="text-xs text-gray-500 text-center">
-              <p>• Güvenli ödeme sistemi</p>
-              <p>• Hızlı kargo seçenekleri</p>
-              <p>• 30 gün iade garantisi</p>
-              <p className="text-green-600 font-medium">• 1000 TL üstü kargo ücretsiz!</p>
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span>Güvenli Ödeme</span>
             </div>
           </div>
         </div>

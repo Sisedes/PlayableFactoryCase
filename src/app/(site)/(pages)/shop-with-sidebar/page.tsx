@@ -4,7 +4,8 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Ürün Mağazası | Pazarcık - Alışverişin Modern Hali",
-  description: "Binlerce ürün arasından size en uygun olanını bulun. Kategori, fiyat ve puana göre filtreleme yapın. Hızlı teslimat ve güvenli ödeme seçenekleri.",
+  description:
+    "Binlerce ürün arasından size en uygun olanını bulun. Kategori, fiyat ve puana göre filtreleme yapın. Hızlı teslimat ve güvenli ödeme seçenekleri.",
   keywords: [
     "online alışveriş",
     "e-ticaret",
@@ -12,11 +13,12 @@ export const metadata: Metadata = {
     "kategori filtreleme",
     "fiyat filtreleme",
     "puan filtreleme",
-    "pazarcık"
+    "pazarcık",
   ],
   openGraph: {
     title: "Ürün Mağazası | Pazarcık",
-    description: "Binlerce ürün arasından size en uygun olanını bulun. Kategori, fiyat ve puana göre filtreleme yapın.",
+    description:
+      "Binlerce ürün arasından size en uygun olanını bulun. Kategori, fiyat ve puana göre filtreleme yapın.",
     type: "website",
     locale: "tr_TR",
     url: "/shop-with-sidebar",
@@ -25,7 +27,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Ürün Mağazası | Pazarcık",
-    description: "Binlerce ürün arasından size en uygun olanını bulun. Kategori, fiyat ve puana göre filtreleme yapın.",
+    description:
+      "Binlerce ürün arasından size en uygun olanını bulun. Kategori, fiyat ve puana göre filtreleme yapın.",
   },
   alternates: {
     canonical: "/shop-with-sidebar",
@@ -36,9 +39,9 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
 };

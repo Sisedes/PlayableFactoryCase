@@ -8,6 +8,8 @@ import {
   verifyEmail,
   forgotPassword,
   resetPassword,
+  verifyResetCode,
+  resetPasswordWithCode,
   getMe,
   resendVerificationByEmail,
   validateToken
@@ -22,6 +24,7 @@ import {
   validateLogin,
   validateForgotPassword,
   validateResetPassword,
+  validateResetPasswordWithCode,
   handleValidationErrors
 } from '../middleware/validationMiddleware';
 import { uploadProfileImage, handleUploadError } from '../config/multer';
@@ -123,8 +126,29 @@ router.post('/forgot-password',
 );
 
 /**
+ * @route   POST /api/auth/verify-reset-code
+ * @desc    Parola sıfırlama kodunu doğrula
+ * @access  Public
+ */
+router.post('/verify-reset-code',
+  authLimiter,
+  verifyResetCode
+);
+
+/**
+ * @route   POST /api/auth/reset-password
+ * @desc    Kod ile parola sıfırlama
+ * @access  Public
+ */
+router.post('/reset-password',
+  validateResetPasswordWithCode,
+  handleValidationErrors,
+  resetPasswordWithCode
+);
+
+/**
  * @route   POST /api/auth/reset-password/:token
- * @desc    Parola sıfırlama
+ * @desc    Token ile parola sıfırlama
  * @access  Public
  */
 router.post('/reset-password/:token',

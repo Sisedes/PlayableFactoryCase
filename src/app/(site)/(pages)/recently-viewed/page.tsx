@@ -21,7 +21,6 @@ const RecentlyViewedPage = () => {
 
       <section className="overflow-hidden relative pb-8 sm:pb-12 lg:pb-20 pt-4 sm:pt-8 lg:pt-16 xl:pt-20">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
-          {/* Header Section */}
           <div className="mb-6 sm:mb-8 lg:mb-10">
             <div className="text-center sm:text-left">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 sm:mb-3">
@@ -36,7 +35,6 @@ const RecentlyViewedPage = () => {
             </div>
           </div>
 
-          {/* Empty State */}
           {products.length === 0 ? (
             <div className="text-center py-12 sm:py-16 lg:py-20">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto mb-4 sm:mb-6 bg-gray-100 rounded-full flex items-center justify-center">
@@ -52,7 +50,7 @@ const RecentlyViewedPage = () => {
                 Ürünleri görüntülediğinizde burada listelenecekler
               </p>
               <a 
-                href="/products" 
+                href="/shop-with-sidebar" 
                 className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-blue text-white text-sm sm:text-base rounded-lg hover:bg-blue-600 transition-colors duration-200 shadow-sm hover:shadow-md"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,7 +60,6 @@ const RecentlyViewedPage = () => {
               </a>
             </div>
           ) : (
-            /* Products Grid */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
               {products.map((product: Product) => (
                 <div key={product._id} className="group">

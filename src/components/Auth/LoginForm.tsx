@@ -3,6 +3,24 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/store/authStore';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+// Form doğrulama şeması
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "E-posta adresi gereklidir")
+    .email("Geçerli bir e-posta adresi giriniz"),
+  password: z
+    .string()
+    .min(1, "Parola gereklidir")
+    .min(6, "Parola en az 6 karakter olmalıdır"),
+  rememberMe: z.boolean().optional(),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginForm = () => {
   const router = useRouter();
@@ -18,33 +36,28 @@ const LoginForm = () => {
     accessToken
   } = useAuth();
 
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    rememberMe: false
-  });
-
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+  // React Hook Form setup
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+    watch,
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    mode: "onChange", // Gerçek zamanlı doğrulama
+    defaultValues: {
+      rememberMe: false,
+    },
+  });
 
-    if (error) clearError();
-    if (validationErrors) clearValidationErrors();
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const onSubmit = async (data: LoginFormData) => {
     console.log('Login işlemi başlıyor...');
     
     const result = await login({
-      email: formData.email,
-      password: formData.password
+      email: data.email,
+      password: data.password
     });
 
     console.log('Login sonucu:', result);
@@ -61,10 +74,6 @@ const LoginForm = () => {
     } else {
       console.error('Login başarısız:', result.message);
     }
-  };
-
-  const getFieldError = (fieldName: string) => {
-    return validationErrors?.[fieldName];
   };
 
   return (
@@ -86,43 +95,42 @@ const LoginForm = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              E-posta Adresi
+              E-posta Adresi <span className="text-red-500">*</span>
             </label>
             <input
+              {...register("email")}
               type="email"
               id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
               className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                getFieldError('email') ? 'border-red-300' : 'border-gray-300'
+                errors.email ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
               }`}
               placeholder="ornek@email.com"
               disabled={isLoginLoading}
             />
-            {getFieldError('email') && (
-              <p className="mt-1 text-sm text-red-600">{getFieldError('email')}</p>
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {errors.email.message}
+              </p>
             )}
           </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Parola
+              Parola <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
+                {...register("password")}
                 type={showPassword ? 'text' : 'password'}
                 id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
                 className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  getFieldError('password') ? 'border-red-300' : 'border-gray-300'
+                  errors.password ? 'border-red-300 focus:ring-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Parolanızı girin"
                 disabled={isLoginLoading}
@@ -145,19 +153,22 @@ const LoginForm = () => {
                 )}
               </button>
             </div>
-            {getFieldError('password') && (
-              <p className="mt-1 text-sm text-red-600">{getFieldError('password')}</p>
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600 flex items-center">
+                <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {errors.password.message}
+              </p>
             )}
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
+                {...register("rememberMe")}
                 type="checkbox"
                 id="rememberMe"
-                name="rememberMe"
-                checked={formData.rememberMe}
-                onChange={handleInputChange}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 disabled={isLoginLoading}
               />
@@ -176,7 +187,7 @@ const LoginForm = () => {
 
           <button
             type="submit"
-            disabled={isLoginLoading}
+            disabled={isLoginLoading || !isValid}
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isLoginLoading ? (

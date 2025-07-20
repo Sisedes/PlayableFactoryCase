@@ -92,7 +92,6 @@ const Recommendations = () => {
     return (
       <section className="overflow-hidden pt-12 lg:pt-16">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0 pb-12 lg:pb-15">
-          {/* Section Title Skeleton */}
           <div className="mb-8 lg:mb-10 text-center">
             <div className="flex items-center justify-center gap-2.5 mb-3 animate-pulse">
               <div className="w-5 h-5 bg-gray-200 rounded"></div>
@@ -102,19 +101,18 @@ const Recommendations = () => {
             <div className="h-4 bg-gray-200 rounded w-32 mx-auto"></div>
           </div>
           
-          {/* Products Swiper Skeleton */}
           <div className="relative">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
-              {[...Array(4)].map((_, index) => (
+            {[...Array(4)].map((_, index) => (
                 <div key={index} className="animate-pulse">
                   <div className="bg-gray-200 rounded-lg h-48 lg:h-56 mb-4"></div>
                   <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                     <div className="h-5 bg-gray-200 rounded w-1/3"></div>
                   </div>
-                </div>
-              ))}
+              </div>
+            ))}
             </div>
           </div>
         </div>
@@ -152,7 +150,6 @@ const Recommendations = () => {
   return (
     <section className="overflow-hidden pt-12 lg:pt-16">
       <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0 pb-12 lg:pb-15">
-        {/* Section Title */}
         <div className="mb-8 lg:mb-10 text-center">
           <span className="flex items-center justify-center gap-2.5 font-medium text-blue-600 mb-3">
             <RecommendationsIcon />
@@ -166,7 +163,6 @@ const Recommendations = () => {
           </p>
         </div>
 
-        {/* Products Swiper */}
         {displayProducts.length > 0 ? (
           <div className="relative">
             <Swiper
@@ -217,7 +213,6 @@ const Recommendations = () => {
               ))}
             </Swiper>
 
-            {/* Custom Navigation Buttons */}
             <button className="swiper-button-prev-recommendations absolute left-2 lg:left-4 top-1/2 transform -translate-y-1/2 z-10 w-8 h-8 lg:w-10 lg:h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200">
               <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -230,7 +225,6 @@ const Recommendations = () => {
               </svg>
             </button>
 
-            {/* Custom Pagination */}
             <div className="swiper-pagination-recommendations flex justify-center mt-6 space-x-1"></div>
           </div>
         ) : (
@@ -245,7 +239,6 @@ const Recommendations = () => {
           </div>
         )}
 
-        {/* Popüler ürünler varsa ve kişiselleştirilmiş öneriler gösteriliyorsa, popüler ürünleri de göster */}
         {personalizedProducts.length > 0 && popularProducts.length > 0 && (
           <div className="mt-12 lg:mt-16">
             <div className="text-center mb-8 lg:mb-10">
@@ -305,7 +298,6 @@ const Recommendations = () => {
                 ))}
               </Swiper>
 
-              {/* Custom Navigation Buttons */}
               <button className="swiper-button-prev-popular absolute left-2 lg:left-4 top-1/2 transform -translate-y-1/2 z-10 w-8 h-8 lg:w-10 lg:h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200">
                 <svg className="w-4 h-4 lg:w-5 lg:h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -318,7 +310,6 @@ const Recommendations = () => {
                 </svg>
               </button>
 
-              {/* Custom Pagination */}
               <div className="swiper-pagination-popular flex justify-center mt-6 space-x-1"></div>
             </div>
           </div>

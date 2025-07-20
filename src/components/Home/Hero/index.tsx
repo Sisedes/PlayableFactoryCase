@@ -38,10 +38,8 @@ const Hero = () => {
     <section className="overflow-hidden pb-6 lg:pb-8 xl:pb-10 pt-32 sm:pt-36 lg:pt-40 xl:pt-44 bg-gradient-to-br from-[#E5EAF4] to-[#F0F4F8]">
       <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 xl:gap-8">
-          {/* Ana Hero Carousel */}
           <div className="w-full lg:w-2/3 xl:w-[757px]">
             <div className="relative z-10 rounded-xl lg:rounded-2xl bg-white overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {/* Background shapes */}
               <div className="absolute right-0 bottom-0 -z-10 opacity-60">
                 <Image
                   src="/images/hero/hero-bg.png"
@@ -58,11 +56,9 @@ const Hero = () => {
             </div>
           </div>
 
-          {/* Promo Products Sidebar */}
           <div className="w-full lg:w-1/3 xl:w-[393px]">
             <div className="flex flex-col gap-4 lg:gap-5">
               {loading ? (
-                // Loading skeleton
                 <>
                   {[1, 2].map((index) => (
                     <div key={index} className="w-full relative rounded-xl bg-white p-4 sm:p-6 shadow-md animate-pulse">
@@ -78,7 +74,6 @@ const Hero = () => {
                   ))}
                 </>
               ) : error ? (
-                // Error state
                 <div className="w-full rounded-xl bg-white p-6 shadow-md">
                   <div className="text-center">
                     <div className="text-red-500 mb-3">
@@ -96,7 +91,6 @@ const Hero = () => {
                   </div>
                 </div>
               ) : (
-                // Real products
                 promoProducts.map((product, index) => (
                   <div key={product._id} className="w-full relative rounded-xl bg-white p-4 sm:p-6 shadow-md hover:shadow-lg transition-all duration-300 group">
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -146,7 +140,6 @@ const Hero = () => {
         </div>
       </div>
 
-      {/* Hero features */}
       <HeroFeature />
     </section>
   );

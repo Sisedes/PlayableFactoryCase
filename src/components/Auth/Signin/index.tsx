@@ -5,23 +5,50 @@ import React, { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { resendVerificationByEmail } from "@/services";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import toast from "react-hot-toast";
+import ForgotPasswordModal from "../ForgotPasswordModal";
+
+const signinSchema = z.object({
+  email: z
+    .string()
+    .min(1, "E-posta adresi gereklidir")
+    .email("Geçerli bir e-posta adresi giriniz"),
+  password: z
+    .string()
+    .min(1, "Parola gereklidir")
+    .min(6, "Parola en az 6 karakter olmalıdır"),
+});
+
+type SigninFormData = z.infer<typeof signinSchema>;
 
 const Signin = () => {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
   const [showPassword, setShowPassword] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
   const [emailNotVerified, setEmailNotVerified] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
+  const [forgotPasswordModal, setForgotPasswordModal] = useState(false);
 
   const { login, isLoading, error, clearError, resendVerificationEmail, isAuthenticated } = useAuthStore();
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+    watch,
+    setValue,
+  } = useForm<SigninFormData>({
+    resolver: zodResolver(signinSchema),
+    mode: "onChange", 
+  });
+
+  const watchedEmail = watch("email");
+
   useEffect(() => {
-    // Giriş yapmış kullanıcıyı ana sayfaya yönlendir
     if (isAuthenticated) {
       router.push('/');
     }
@@ -38,31 +65,16 @@ const Signin = () => {
     }
   }, [searchParams]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    if (error) clearError();
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.email || !formData.password) {
-      return;
-    }
-
+  const onSubmit = async (data: SigninFormData) => {
     setEmailNotVerified(null);
     clearError();
 
-    const result = await login(formData);
+    const result = await login(data);
     
     if (result && result.success) {
       router.push('/');
     } else if (result && result.message && result.message.includes('E-posta adresinizi doğrulamanız')) {
-      setEmailNotVerified(formData.email);
+      setEmailNotVerified(data.email);
     }
   };
 
@@ -78,32 +90,30 @@ const Signin = () => {
         setVerificationMessage('Doğrulama e-postası başarıyla gönderildi! E-posta kutunuzu kontrol edin.');
         setEmailNotVerified(null);
         
-        // Başarı mesajını 5 saniye sonra temizle
         setTimeout(() => {
           setVerificationMessage(null);
         }, 5000);
       } else {
-        alert(result.message || 'E-posta gönderilemedi. Lütfen tekrar deneyin.');
+        toast.error(result.message || 'E-posta gönderilemedi. Lütfen tekrar deneyin.');
       }
     } catch (error) {
       console.error('Resend verification error:', error);
-      alert('Bir hata oluştu. Lütfen tekrar deneyin.');
+      toast.error('Bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setResendLoading(false);
     }
   };
 
   const handleForgotPassword = () => {
-    console.log('Forgot password clicked');
+    setForgotPasswordModal(true);
   };
 
-  // Eğer kullanıcı giriş yapmışsa loading göster
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue mx-auto mb-4"></div>
-          <p className="text-gray-600">Yönlendiriliyorsunuz...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Yönlendiriliyorsunuz...</p>
         </div>
       </div>
     );
@@ -111,113 +121,138 @@ const Signin = () => {
 
   return (
     <>
-              <Breadcrumb title={"Giriş Yap"} pages={[
-          { name: "Giriş Yap" }
-        ]} />
-      <section className="overflow-hidden py-20 bg-gray-2">
-        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-          <div className="max-w-[570px] w-full mx-auto rounded-xl bg-white shadow-1 p-4 sm:p-7.5 xl:p-11">
-            <div className="text-center mb-11">
-              <h2 className="font-semibold text-xl sm:text-2xl xl:text-heading-5 text-dark mb-1.5">
-                Hesabınıza Giriş Yapın
-              </h2>
-              <p>Bilgilerinizi aşağıya girin</p>
-            </div>
-
-            {verificationMessage && (
-              <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-200">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      <Breadcrumb title={"Giriş Yap"} pages={[
+        { name: "Giriş Yap" }
+      ]} />
+      
+      <section className="overflow-hidden py-12 lg:py-16 xl:py-20 bg-gray-50">
+        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-0">
+          <div className="max-w-[500px] w-full mx-auto">
+            <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 lg:p-10 border border-gray-100">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <p className="text-green-600 text-sm">{verificationMessage}</p>
                 </div>
+                <h2 className="font-bold text-2xl sm:text-3xl text-gray-900 mb-2">
+                  Hesabınıza Giriş Yapın
+                </h2>
               </div>
-            )}
 
-            {emailNotVerified && (
-              <div className="mb-6 p-6 rounded-lg bg-yellow-50 border border-yellow-200">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 19c-.77.833.192 2.5 1.732 2.5z" />
+              {verificationMessage && (
+                <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-200">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
+                    <p className="text-green-800 text-sm font-medium">{verificationMessage}</p>
                   </div>
-                  <div className="ml-3 flex-1">
-                    <h3 className="text-lg font-medium text-yellow-800 mb-2">
-                      E-posta Doğrulaması Gerekli
-                    </h3>
-                    <p className="text-yellow-700 mb-4">
-                      <strong>{emailNotVerified}</strong> adresine gönderilen doğrulama e-postasındaki linke tıklayarak hesabınızı aktifleştirin.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={handleResendVerification}
-                        disabled={resendLoading}
-                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {resendLoading ? 'Gönderiliyor...' : 'Doğrulama E-postası Tekrar Gönder'}
-                      </button>
-                      <button
-                        onClick={() => setEmailNotVerified(null)}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Farklı E-posta ile Giriş Yap
-                      </button>
+                </div>
+              )}
+
+              {emailNotVerified && (
+                <div className="mb-6 p-6 rounded-lg bg-yellow-50 border border-yellow-200">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 19c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                        E-posta Doğrulaması Gerekli
+                      </h3>
+                      <p className="text-yellow-700 mb-4 text-sm">
+                        <strong>{emailNotVerified}</strong> adresine gönderilen doğrulama e-postasındaki linke tıklayarak hesabınızı aktifleştirin.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          onClick={handleResendVerification}
+                          disabled={resendLoading}
+                          className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                        >
+                          {resendLoading ? (
+                            <div className="flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Gönderiliyor...
+                            </div>
+                          ) : (
+                            'Doğrulama E-postası Tekrar Gönder'
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setEmailNotVerified(null)}
+                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+                        >
+                          Farklı E-posta ile Giriş Yap
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {error && (
-              <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-red-600 text-sm">{error}</p>
-              </div>
-            )}
+              {error && (
+                <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 19c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <p className="text-red-800 text-sm font-medium">{error}</p>
+                  </div>
+                </div>
+              )}
 
-            <div>
-              <form onSubmit={handleSubmit}>
-                <div className="mb-5">
-                  <label htmlFor="email" className="block mb-2.5 text-dark font-medium">
-                    E-posta Adresi <span className="text-red">*</span>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div>
+                  <label htmlFor="email" className="block mb-2 text-sm font-semibold text-gray-900">
+                    E-posta Adresi <span className="text-red-500">*</span>
                   </label>
-
                   <input
+                    {...register("email")}
                     type="email"
-                    name="email"
                     id="email"
-                    value={formData.email}
-                    onChange={handleChange}
                     placeholder="E-posta adresinizi girin"
-                    className="rounded-lg border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-3 px-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                    required
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white placeholder-gray-500 ${
+                      errors.email 
+                        ? 'border-red-300 focus:ring-red-500' 
+                        : 'border-gray-300'
+                    }`}
                     disabled={isLoading}
                   />
+                  {errors.email && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
 
-                <div className="mb-5">
-                  <label htmlFor="password" className="block mb-2.5 text-dark font-medium">
-                    Parola <span className="text-red">*</span>
+                <div>
+                  <label htmlFor="password" className="block mb-2 text-sm font-semibold text-gray-900">
+                    Parola <span className="text-red-500">*</span>
                   </label>
-
                   <div className="relative">
                     <input
+                      {...register("password")}
                       type={showPassword ? "text" : "password"}
-                      name="password"
                       id="password"
-                      value={formData.password}
-                      onChange={handleChange}
                       placeholder="Parolanızı girin"
                       autoComplete="current-password"
-                      className="rounded-lg border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full py-3 px-5 pr-12 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                      required
+                      className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white placeholder-gray-500 ${
+                        errors.password 
+                          ? 'border-red-300 focus:ring-red-500' 
+                          : 'border-gray-300'
+                      }`}
                       disabled={isLoading}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-5 hover:text-dark transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors p-1"
                     >
                       {showPassword ? (
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,21 +266,26 @@ const Signin = () => {
                       )}
                     </button>
                   </div>
+                  {errors.password && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {errors.password.message}
+                    </p>
+                  )}
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isLoading || !formData.email || !formData.password}
-                  className="w-full flex justify-center items-center font-medium text-white bg-dark py-3 px-6 rounded-lg ease-out duration-200 hover:bg-blue mt-7.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading || !isValid}
+                  className="w-full flex justify-center items-center font-semibold text-white bg-blue py-3 px-6 rounded-lg transition-all duration-200 hover:bg-blue disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                 >
                   {isLoading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                       Giriş yapılıyor...
-                    </>
+                    </div>
                   ) : (
                     "Hesaba Giriş Yap"
                   )}
@@ -254,20 +294,24 @@ const Signin = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="block text-center text-dark-4 mt-4.5 ease-out duration-200 hover:text-dark"
+                  className="block text-center text-gray-600 hover:text-blue-600 transition-colors font-medium"
                 >
                   Parolanızı mı unuttunuz?
                 </button>
 
-                <span className="relative z-1 block font-medium text-center mt-4.5">
-                  <span className="block absolute -z-1 left-0 top-1/2 h-px w-full bg-gray-3"></span>
-                  <span className="inline-block px-3 bg-white">Veya</span>
-                </span>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-white text-gray-500 font-medium">Veya</span>
+                  </div>
+                </div>
 
-                <div className="flex flex-col gap-4.5 mt-4.5">
+                <div className="space-y-4">
                   <button 
                     type="button"
-                    className="flex justify-center items-center gap-3.5 rounded-lg border border-gray-3 bg-gray-1 p-3 ease-out duration-200 hover:bg-gray-2"
+                    className="w-full flex justify-center items-center gap-3 rounded-lg border border-gray-300 bg-white p-3 transition-all duration-200 hover:bg-gray-50 hover:border-gray-400 shadow-sm"
                   >
                     <svg
                       width="20"
@@ -312,43 +356,32 @@ const Signin = () => {
                         </clipPath>
                       </defs>
                     </svg>
-                    Google ile Giriş Yap
+                    <span className="font-medium text-gray-700">Google ile Giriş Yap</span>
                   </button>
 
-                  <button 
-                    type="button"
-                    className="flex justify-center items-center gap-3.5 rounded-lg border border-gray-3 bg-gray-1 p-3 ease-out duration-200 hover:bg-gray-2"
-                  >
-                    <svg
-                      width="22"
-                      height="22"
-                      viewBox="0 0 22 22"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M10.9997 1.83331C5.93773 1.83331 1.83301 6.04119 1.83301 11.232C1.83301 15.3847 4.45954 18.9077 8.10178 20.1505C8.55988 20.2375 8.72811 19.9466 8.72811 19.6983C8.72811 19.4743 8.71956 18.7338 8.71567 17.9485C6.16541 18.517 5.6273 16.8395 5.6273 16.8395C5.21032 15.7532 4.60951 15.4644 4.60951 15.4644C3.77785 14.8811 4.6722 14.893 4.6722 14.893C5.59272 14.9593 6.07742 15.8615 6.07742 15.8615C6.89499 17.2984 8.22184 16.883 8.74493 16.6429C8.82718 16.0353 9.06478 15.6208 9.32694 15.3861C7.2909 15.1484 5.15051 14.3425 5.15051 10.7412C5.15051 9.71509 5.5086 8.87661 6.09503 8.21844C5.99984 7.98167 5.68611 7.02577 6.18382 5.73115C6.18382 5.73115 6.95358 5.47855 8.70532 6.69458C9.43648 6.48627 10.2207 6.3819 10.9997 6.37836C11.7787 6.3819 12.5635 6.48627 13.2961 6.69458C15.0457 5.47855 15.8145 5.73115 15.8145 5.73115C16.3134 7.02577 15.9995 7.98167 15.9043 8.21844C16.4921 8.87661 16.8477 9.715 16.8477 10.7412C16.8477 14.351 14.7033 15.146 12.662 15.3786C12.9909 15.6702 13.2838 16.2423 13.2838 17.1191C13.2838 18.3766 13.2732 19.3888 13.2732 19.6983C13.2732 19.9485 13.4382 20.2415 13.9028 20.1492C17.5431 18.905 20.1663 15.3833 20.1663 11.232C20.1663 6.04119 16.0621 1.83331 10.9997 1.83331Z"
-                        fill="#15171A"
-                      />
-                    </svg>
-                    GitHub ile Giriş Yap
-                  </button>
                 </div>
 
-                <p className="text-center mt-6">
-                  Hesabınız yok mu?
-                  <Link
-                    href="/signup"
-                    className="text-dark ease-out duration-200 hover:text-blue pl-2"
-                  >
-                    Şimdi Kayıt Olun!
-                  </Link>
-                </p>
+                <div className="text-center pt-4 border-t border-gray-200">
+                  <p className="text-gray-600">
+                    Hesabınız yok mu?{" "}
+                    <Link
+                      href="/signup"
+                      className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                    >
+                      Şimdi Kayıt Olun!
+                    </Link>
+                  </p>
+                </div>
               </form>
             </div>
           </div>
         </div>
       </section>
+
+      <ForgotPasswordModal
+        isOpen={forgotPasswordModal}
+        onClose={() => setForgotPasswordModal(false)}
+      />
     </>
   );
 };

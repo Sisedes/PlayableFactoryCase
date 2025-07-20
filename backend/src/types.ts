@@ -23,6 +23,8 @@ export interface IUser extends Document {
     emailVerificationExpires?: Date | null;
     passwordResetToken?: string | null;
     passwordResetExpires?: Date | null;
+    passwordResetCode?: string | null;
+    passwordResetCodeExpires?: Date | null;
     lastLogin?: Date;
     loginAttempts: number;
     lockUntil?: Date | null;
@@ -38,6 +40,9 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
   createEmailVerificationToken(): string;
   createPasswordResetToken(): string;
+  createPasswordResetCode(): string;
+  verifyPasswordResetCode(code: string): boolean;
+  clearPasswordResetCode(): void;
   increaseLoginAttempts(): Promise<void>;
   resetLoginAttempts(): Promise<void>;
 }

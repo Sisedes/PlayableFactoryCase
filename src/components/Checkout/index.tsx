@@ -18,6 +18,8 @@ import { checkoutSchema, type CheckoutFormData } from "@/lib/validations";
 import FormField from "@/components/Common/FormField";
 import { useDispatch } from "react-redux";
 import { removeAllItemsFromCart } from "@/redux/features/cart-slice";
+import Image from "next/image";
+import { getImageUrl } from "@/utils/apiUtils";
 
 interface OrderAddress {
   firstName: string;
@@ -194,7 +196,7 @@ const Checkout = () => {
         trigger(['addresses.shipping', 'addresses.billing']);
       }, 100);
     }
-      }, [selectedShippingAddress, sameAsShipping, setValue, trigger]);
+  }, [selectedShippingAddress, sameAsShipping, setValue, trigger]);
 
   useEffect(() => {
     if (selectedBillingAddress) {
@@ -213,52 +215,40 @@ const Checkout = () => {
       });
       
       setTimeout(() => {
-        trigger(['addresses.billing']);
+        trigger('addresses.billing');
       }, 100);
     }
   }, [selectedBillingAddress, setValue, trigger]);
 
   const handleShippingAddressSelect = (address: UserAddress | null) => {
     setSelectedShippingAddress(address);
-    if (address) {
-      setUseCustomAddress(false);
-    }
+    setUseCustomAddress(false);
   };
 
   const handleBillingAddressSelect = (address: UserAddress | null) => {
     setSelectedBillingAddress(address);
-    if (address) {
-      setValue('sameAsShipping', false);
-    }
   };
 
   const handleUseCustomAddress = () => {
     setUseCustomAddress(true);
     setSelectedShippingAddress(null);
-    setSelectedBillingAddress(null);
   };
 
   const loadCart = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      if (!serverCart) {
-        await refreshCart();
-      }
-      
-      if (serverCart && serverCart.items.length === 0) {
-        router.push('/cart');
-        return;
-      }
-    } catch (err) {
-      console.error('Sepet yüklenirken hata:', err);
-      setError('Sepet yüklenirken hata oluştu');
+      await refreshCart();
+    } catch (error: any) {
+      console.error('Sepet yükleme hatası:', error);
+      setError(error.response?.data?.message || 'Sepet yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFormChange = (field: keyof CheckoutFormData, value: any) => {
-    setValue(field, value);
+    setValue(field as any, value);
   };
 
   const handleCustomerInfoChange = (field: keyof CheckoutFormData['customerInfo'], value: string) => {
@@ -266,136 +256,50 @@ const Checkout = () => {
   };
 
   const handleAddressChange = (type: 'shipping' | 'billing', field: string, value: string) => {
-    if (type === 'shipping') {
-      setValue(`addresses.shipping.${field as keyof CheckoutFormData['addresses']['shipping']}`, value);
-    } else {
-      setValue(`addresses.billing.${field as keyof CheckoutFormData['addresses']['billing']}`, value);
-    }
+    setValue(`addresses.${type}.${field}` as any, value);
   };
 
   const handleSameAsShippingChange = (checked: boolean) => {
     setValue('sameAsShipping', checked);
-    if (checked) {
+    if (checked && watchedValues.addresses.shipping) {
       setValue('addresses.billing', watchedValues.addresses.shipping);
     }
   };
 
   const handleSubmitForm = async (data: CheckoutFormData) => {
-    console.log('Form submit başladı');
-    console.log('Form data:', data);
-    console.log('Server cart:', serverCart);
-    console.log('Cart items length:', serverCart?.items?.length);
-    
+    if (!serverCart || serverCart.items.length === 0) {
+      setError('Sepetinizde ürün bulunmamaktadır');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      console.log('Token exists:', !!token);
-      console.log('User authenticated:', isAuthenticated);
-      
-      let orderResponse;
-
-      if (isAuthenticated) {
-        orderResponse = await orderService.createOrderFromCart({
-          customerInfo: {
-            email: data.customerInfo.email,
-            phone: data.customerInfo.phone || '',
-            firstName: data.customerInfo.firstName,
-            lastName: data.customerInfo.lastName
-          },
-          addresses: {
-            shipping: {
-              firstName: data.addresses.shipping.firstName,
-              lastName: data.addresses.shipping.lastName,
-              company: data.addresses.shipping.company || '',
-              address1: data.addresses.shipping.address1,
-              address2: data.addresses.shipping.address2 || '',
-              city: data.addresses.shipping.city,
-              state: data.addresses.shipping.state,
-              postalCode: data.addresses.shipping.postalCode,
-              country: data.addresses.shipping.country,
-              phone: data.addresses.shipping.phone || ''
-            },
-            billing: {
-              firstName: data.addresses.billing.firstName,
-              lastName: data.addresses.billing.lastName,
-              company: data.addresses.billing.company || '',
-              address1: data.addresses.billing.address1,
-              address2: data.addresses.billing.address2 || '',
-              city: data.addresses.billing.city,
-              state: data.addresses.billing.state,
-              postalCode: data.addresses.billing.postalCode,
-              country: data.addresses.billing.country,
-              phone: data.addresses.billing.phone || ''
-            }
-          },
-          paymentMethod: data.paymentMethod,
-          notes: data.notes,
-          sameAsShipping: data.sameAsShipping
-        });
-      } else {
-        const orderItems = serverCart?.items.map(item => ({
+      const orderData = {
+        customerInfo: data.customerInfo,
+        addresses: {
+          shipping: data.addresses.shipping,
+          billing: data.addresses.billing
+        },
+        paymentMethod: data.paymentMethod,
+        notes: data.notes,
+        sameAsShipping: data.sameAsShipping,
+        items: serverCart.items.map(item => ({
           productId: item.product._id,
           variantId: item.variant?._id,
           quantity: item.quantity
-        })) || [];
+        }))
+      };
 
-        orderResponse = await orderService.createGuestOrder({
-          customerInfo: {
-            email: data.customerInfo.email,
-            phone: data.customerInfo.phone || '',
-            firstName: data.customerInfo.firstName,
-            lastName: data.customerInfo.lastName
-          },
-          items: orderItems,
-          addresses: {
-            shipping: {
-              firstName: data.addresses.shipping.firstName,
-              lastName: data.addresses.shipping.lastName,
-              company: data.addresses.shipping.company || '',
-              address1: data.addresses.shipping.address1,
-              address2: data.addresses.shipping.address2 || '',
-              city: data.addresses.shipping.city,
-              state: data.addresses.shipping.state,
-              postalCode: data.addresses.shipping.postalCode,
-              country: data.addresses.shipping.country,
-              phone: data.addresses.shipping.phone || ''
-            },
-            billing: {
-              firstName: data.addresses.billing.firstName,
-              lastName: data.addresses.billing.lastName,
-              company: data.addresses.billing.company || '',
-              address1: data.addresses.billing.address1,
-              address2: data.addresses.billing.address2 || '',
-              city: data.addresses.billing.city,
-              state: data.addresses.billing.state,
-              postalCode: data.addresses.billing.postalCode,
-              country: data.addresses.billing.country,
-              phone: data.addresses.billing.phone || ''
-            }
-          },
-          paymentMethod: data.paymentMethod,
-          notes: data.notes,
-          sameAsShipping: data.sameAsShipping
-        });
-      }
-
-      if (orderResponse.success) {
-        try {
-          await cartService.clearCart();
-          await refreshCart();
-          
-          cartService.clearLocalStorage();
-          
-          dispatch(removeAllItemsFromCart());
-        } catch (error) {
-          console.warn('Sepet temizleme hatası:', error);
-        }
+      const response = await orderService.createGuestOrder(orderData);
+      
+      if (response.success) {
+        dispatch(removeAllItemsFromCart());
         
-        router.push(`/order-success?orderNumber=${orderResponse.data?.orderNumber}`);
+        router.push(`/order-success?orderId=${response.data.order._id}`);
       } else {
-        setError(orderResponse.message || 'Sipariş oluşturulamadı');
+        setError(response.message || 'Sipariş oluşturulurken hata oluştu');
       }
     } catch (error: any) {
       console.error('Sipariş hatası:', error);
@@ -415,13 +319,20 @@ const Checkout = () => {
   if (loading) {
     return (
       <>
-        <Breadcrumb title={"Ödeme"} pages={[
+        <Breadcrumb title="Ödeme" pages={[
           { name: "Sepet", href: "/cart" },
           { name: "Ödeme" }
         ]} />
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue"></div>
-        </div>
+        <section className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-center items-center py-20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-lg">Sepetiniz yükleniyor...</p>
+              </div>
+            </div>
+          </div>
+        </section>
       </>
     );
   }
@@ -429,49 +340,73 @@ const Checkout = () => {
   if (error && !serverCart) {
     return (
       <>
-        <Breadcrumb title={"Ödeme"} pages={[
+        <Breadcrumb title="Ödeme" pages={[
           { name: "Sepet", href: "/cart" },
           { name: "Ödeme" }
         ]} />
-        <div className="text-center mt-8">
-          <p className="text-red-500 mb-4">{error}</p>
-          <button 
-            onClick={loadCart}
-            className="text-blue hover:underline"
-          >
-            Tekrar Dene
-          </button>
-        </div>
+        <section className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
+                  <svg className="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Hata Oluştu</h2>
+                <p className="text-red-600 mb-6">{error}</p>
+                <button 
+                  onClick={loadCart}
+                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Tekrar Dene
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       </>
     );
   }
 
   return (
     <>
-      <Breadcrumb title={"Ödeme"} pages={[
+      {/* SEO Meta */}
+      <div className="sr-only">
+        <h1>Ödeme Sayfası - Güvenli Alışveriş</h1>
+        <p>Güvenli ödeme sayfası. Teslimat ve fatura adreslerinizi girin, ödeme yönteminizi seçin ve siparişinizi tamamlayın.</p>
+      </div>
+
+      <Breadcrumb title="Ödeme" pages={[
         { name: "Sepet", href: "/cart" },
         { name: "Ödeme" }
       ]} />
-      <section className="overflow-hidden py-20 bg-gray-2">
-        <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
+      
+      <section className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <form onSubmit={handleSubmit(handleSubmitForm)}>
-            <div className="flex flex-col lg:flex-row gap-7.5 xl:gap-11">
-              {/* <!-- checkout left --> */}
-              <div className="lg:max-w-[670px] w-full">
-                {/* <!-- login box --> */}
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Sol Taraf - Form Alanları */}
+              <div className="lg:flex-1">
+                {/* Login Box */}
                 <Login />
 
-                {/* <!-- billing details --> */}
-                <Billing 
-                  customerInfo={watchedValues.customerInfo}
-                  onChange={handleCustomerInfoChange}
-                />
+                {/* Billing Details */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+                  <Billing 
+                    customerInfo={watchedValues.customerInfo}
+                    onChange={handleCustomerInfoChange}
+                  />
+                </div>
 
-                {/* <!-- address selection for authenticated users --> */}
+                {/* Address Selection for Authenticated Users */}
                 {isAuthenticated ? (
                   <>
                     {/* Teslimat Adresi Seçimi */}
-                    <div className="mt-7.5">
+                    <div className="mt-6">
                       <AddressSelector
                         title="Teslimat Adresi Seçimi"
                         selectedAddress={selectedShippingAddress}
@@ -483,8 +418,9 @@ const Checkout = () => {
                     {!selectedShippingAddress && !useCustomAddress && (
                       <div className="mt-4 text-center">
                         <button
+                          type="button"
                           onClick={handleUseCustomAddress}
-                          className="text-blue hover:text-blue-dark font-medium"
+                          className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
                         >
                           Veya yeni bir adres girin (kaydedilmez)
                         </button>
@@ -493,8 +429,8 @@ const Checkout = () => {
 
                     {/* Manuel Adres Girişi */}
                     {useCustomAddress && (
-                      <div className="mt-7.5">
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                      <div className="mt-6">
+                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
                           <div className="flex items-start gap-3">
                             <svg className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -508,17 +444,19 @@ const Checkout = () => {
                           </div>
                         </div>
                         
-                        <Shipping 
-                          address={watchedValues.addresses.shipping}
-                          onChange={(field, value) => handleAddressChange('shipping', field, value)}
-                          title="Teslimat Adresi"
-                        />
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                          <Shipping 
+                            address={watchedValues.addresses.shipping}
+                            onChange={(field, value) => handleAddressChange('shipping', field, value)}
+                            title="Teslimat Adresi"
+                          />
+                        </div>
                       </div>
                     )}
 
                     {/* Fatura Adresi Seçimi (eğer farklı ise) */}
                     {!sameAsShipping && (
-                      <div className="mt-7.5">
+                      <div className="mt-6">
                         <AddressSelector
                           title="Fatura Adresi Seçimi"
                           selectedAddress={selectedBillingAddress}
@@ -529,216 +467,218 @@ const Checkout = () => {
                   </>
                 ) : (
                   <>
-                    {/* <!-- address box two for guest users --> */}
-                    <Shipping 
-                      address={watchedValues.addresses.shipping}
-                      onChange={(field, value) => handleAddressChange('shipping', field, value)}
-                      title="Teslimat Adresi"
-                    />
-
-                    {/* <!-- billing address if different --> */}
-                    {!sameAsShipping && (
+                    {/* Guest Users için Adres Formları */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
                       <Shipping 
-                        address={watchedValues.addresses.billing}
-                        onChange={(field, value) => handleAddressChange('billing', field, value)}
-                        title="Fatura Adresi"
+                        address={watchedValues.addresses.shipping}
+                        onChange={(field, value) => handleAddressChange('shipping', field, value)}
+                        title="Teslimat Adresi"
                       />
+                    </div>
+
+                    {/* Fatura Adresi (eğer farklı ise) */}
+                    {!sameAsShipping && (
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+                        <Shipping 
+                          address={watchedValues.addresses.billing}
+                          onChange={(field, value) => handleAddressChange('billing', field, value)}
+                          title="Fatura Adresi"
+                        />
+                      </div>
                     )}
                   </>
                 )}
 
-                {/* <!-- same as shipping checkbox --> */}
-                <div className="bg-white shadow-1 rounded-[10px] p-4 sm:p-8.5 mt-7.5">
+                {/* Same as Shipping Checkbox */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={sameAsShipping}
                       onChange={(e) => handleSameAsShippingChange(e.target.checked)}
-                      className="w-4 h-4 text-blue border-gray-3 rounded focus:ring-blue"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <span className="text-dark">Fatura adresi teslimat adresi ile aynı</span>
+                    <span className="text-gray-900 font-medium">Fatura adresi teslimat adresi ile aynı</span>
                   </label>
                 </div>
 
-                {/* <!-- others note box --> */}
-                <div className="bg-white shadow-1 rounded-[10px] p-4 sm:p-8.5 mt-7.5">
+                {/* Notes */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
                   <div>
-                    <label htmlFor="notes" className="block mb-2.5">
+                    <label htmlFor="notes" className="block mb-3 font-medium text-gray-900">
                       Sipariş Notları (isteğe bağlı)
                     </label>
-
                     <textarea
                       name="notes"
                       id="notes"
-                      rows={5}
+                      rows={4}
                       value={watchedValues.notes}
                       onChange={(e) => handleFormChange('notes', e.target.value)}
                       placeholder="Siparişiniz hakkında notlar, örn. teslimat için özel notlar."
-                      className="rounded-md border border-gray-3 bg-gray-1 placeholder:text-dark-5 w-full p-5 outline-none duration-200 focus:border-transparent focus:shadow-input focus:ring-2 focus:ring-blue/20"
-                    ></textarea>
+                      className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-900 placeholder-gray-500 outline-none transition-all focus:border-blue-500 focus:bg-white"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* <!-- checkout right --> */}
-              <div className="max-w-[455px] w-full">
-                {/* <!-- order list box --> */}
-                <div className="bg-white shadow-1 rounded-[10px]">
-                  <div className="border-b border-gray-3 py-5 px-4 sm:px-8.5">
-                    <h3 className="font-medium text-xl text-dark">
+              {/* Sağ Taraf - Sipariş Özeti */}
+              <div className="lg:w-96">
+                {/* Order Summary */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-8">
+                  <div className="border-b border-gray-200 px-6 py-4">
+                    <h3 className="font-semibold text-xl text-gray-900">
                       Siparişiniz
                     </h3>
                   </div>
 
-                  <div className="pt-2.5 pb-8.5 px-4 sm:px-8.5">
-                    {/* <!-- title --> */}
-                    <div className="flex items-center justify-between py-5 border-b border-gray-3">
-                      <div>
-                        <h4 className="font-medium text-dark">Ürün</h4>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-dark text-right">
-                          Ara Toplam
-                        </h4>
-                      </div>
-                    </div>
-
-                    {/* <!-- product items --> */}
-                    {serverCart?.items.map((item, key) => (
-                      <div key={key} className="flex items-center justify-between py-5 border-b border-gray-3">
-                        <div className="flex-1">
-                          <p className="text-dark text-sm">
-                            {item.product.name}
-                          </p>
-                          {item.variant && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {item.variant.name}
+                  <div className="p-6">
+                    {/* Product Items */}
+                    <div className="space-y-4 mb-6">
+                      {serverCart?.items.map((item, key) => (
+                        <div key={key} className="flex gap-4 py-3 border-b border-gray-100 last:border-b-0">
+                          <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                            <Image 
+                              src={getImageUrl(item.product.images?.[0]?.url || "")} 
+                              alt={item.product.name} 
+                              fill
+                              className="object-contain p-2"
+                              sizes="64px"
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
+                              {item.product.name}
+                            </h4>
+                            {item.variant && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {item.variant.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-400 mt-1">
+                              Miktar: {item.quantity}
                             </p>
-                          )}
-                          <p className="text-xs text-gray-400">
-                            Miktar: {item.quantity}
-                          </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-gray-900">
+                              {formatPrice(item.total)}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-dark text-right">
-                            {formatPrice(item.total)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
 
-                    {/* <!-- subtotal --> */}
-                    <div className="flex items-center justify-between py-3 border-b border-gray-3">
-                      <div>
-                        <p className="text-dark">Ara Toplam</p>
-                      </div>
-                      <div>
-                        <p className="text-dark text-right">
+                    {/* Price Breakdown */}
+                    <div className="space-y-3 border-t border-gray-200 pt-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Ara Toplam</span>
+                        <span className="font-medium text-gray-900">
                           {formatPrice(serverCart?.totals.subtotal || 0)}
-                        </p>
+                        </span>
                       </div>
-                    </div>
 
-                    {/* <!-- tax --> */}
-                    {serverCart?.totals.tax && serverCart.totals.tax > 0 && (
-                      <div className="flex items-center justify-between py-3 border-b border-gray-3">
-                        <div>
-                          <p className="text-dark">KDV (%18)</p>
-                        </div>
-                        <div>
-                          <p className="text-dark text-right">
+                      {serverCart?.totals.tax && serverCart.totals.tax > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">KDV (%18)</span>
+                          <span className="font-medium text-gray-900">
                             {formatPrice(serverCart.totals.tax)}
-                          </p>
+                          </span>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* <!-- shipping --> */}
-                    <div className="flex items-center justify-between py-3 border-b border-gray-3">
-                      <div>
-                        <p className="text-dark">Kargo</p>
-                      </div>
-                      <div>
-                        <p className="text-dark text-right">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Kargo</span>
+                        <span className="font-medium text-gray-900">
                           {serverCart?.totals.shipping && serverCart.totals.shipping > 0 ? formatPrice(serverCart.totals.shipping) : 'Ücretsiz'}
-                        </p>
+                        </span>
                       </div>
-                    </div>
 
-                    {/* <!-- total --> */}
-                    <div className="flex items-center justify-between pt-5">
-                      <div>
-                        <p className="font-medium text-lg text-dark">Toplam</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-lg text-dark text-right">
+                      <div className="flex justify-between text-lg font-semibold border-t border-gray-200 pt-3">
+                        <span className="text-gray-900">Toplam</span>
+                        <span className="text-gray-900">
                           {formatPrice(serverCart?.totals.total || 0)}
-                        </p>
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* <!-- payment box --> */}
-                <PaymentMethod 
-                  selectedMethod={watchedValues.paymentMethod}
-                  onChange={(method) => handleFormChange('paymentMethod', method)}
-                />
+                {/* Payment Method */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
+                  <PaymentMethod 
+                    selectedMethod={watchedValues.paymentMethod}
+                    onChange={(method) => handleFormChange('paymentMethod', method)}
+                  />
+                </div>
 
-                {/* <!-- error message --> */}
+                {/* Error Messages */}
                 {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-4 mt-4">
-                    <p className="text-red-600 text-sm">{error}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-6">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <p className="text-red-600 text-sm">{error}</p>
+                    </div>
                   </div>
                 )}
 
-                {/* <!-- validation errors --> */}
+                {/* Validation Errors */}
                 {Object.keys(errors).length > 0 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mt-4">
-                    <p className="text-yellow-800 text-sm font-medium mb-2">Form hataları:</p>
-                    <ul className="text-yellow-700 text-sm space-y-1">
-                      {Object.entries(errors).map(([field, error]) => {
-                        if (error?.message) {
-                          return (
-                            <li key={field}>
-                              <strong>{field}:</strong> {error.message}
-                            </li>
-                          );
-                        }
-                        if (typeof error === 'object' && error !== null) {
-                          return Object.entries(error).map(([subField, subError]: [string, any]) => (
-                            <li key={`${field}.${subField}`}>
-                              <strong>{field}.{subField}:</strong> {subError?.message}
-                            </li>
-                          ));
-                        }
-                        return null;
-                      })}
-                    </ul>
-                    <p className="text-yellow-600 text-xs mt-2">Form geçerli değil, lütfen hataları düzeltin.</p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-6">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <p className="text-yellow-800 text-sm font-medium mb-2">Form hataları:</p>
+                        <ul className="text-yellow-700 text-sm space-y-1">
+                          {Object.entries(errors).map(([field, error]) => {
+                            if (error?.message) {
+                              return (
+                                <li key={field}>
+                                  <strong>{field}:</strong> {error.message}
+                                </li>
+                              );
+                            }
+                            if (typeof error === 'object' && error !== null) {
+                              return Object.entries(error).map(([subField, subError]: [string, any]) => (
+                                <li key={`${field}.${subField}`}>
+                                  <strong>{field}.{subField}:</strong> {subError?.message}
+                                </li>
+                              ));
+                            }
+                            return null;
+                          })}
+                        </ul>
+                        <p className="text-yellow-600 text-xs mt-2">Form geçerli değil, lütfen hataları düzeltin.</p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* <!-- checkout button --> */}
+                {/* Checkout Button */}
                 <button
                   type="submit"
                   disabled={submitting || !serverCart || serverCart.items.length === 0}
-                  className="w-full flex justify-center font-medium text-white bg-blue py-3 px-6 rounded-md ease-out duration-200 hover:bg-blue-dark mt-7.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={async () => {
-                    console.log('Submit button clicked');
-                    console.log('Form errors:', errors);
-                    console.log('Form is valid:', isValid);
-                    console.log('Form is disabled:', submitting || !serverCart || serverCart.items.length === 0);
-                    
-                    const isValidForm = await trigger();
-                    console.log('Manual validation result:', isValidForm);
-                    
-                    if (!isValidForm) {
-                      console.log('Form validation failed, errors:', errors);
-                    }
-                  }}
+                  className="w-full flex justify-center items-center gap-2 font-medium text-white bg-blue-600 py-4 px-6 rounded-xl transition-all duration-200 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
                 >
-                  {submitting ? 'İşleniyor...' : 'Siparişi Tamamla'}
+                  {submitting ? (
+                    <>
+                      <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Siparişi Tamamla
+                    </>
+                  )}
                 </button>
               </div>
             </div>

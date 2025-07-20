@@ -142,22 +142,52 @@ export const getAllCustomersForAdmin = async (
 
 export const getCustomerDetails = async (customerId: string, accessToken: string): Promise<ApiResponse<CustomerDetails>> => {
   try {
-    const response = await fetch(`${API_BASE}/users/admin/customers/${customerId}`, {
+    const url = `${API_BASE}/users/admin/customers/${customerId}`;
+    console.log('getCustomerDetails API çağrısı:', url);
+    console.log('Access Token:', accessToken ? 'Mevcut' : 'Yok');
+    console.log('API_BASE:', API_BASE);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); 
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`
-      }
+      },
+      signal: controller.signal
     });
 
+    clearTimeout(timeoutId);
+
+    console.log('API yanıt durumu:', response.status, response.statusText);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let errorText = '';
+      try {
+        errorText = await response.text();
+        console.error('API hata yanıtı (text):', errorText);
+      } catch (e) {
+        console.error('Hata yanıtı okunamadı:', e);
+      }
+      
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText || response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('API başarılı yanıt:', data);
     return data;
   } catch (error) {
     console.error('getCustomerDetails error:', error);
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('İstek zaman aşımına uğradı. Lütfen tekrar deneyin.');
+      }
+      throw error;
+    }
     throw new Error('Müşteri detayları getirilirken hata oluştu');
   }
 };

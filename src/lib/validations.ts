@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Auth Validations
 export const loginSchema = z.object({
   email: z
     .string()
@@ -79,7 +78,49 @@ export const newPasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
-// Profile Validations
+
+export const productFormSchema = z.object({
+  name: z.string().min(1, "Ürün adı gereklidir").max(100, "Ürün adı çok uzun"),
+  category: z.string().min(1, "Kategori seçimi gereklidir"),
+  price: z
+    .string()
+    .min(1, "Fiyat gereklidir")
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Geçerli bir fiyat giriniz"),
+  salePrice: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || (val && !isNaN(Number(val)) && Number(val) >= 0),
+      "Geçerli bir indirimli fiyat giriniz"
+    ),
+  description: z.string().min(1, "Ürün açıklaması gereklidir"),
+  stock: z
+    .string()
+    .min(1, "Stok miktarı gereklidir")
+    .refine(
+      (val) => !isNaN(Number(val)) && Number(val) >= 0,
+      "Geçerli bir stok miktarı giriniz"
+    ),
+  sku: z.string().optional(),
+  status: z.enum(["active", "draft"]),
+  tags: z.array(z.string()).default([]),
+  images: z
+    .any()
+    .optional()
+    .refine(
+      (files) => !files || files.length === 0 || Array.from(files).every(
+        (file: File) => ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)
+      ),
+      "Sadece JPEG, PNG ve WebP formatları kabul edilir"
+    )
+    .refine(
+      (files) => !files || files.length === 0 || Array.from(files).every(
+        (file: File) => file.size <= 10 * 1024 * 1024
+      ),
+      "Dosya boyutu maksimum 10MB olmalıdır"
+    ),
+});
+
 export const profileSchema = z.object({
   firstName: z
     .string()
@@ -124,7 +165,6 @@ export const profileSchema = z.object({
   path: ["currentPassword"],
 });
 
-// Address Validation
 export const addressSchema = z.object({
   type: z.enum(["shipping", "billing"], {
     message: "Adres tipi seçiniz",
@@ -176,7 +216,6 @@ export const addressSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-// Contact Form Validation
 export const contactSchema = z.object({
   firstName: z
     .string()
@@ -209,7 +248,6 @@ export const contactSchema = z.object({
     .max(1000, "Mesaj çok uzun"),
 });
 
-// Checkout Validation
 export const checkoutSchema = z.object({
   customerInfo: z.object({
     email: z
@@ -338,7 +376,6 @@ export const checkoutSchema = z.object({
     .max(500, "Not çok uzun")
     .optional(),
 }).refine((data) => {
-  // Eğer sameAsShipping false ise, fatura adresi alanları zorunlu
   if (!data.sameAsShipping) {
     const billing = data.addresses.billing;
     if (!billing.firstName || !billing.lastName || !billing.address1 || 
@@ -352,7 +389,6 @@ export const checkoutSchema = z.object({
   path: ["addresses", "billing"],
 });
 
-// Address Form Validation (for AddressSelector)
 export const addressFormSchema = z.object({
   type: z.enum(['home', 'work', 'other'], {
     message: "Adres tipi seçiniz",
@@ -411,7 +447,6 @@ export const addressFormSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-// Product Review Validation
 export const reviewSchema = z.object({
   rating: z
     .number()
@@ -428,7 +463,6 @@ export const reviewSchema = z.object({
     .max(1000, "Yorum çok uzun"),
 });
 
-// Newsletter Subscription Validation
 export const newsletterSchema = z.object({
   email: z
     .string()
@@ -436,7 +470,6 @@ export const newsletterSchema = z.object({
     .email("Geçerli bir e-posta adresi giriniz"),
 });
 
-// Search Validation
 export const searchSchema = z.object({
   query: z
     .string()
@@ -481,7 +514,6 @@ export const searchSchema = z.object({
   path: ["priceMax"],
 });
 
-// Admin Product Validation
 export const productSchema = z.object({
   name: z
     .string()
@@ -531,7 +563,6 @@ export const productSchema = z.object({
   path: ["discountedPrice"],
 });
 
-// Admin Category Validation
 export const categorySchema = z.object({
   name: z
     .string()
@@ -559,7 +590,6 @@ export const categorySchema = z.object({
     .optional(),
 });
 
-// Export all schema types for use with React Hook Form
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type RegisterFormData = z.infer<typeof registerSchema>;
 export type ProfileFormData = z.infer<typeof profileSchema>;

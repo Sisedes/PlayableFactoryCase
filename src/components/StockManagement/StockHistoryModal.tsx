@@ -54,7 +54,6 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
     try {
       let response;
       if (variantId) {
-        // Varyasyon stok geçmişi
         response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/products/${productId}/variants/${variantId}/stock-history?page=${page}&limit=20`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`
@@ -63,7 +62,6 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
         const data = await response.json();
         response = data;
       } else {
-        // Ana ürün stok geçmişi
         response = await getStockHistory(productId, { page, limit: 20 }, accessToken);
       }
       
@@ -136,7 +134,7 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
       <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
@@ -218,7 +216,6 @@ const StockHistoryModal: React.FC<StockHistoryModalProps> = ({
           )}
         </div>
 
-        {/* Pagination */}
         {pagination.totalPages > 1 && (
           <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
             <div className="text-sm text-gray-600">

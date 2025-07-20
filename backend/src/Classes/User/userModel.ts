@@ -162,6 +162,14 @@ const userSchema = new Schema<IUser>({
       type: Date,
       select: false
     },
+    passwordResetCode: {
+      type: String,
+      select: false
+    },
+    passwordResetCodeExpires: {
+      type: Date,
+      select: false
+    },
     lastLogin: {
       type: Date
     },
@@ -246,6 +254,30 @@ userSchema.methods.createPasswordResetToken = function(): string {
   this.authentication.passwordResetToken = crypto.createHash('sha256').update(token).digest('hex');
   this.authentication.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // on dakika
   return token;
+};
+
+userSchema.methods.createPasswordResetCode = function(): string {
+  const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 haneli kod
+  this.authentication.passwordResetCode = crypto.createHash('sha256').update(code).digest('hex');
+  this.authentication.passwordResetCodeExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 dakika
+  return code;
+};
+
+userSchema.methods.verifyPasswordResetCode = function(code: string): boolean {
+  if (!this.authentication.passwordResetCode || !this.authentication.passwordResetCodeExpires) {
+    return false;
+  }
+  
+  const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+  const isValid = this.authentication.passwordResetCode === hashedCode;
+  const isExpired = this.authentication.passwordResetCodeExpires < new Date();
+  
+  return isValid && !isExpired;
+};
+
+userSchema.methods.clearPasswordResetCode = function(): void {
+  this.authentication.passwordResetCode = '';
+  this.authentication.passwordResetCodeExpires = null;
 };
 
 userSchema.methods.increaseLoginAttempts = function(): Promise<void> {

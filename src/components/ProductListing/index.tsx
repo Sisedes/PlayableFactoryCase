@@ -10,6 +10,7 @@ import { ProductFilters } from "@/services";
 import StarRating from "../Common/StarRating";
 import { useAuth } from "@/store/authStore";
 import { addToFavorites, removeFromFavorites, checkFavoriteStatus } from "@/services/favoriteService";
+import toast from "react-hot-toast";
 
 interface ProductListingProps {
   categorySlug?: string;
@@ -164,12 +165,9 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
       
       <section className="overflow-hidden relative pb-20 pt-5 lg:pt-20 xl:pt-28 bg-gray-50">
         <div className="max-w-[1170px] w-full mx-auto px-4 sm:px-8 xl:px-0">
-          {/* Filtreler ve Kontroller */}
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
             <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-              {/* Sol Taraf - Filtreler */}
               <div className="flex flex-wrap gap-4 items-center">
-                {/* Kategori Filtresi */}
                 <select
                   value={filters.category}
                   onChange={(e) => handleFilterChange("category", e.target.value)}
@@ -183,7 +181,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                   ))}
                 </select>
 
-                {/* Fiyat Filtreleri */}
                 <div className="flex gap-2 items-center">
                   <input
                     type="number"
@@ -202,7 +199,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                   />
                 </div>
 
-                {/* Stok Filtresi */}
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -213,7 +209,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                   <span className="text-sm">Sadece Stokta Olanlar</span>
                 </label>
 
-                {/* Filtreleri Temizle */}
                 <button
                   onClick={handleClearFilters}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -222,9 +217,7 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                 </button>
               </div>
 
-              {/* Sağ Taraf - Sıralama ve Görünüm */}
               <div className="flex gap-4 items-center">
-                {/* Sıralama */}
                 <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
@@ -237,7 +230,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                   ))}
                 </select>
 
-                {/* Görünüm Seçenekleri */}
                 <div className="flex border border-gray-300 rounded-lg overflow-hidden">
                   <button
                     onClick={() => setViewMode("grid")}
@@ -260,21 +252,18 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
             </div>
           </div>
 
-          {/* Ürün Sayısı */}
           <div className="mb-6">
             <p className="text-gray-600">
               {totalProducts} ürün bulundu
             </p>
           </div>
 
-          {/* Ürün Listesi */}
           {products.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg">Ürün bulunamadı.</p>
             </div>
           ) : (
             <>
-              {/* Izgara Görünümü */}
               {viewMode === "grid" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {products.map((product) => (
@@ -283,7 +272,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                 </div>
               )}
 
-              {/* Liste Görünümü */}
               {viewMode === "list" && (
                 <div className="space-y-4">
                   {products.map((product) => (
@@ -292,7 +280,6 @@ const ProductListing: React.FC<ProductListingProps> = ({ categorySlug }) => {
                 </div>
               )}
 
-              {/* Sayfalama */}
               {totalPages > 1 && (
                 <div className="flex justify-center mt-8">
                   <div className="flex gap-2">
@@ -359,7 +346,7 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
     e.stopPropagation();
     
     if (!accessToken) {
-      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      toast.error('Favori eklemek için giriş yapmanız gerekiyor');
       return;
     }
 
@@ -378,11 +365,11 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
         setIsFavorite(!isFavorite);
         window.dispatchEvent(new Event('favoriteUpdated'));
       } else {
-        alert(response.message || 'İşlem başarısız');
+        toast.error(response.message || 'İşlem başarısız');
       }
     } catch (error) {
       console.error('Favori işlemi hatası:', error);
-      alert('İşlem sırasında hata oluştu');
+      toast.error('İşlem sırasında hata oluştu');
     } finally {
       setFavoriteLoading(false);
     }
@@ -402,7 +389,6 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
   return (
     <Link href={`/product/${product._id}`} className="group">
       <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-        {/* Ürün Görseli */}
         <div className="relative aspect-square overflow-hidden bg-gray-50 flex items-center justify-center">
           <Image
             src={getImageUrl(sortProductImages(product.images)[0]?.url || "")}
@@ -424,12 +410,10 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
               target.src = '/images/products/default.png';
             }}
           />
-          {/* Loading placeholder */}
           <div className="absolute inset-0 bg-gray-100 animate-pulse flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-gray-300 border-t-blue rounded-full animate-spin"></div>
           </div>
           
-          {/* Favori Butonu */}
           <button
             onClick={handleToggleFavorite}
             disabled={favoriteLoading}
@@ -473,7 +457,6 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
           )}
         </div>
 
-        {/* Ürün Bilgileri */}
         <div className="p-4">
           <div className="flex items-center gap-2 mb-2">
             <StarRating 
@@ -505,7 +488,6 @@ const ProductGridCard: React.FC<{ product: Product }> = ({ product }) => {
             </span>
           </div>
 
-          {/* Görüntüleme Sayısı */}
           <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
@@ -539,7 +521,7 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
     e.stopPropagation();
     
     if (!accessToken) {
-      alert('Favori eklemek için giriş yapmanız gerekiyor');
+      toast.error('Favori eklemek için giriş yapmanız gerekiyor');
       return;
     }
 
@@ -557,11 +539,11 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
       if (response.success) {
         setIsFavorite(!isFavorite);
       } else {
-        alert(response.message || 'İşlem başarısız');
+        toast.error(response.message || 'İşlem başarısız');
       }
     } catch (error) {
       console.error('Favori işlemi hatası:', error);
-      alert('İşlem sırasında hata oluştu');
+      toast.error('İşlem sırasında hata oluştu');
     } finally {
       setFavoriteLoading(false);
     }
@@ -582,7 +564,6 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
     <Link href={`/product/${product._id}`} className="group">
       <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
         <div className="flex">
-          {/* Ürün Görseli */}
           <div className="relative w-32 h-32 flex-shrink-0 bg-gray-50 rounded-l-lg overflow-hidden flex items-center justify-center">
             <Image
               src={getImageUrl(sortProductImages(product.images)[0]?.url || "")}
@@ -597,7 +578,6 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
               }}
             />
             
-            {/* Favori Butonu */}
             <button
               onClick={handleToggleFavorite}
               disabled={favoriteLoading}
@@ -633,7 +613,6 @@ const ProductListCard: React.FC<{ product: Product }> = ({ product }) => {
             )}
           </div>
 
-          {/* Ürün Bilgileri */}
           <div className="flex-1 p-4">
             <div className="flex justify-between items-start">
               <div className="flex-1">

@@ -5,6 +5,7 @@ import { useAuth } from "@/store/authStore";
 import { getUserAddresses, addAddress, type Address } from "@/services/addressService";
 import { addressFormSchema, type AddressFormFormData } from "@/lib/validations";
 import FormField from "@/components/Common/FormField";
+import toast from "react-hot-toast";
 
 interface AddressSelectorProps {
   onAddressSelect: (address: Address | null) => void;
@@ -98,11 +99,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         setShowNewAddressForm(false);
         reset();
       } else {
-        alert(response.message || 'Adres kaydedilemedi');
+        toast.error(response.message || 'Adres kaydedilemedi');
       }
     } catch (error) {
       console.error('Adres kaydetme hatası:', error);
-      alert('Adres kaydedilirken hata oluştu');
+      toast.error('Adres kaydedilirken hata oluştu');
     } finally {
       setSavingAddress(false);
     }

@@ -859,6 +859,15 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       }
     }
 
+    if (updateData.images) {
+      try {
+        updateData.images = typeof updateData.images === 'string' ? JSON.parse(updateData.images) : updateData.images;
+      } catch (error) {
+        console.error('Images parse error:', error);
+        updateData.images = [];
+      }
+    }
+
     if (updateData.price) {
       updateData.price = parseFloat(updateData.price);
     }
@@ -893,7 +902,9 @@ export const updateProductAdmin = async (req: Request, res: Response) => {
       const newImages = files.map(file => ({
         url: `/uploads/products/${file.filename}`,
         alt: file.originalname,
-        isMain: false
+        isPrimary: false,
+        isMain: false,
+        sortOrder: 0
       }));
 
       console.log('New images to add:', newImages.length);

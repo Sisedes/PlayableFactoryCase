@@ -11,6 +11,7 @@ import {
 } from "@/services/adminService";
 import OrderDetailsModal from "./OrderDetailsModal";
 import UpdateStatusModal from "./UpdateStatusModal";
+import toast from "react-hot-toast";
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -153,7 +154,6 @@ const AdminOrders = () => {
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm">
-        {/* Filtreler */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -198,7 +198,6 @@ const AdminOrders = () => {
           </div>
         </div>
 
-        {/* Sipariş Listesi */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -279,7 +278,6 @@ const AdminOrders = () => {
           </table>
         </div>
 
-        {/* Sayfalama */}
         {pagination && pagination.totalPages > 1 && (
           <div className="px-6 py-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
@@ -310,14 +308,12 @@ const AdminOrders = () => {
         )}
       </div>
 
-      {/* Order Details Modal */}
       <OrderDetailsModal
         order={selectedOrder}
         isOpen={orderDetailsModal}
         onClose={() => setOrderDetailsModal(false)}
       />
 
-      {/* Update Status Modal */}
       <UpdateStatusModal
         order={selectedOrder}
         isOpen={statusUpdateModal}
@@ -338,15 +334,15 @@ const AdminOrders = () => {
             );
 
             if (response.success) {
-              alert('Sipariş durumu başarıyla güncellendi');
+              toast.success('Sipariş durumu başarıyla güncellendi');
               setStatusUpdateModal(false);
               loadOrders(1);
             } else {
-              alert(response.message || 'Sipariş durumu güncellenemedi');
+              toast.error(response.message || 'Sipariş durumu güncellenemedi');
             }
           } catch (error) {
             console.error('Sipariş durumu güncellenirken hata:', error);
-            alert('Sipariş durumu güncellenirken hata oluştu');
+            toast.error('Sipariş durumu güncellenirken hata oluştu');
           } finally {
             setUpdatingOrder(null);
           }
